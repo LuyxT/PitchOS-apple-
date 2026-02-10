@@ -37,6 +37,7 @@ struct BenchView: View {
                         .frame(width: tokenWidth)
                         .contentShape(Rectangle())
                         .onTapGesture {
+                            Haptics.trigger(.light)
                             onSelectPlayer(player.id, false)
                         }
                         .onDrag {
@@ -44,9 +45,11 @@ struct BenchView: View {
                         }
                         .contextMenu {
                             Button("Profil öffnen") {
+                                Haptics.trigger(.light)
                                 onOpenProfile(player.id)
                             }
                             Button("Aus Spielkader ausblenden") {
+                                Haptics.trigger(.soft)
                                 onToggleExclude(player.id)
                             }
                         }
@@ -65,6 +68,7 @@ struct BenchView: View {
                         .stroke(dropHighlighted ? AppTheme.primary : AppTheme.border, lineWidth: 1)
                 )
         )
+        .animation(AppMotion.hover, value: dropHighlighted)
         .onDrop(
             of: [UTType.text.identifier],
             delegate: BenchDropDelegate(
@@ -103,6 +107,7 @@ private struct BenchDropDelegate: DropDelegate {
         provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { item, _ in
             guard let idString = decodeItem(item), let id = UUID(uuidString: idString) else { return }
             DispatchQueue.main.async {
+                Haptics.trigger(.soft)
                 onDropPlayerToBench(id)
             }
         }

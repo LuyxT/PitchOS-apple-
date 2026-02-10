@@ -29,6 +29,7 @@ struct AnalysisWorkspaceView: View {
     @State private var sharePlayerIDs: Set<UUID> = []
     @State private var shareMessage = ""
     @State private var selectedDrawingID: UUID?
+    @State private var highlightMarkerID: UUID?
 
     @State private var liveDrawings: [AnalysisDrawing] = []
     @State private var activePlaybackURL: URL?
@@ -113,18 +114,22 @@ struct AnalysisWorkspaceView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .analysisCommandAddMarker)) { _ in
+            Haptics.trigger(.soft)
             isShowingMarkerComposer = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .analysisCommandToggleClip)) { _ in
+            Haptics.trigger(.soft)
             toggleClipBoundary()
         }
         .onReceive(NotificationCenter.default.publisher(for: .analysisCommandPresentation)) { _ in
+            Haptics.trigger(.light)
             workspaceViewModel.isPresentationMode.toggle()
             if workspaceViewModel.isPresentationMode {
                 workspaceViewModel.isCompareMode = false
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .analysisCommandCompare)) { _ in
+            Haptics.trigger(.light)
             workspaceViewModel.isCompareMode.toggle()
             if workspaceViewModel.isCompareMode {
                 workspaceViewModel.isPresentationMode = false
@@ -296,6 +301,7 @@ struct AnalysisWorkspaceView: View {
             selectedMarkerID: $workspaceViewModel.selectedMarkerID,
             selectedCategoryFilters: $workspaceViewModel.filterState.categoryIDs,
             selectedPlayerFilters: $workspaceViewModel.filterState.playerIDs,
+            highlightMarkerID: highlightMarkerID,
             onSeek: { marker in
                 playerViewModel.seek(to: marker.timeSeconds)
             },
@@ -374,6 +380,7 @@ struct AnalysisWorkspaceView: View {
             HStack {
                 Spacer()
                 Button("Abbrechen") {
+                    Haptics.trigger(.soft)
                     isShowingMarkerComposer = false
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
@@ -386,6 +393,26 @@ struct AnalysisWorkspaceView: View {
                             comment: markerComment,
                             playerID: markerPlayerID
                         )
+                        if let sessionID = activeSession?.id {
+                            let newMarker = dataStore.analysisMarkers
+                                .filter { $0.sessionID == sessionID }
+                                .max { $0.createdAt < $1.createdAt }
+                            if let newMarker {
+                                Haptics.trigger(.success)
+                                withAnimation(AppMotion.settle) {
+                                    workspaceViewModel.selectedMarkerID = newMarker.id
+                                    highlightMarkerID = newMarker.id
+                                }
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 800_000_000)
+                                    if highlightMarkerID == newMarker.id {
+                                        withAnimation(AppMotion.settle) {
+                                            highlightMarkerID = nil
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     markerComment = ""
                     markerCategoryID = nil

@@ -34,11 +34,13 @@ struct AnalysisDrawingOverlay: View {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if draftPoints.isEmpty {
+                    Haptics.trigger(.soft)
                     onBegin(value.startLocation, size)
                 }
                 onChange(value.location, size)
             }
             .onEnded { value in
+                Haptics.trigger(.light)
                 onEnd(value.location, size)
             }
     }

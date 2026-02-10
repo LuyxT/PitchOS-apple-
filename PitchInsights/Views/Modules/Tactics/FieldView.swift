@@ -59,6 +59,7 @@ struct FieldView: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture {
+                        Haptics.trigger(.light)
                         onClearSelection()
                     }
 
@@ -108,18 +109,23 @@ struct FieldView: View {
                         .clipped()
                         .contentShape(Rectangle())
                         .offset(tokenOffset(for: placement.point, in: proxy.size))
+                        .animation(AppMotion.settle, value: placement.point.x)
+                        .animation(AppMotion.settle, value: placement.point.y)
                         .onTapGesture {
+                            Haptics.trigger(.light)
                             onSelectPlayer(player.id, false)
                         }
                         .gesture(placementDragGesture(placement: placement, playerID: player.id, size: proxy.size))
                         .contextMenu {
                             Button("Profil öffnen") {
+                                Haptics.trigger(.light)
                                 onOpenProfile(player.id)
                             }
 
                             Menu("Rolle ändern") {
                                 ForEach(TacticalRole.presets, id: \.name) { preset in
                                     Button(preset.name) {
+                                        Haptics.trigger(.soft)
                                         onUpdateRole(player.id, preset.name)
                                     }
                                 }
@@ -127,27 +133,33 @@ struct FieldView: View {
 
                             Menu("Zone") {
                                 Button("Keine Zone") {
+                                    Haptics.trigger(.soft)
                                     onUpdateZone(player.id, nil)
                                 }
                                 ForEach(TacticalZone.allCases) { zone in
                                     Button(zone.rawValue) {
+                                        Haptics.trigger(.soft)
                                         onUpdateZone(player.id, zone)
                                     }
                                 }
                             }
 
                             Button("Auf Bank setzen") {
+                                Haptics.trigger(.soft)
                                 onSendToBench(player.id)
                             }
                             Button("Aus Aufstellung entfernen") {
+                                Haptics.trigger(.soft)
                                 onRemoveFromLineup(player.id)
                             }
                             Button("In Spielkader ausblenden") {
+                                Haptics.trigger(.soft)
                                 onToggleExclude(player.id)
                             }
                         }
                         .allowsHitTesting(!isDrawingMode)
                         .zIndex(isSelected ? 12 : 8)
+                        .animation(AppMotion.settle, value: selectedPlayerIDs)
                     }
                 }
 
@@ -166,6 +178,7 @@ struct FieldView: View {
                             .stroke(dropHighlighted ? AppTheme.primary : AppTheme.border, lineWidth: 1)
                     )
             )
+            .animation(AppMotion.hover, value: dropHighlighted)
             .onDrop(
                 of: [UTType.text.identifier],
                 delegate: FieldDropDelegate(
@@ -202,6 +215,7 @@ struct FieldView: View {
                         let point = TacticalPoint.from(value.location, in: size)
                         if !isDrawingGestureActive {
                             isDrawingGestureActive = true
+                            Haptics.trigger(.soft)
                             onBeginDrawing(point)
                         } else {
                             onUpdateDrawing(point)
@@ -209,6 +223,7 @@ struct FieldView: View {
                     }
                     .onEnded { _ in
                         if isDrawingGestureActive {
+                            Haptics.trigger(.light)
                             onFinishDrawing()
                         }
                         isDrawingGestureActive = false
@@ -235,6 +250,7 @@ struct FieldView: View {
             }
             .onEnded { _ in
                 dragStartPoints.removeValue(forKey: playerID)
+                Haptics.trigger(.soft)
             }
     }
 

@@ -7,6 +7,7 @@ struct AnalysisMarkersPanel: View {
     @Binding var selectedMarkerID: UUID?
     @Binding var selectedCategoryFilters: Set<UUID>
     @Binding var selectedPlayerFilters: Set<UUID>
+    let highlightMarkerID: UUID?
     let onSeek: (AnalysisMarker) -> Void
     let onDelete: (AnalysisMarker) -> Void
 
@@ -93,6 +94,7 @@ struct AnalysisMarkersPanel: View {
 
     private func markerRow(_ marker: AnalysisMarker) -> some View {
         let isSelected = selectedMarkerID == marker.id
+        let isHighlighted = highlightMarkerID == marker.id
         let categoryName = categories.first(where: { $0.id == marker.categoryID })?.name ?? "Allgemein"
         let playerName = players.first(where: { $0.id == marker.playerID })?.name
 
@@ -132,6 +134,11 @@ struct AnalysisMarkersPanel: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? AppTheme.primary.opacity(0.16) : AppTheme.surfaceAlt.opacity(0.6))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(isHighlighted ? AppTheme.primary.opacity(0.6) : Color.clear, lineWidth: 1)
+        )
+        .scaleEffect(isHighlighted ? 1.015 : 1)
         .contentShape(Rectangle())
         .onTapGesture {
             Haptics.trigger(.light)
@@ -139,6 +146,7 @@ struct AnalysisMarkersPanel: View {
             onSeek(marker)
         }
         .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
+        .animation(AppMotion.settle, value: highlightMarkerID)
         .contextMenu {
             Button("Anspringen") {
                 Haptics.trigger(.light)

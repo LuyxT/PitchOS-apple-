@@ -7,6 +7,8 @@ struct PlayerTokenView: View {
     var compact = false
     var fixedWidth: CGFloat? = nil
 
+    @State private var isHovering = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 2 : 4) {
             HStack(spacing: 6) {
@@ -44,7 +46,18 @@ struct PlayerTokenView: View {
                         .stroke(isSelected ? AppTheme.primary : AppTheme.border, lineWidth: 1)
                 )
         )
-        .shadow(color: AppTheme.shadow.opacity(compact ? 0.08 : 0.14), radius: compact ? 6 : 10, x: 0, y: compact ? 2 : 4)
+        .scaleEffect(isHovering ? 1.012 : 1)
+        .shadow(
+            color: AppTheme.shadow.opacity(isHovering ? (compact ? 0.16 : 0.22) : (compact ? 0.08 : 0.14)),
+            radius: isHovering ? (compact ? 8 : 12) : (compact ? 6 : 10),
+            x: 0,
+            y: isHovering ? (compact ? 4 : 6) : (compact ? 2 : 4)
+        )
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .animation(AppMotion.hover, value: isHovering)
+        .animation(AppMotion.settle, value: isSelected)
     }
 
     private var statusColor: Color {

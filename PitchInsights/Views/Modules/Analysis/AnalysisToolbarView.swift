@@ -98,6 +98,7 @@ struct AnalysisToolbarView: View {
     private var actionButtons: some View {
         HStack(spacing: 8) {
             Button {
+                Haptics.trigger(.soft)
                 onImportVideo()
             } label: {
                 Label("Video", systemImage: "plus")
@@ -106,6 +107,7 @@ struct AnalysisToolbarView: View {
             .help("Video importieren")
 
             Button {
+                Haptics.trigger(.light)
                 onAddMarker()
             } label: {
                 Label("Marker", systemImage: "bookmark")
@@ -114,6 +116,7 @@ struct AnalysisToolbarView: View {
             .help("Marker setzen")
 
             Button {
+                Haptics.trigger(.soft)
                 onToggleClip()
             } label: {
                 Label("Clip", systemImage: "scissors")
@@ -154,17 +157,23 @@ struct AnalysisToolbarView: View {
     private var compareButtons: some View {
         HStack(spacing: 8) {
             Button("Vergleich") {
-                isCompareMode.toggle()
-                if isCompareMode {
-                    isPresentationMode = false
+                Haptics.trigger(.light)
+                withAnimation(AppMotion.settle) {
+                    isCompareMode.toggle()
+                    if isCompareMode {
+                        isPresentationMode = false
+                    }
                 }
             }
             .buttonStyle(SecondaryActionButtonStyle())
 
             Button("Präsentation") {
-                isPresentationMode.toggle()
-                if isPresentationMode {
-                    isCompareMode = false
+                Haptics.trigger(.light)
+                withAnimation(AppMotion.settle) {
+                    isPresentationMode.toggle()
+                    if isPresentationMode {
+                        isCompareMode = false
+                    }
                 }
             }
             .buttonStyle(SecondaryActionButtonStyle())
@@ -196,15 +205,21 @@ struct AnalysisToolbarView: View {
     @ViewBuilder
     private var compareButtonsMenu: some View {
         Button(isCompareMode ? "Vergleich aus" : "Vergleich an") {
-            isCompareMode.toggle()
-            if isCompareMode {
-                isPresentationMode = false
+            Haptics.trigger(.light)
+            withAnimation(AppMotion.settle) {
+                isCompareMode.toggle()
+                if isCompareMode {
+                    isPresentationMode = false
+                }
             }
         }
         Button(isPresentationMode ? "Präsentation aus" : "Präsentation an") {
-            isPresentationMode.toggle()
-            if isPresentationMode {
-                isCompareMode = false
+            Haptics.trigger(.light)
+            withAnimation(AppMotion.settle) {
+                isPresentationMode.toggle()
+                if isPresentationMode {
+                    isCompareMode = false
+                }
             }
         }
     }

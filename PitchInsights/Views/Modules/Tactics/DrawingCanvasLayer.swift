@@ -44,13 +44,16 @@ struct DrawingCanvasLayer: View {
                                     .allowsHitTesting(!isDrawingMode)
                                     .onTapGesture {
                                         let additive = isAdditiveSelection()
+                                        Haptics.trigger(.light)
                                         onSelectDrawing(drawing.id, additive)
                                     }
                                     .contextMenu {
                                         Button("Löschen") {
+                                            Haptics.trigger(.soft)
                                             onDeleteDrawing(drawing.id)
                                         }
                                         Button(drawing.isTemporary ? "In Szenario speichern" : "Als temporär markieren") {
+                                            Haptics.trigger(.soft)
                                             if drawing.isTemporary {
                                                 onPersistDrawing(drawing.id)
                                             } else {
@@ -75,6 +78,7 @@ struct DrawingCanvasLayer: View {
                     }
                 }
                 .allowsHitTesting(isDrawingMode || drawingsVisible)
+                .animation(AppMotion.settle, value: selectedDrawingIDs)
             }
         }
     }
