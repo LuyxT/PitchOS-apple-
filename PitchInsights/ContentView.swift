@@ -78,7 +78,6 @@ struct ContentView: View {
 
     private func windowContent(for window: FloatingWindowState) -> AnyView {
         let view: AnyView
-        let spec = WindowSizing.spec(for: window.kind)
         switch window.kind {
         case .module(let module):
             view = AnyView(WorkspaceSwitchView(module: module))
@@ -91,7 +90,6 @@ struct ContentView: View {
             view
                 .environmentObject(appState)
                 .environmentObject(dataStore)
-                .frame(minWidth: spec.minimumSize.width, minHeight: spec.minimumSize.height)
         )
     }
 }

@@ -70,11 +70,28 @@ final class APIClient {
     }
 }
 
-enum NetworkError: Error {
+enum NetworkError: LocalizedError {
     case invalidBaseURL
     case invalidURL
     case invalidResponse
     case httpError(status: Int, data: Data)
     case emptyResponseBody
     case decodingFailed(underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidBaseURL:
+            return "Backend-URL ist ungültig."
+        case .invalidURL:
+            return "API-Anfrage konnte nicht erstellt werden."
+        case .invalidResponse:
+            return "Ungültige Server-Antwort."
+        case .httpError(let status, _):
+            return "Serverfehler (\(status))."
+        case .emptyResponseBody:
+            return "Server hat keine Daten zurückgegeben."
+        case .decodingFailed:
+            return "Server-Antwort konnte nicht verarbeitet werden."
+        }
+    }
 }

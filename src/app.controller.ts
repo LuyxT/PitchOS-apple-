@@ -24,10 +24,75 @@ export class AppController {
   private readonly trainingDeviationsByPlan = new Map<string, Json[]>();
   private readonly trainingReportsByPlan = new Map<string, Json>();
   private readonly trainingTemplates: Json[] = [];
+  private readonly coachProfile: Json = {
+    name: 'Luca Möller',
+    license: 'UEFA B',
+    team: 'PitchInsights FC 1. Mannschaft',
+    seasonGoal: 'Top 3 und klare Spielidee'
+  };
+  private readonly personProfiles: Json[] = [];
+  private readonly profileAuditEntries: Json[] = [];
+  private readonly players: Json[] = [];
+  private readonly calendarCategories: Json[] = [];
+  private readonly calendarEvents: Json[] = [];
+  private readonly matches: Json[] = [];
+  private readonly messageThreads: Json[] = [];
+  private readonly feedbackEntries: Json[] = [];
+  private readonly transactions: Json[] = [];
+  private settingsPresentation: Json = {
+    language: 'de',
+    region: 'germany',
+    timeZoneID: 'Europe/Berlin',
+    unitSystem: 'metric',
+    appearanceMode: 'light',
+    contrastMode: 'standard',
+    uiScale: 'medium',
+    reduceAnimations: false,
+    interactivePreviews: true
+  };
+  private settingsNotifications: Json = {
+    globalEnabled: true,
+    modules: [
+      { module: 'kalender', push: true, inApp: true, email: false },
+      { module: 'trainingsplanung', push: true, inApp: true, email: false },
+      { module: 'messenger', push: true, inApp: true, email: false },
+      { module: 'spielanalyse', push: false, inApp: true, email: false },
+      { module: 'verwaltung', push: true, inApp: true, email: false },
+      { module: 'mannschaftskasse', push: true, inApp: true, email: false }
+    ]
+  };
+  private settingsSecurity: Json = {
+    twoFactorEnabled: false,
+    sessions: [] as Json[],
+    apiTokens: [] as Json[],
+    privacyURL: 'https://pitchinsights.app/privacy'
+  };
+  private settingsAppInfo: Json = {
+    version: '1.0.0',
+    buildNumber: '1',
+    lastUpdateAt: new Date().toISOString(),
+    updateState: 'current',
+    changelog: ['Stabilitätsupdate', 'Backend-Anbindung aktiv']
+  };
+  private settingsAccount: Json = {
+    contexts: [] as Json[],
+    selectedContextID: null as string | null,
+    canDeactivateAccount: true,
+    canLeaveTeam: false
+  };
 
   private readonly defaultCalendarCategoryId = randomUUID();
+  private readonly defaultMatchCategoryId = randomUUID();
 
   constructor() {
+    const now = new Date();
+    const playerA = randomUUID();
+    const playerB = randomUUID();
+    const playerC = randomUUID();
+    const profileID = randomUUID();
+    const contextID = randomUUID();
+    const currentSessionID = randomUUID();
+
     this.trainingTemplates.push({
       id: randomUUID(),
       name: 'Passdreieck',
@@ -40,6 +105,186 @@ export class AppController {
         { kind: 'huetchen', label: 'Hütchen', quantity: 12 },
       ],
     });
+
+    this.players.push(
+      {
+        id: playerA,
+        name: 'Jonas Krüger',
+        number: 10,
+        position: 'OM',
+        status: 'fit',
+        dateOfBirth: new Date(2004, 4, 17).toISOString(),
+        secondaryPositions: ['ZM'],
+        heightCm: 181,
+        weightKg: 75,
+        preferredFoot: 'right',
+        teamName: 'PitchInsights FC 1. Mannschaft',
+        squadStatus: 'active',
+        joinedAt: new Date(2023, 6, 1).toISOString(),
+        roles: ['Spielmacher'],
+        groups: ['Offensive'],
+        injuryStatus: '',
+        notes: '',
+        developmentGoals: 'Abschlussquote steigern'
+      },
+      {
+        id: playerB,
+        name: 'Luca Meyer',
+        number: 7,
+        position: 'RA',
+        status: 'fit',
+        dateOfBirth: new Date(2005, 9, 2).toISOString(),
+        secondaryPositions: ['ST'],
+        heightCm: 178,
+        weightKg: 72,
+        preferredFoot: 'right',
+        teamName: 'PitchInsights FC 1. Mannschaft',
+        squadStatus: 'active',
+        joinedAt: new Date(2022, 1, 1).toISOString(),
+        roles: ['Flügel'],
+        groups: ['Offensive'],
+        injuryStatus: '',
+        notes: '',
+        developmentGoals: '1-gegen-1 verbessern'
+      },
+      {
+        id: playerC,
+        name: 'Nico Baum',
+        number: 4,
+        position: 'IV',
+        status: 'unavailable',
+        dateOfBirth: new Date(2003, 11, 9).toISOString(),
+        secondaryPositions: ['LV'],
+        heightCm: 186,
+        weightKg: 80,
+        preferredFoot: 'left',
+        teamName: 'PitchInsights FC 1. Mannschaft',
+        squadStatus: 'rehab',
+        joinedAt: new Date(2021, 7, 1).toISOString(),
+        roles: ['Verteidigung'],
+        groups: ['Defensive'],
+        injuryStatus: 'Adduktoren',
+        notes: '',
+        developmentGoals: 'Belastungsaufbau'
+      }
+    );
+
+    this.calendarCategories.push(
+      { id: this.defaultCalendarCategoryId, name: 'Training', colorHex: '#15B78C', isSystem: true },
+      { id: this.defaultMatchCategoryId, name: 'Spiel', colorHex: '#2A7FFF', isSystem: true }
+    );
+
+    this.calendarEvents.push({
+      id: randomUUID(),
+      title: 'Teamtraining',
+      startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0).toISOString(),
+      endDate: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 30, 0).toISOString(),
+      categoryId: this.defaultCalendarCategoryId,
+      visibility: 'team',
+      audience: 'team',
+      audiencePlayerIds: [],
+      recurrence: 'none',
+      location: 'Platz 1',
+      notes: '',
+      linkedTrainingPlanID: null,
+      eventKind: 'training',
+      playerVisibleGoal: 'Ballzirkulation',
+      playerVisibleDurationMinutes: 90
+    });
+
+    this.matches.push({
+      opponent: 'SV Nord',
+      date: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3, 14, 0, 0).toISOString(),
+      homeAway: 'Heim'
+    });
+
+    this.messageThreads.push({
+      title: 'Trainerteam',
+      lastMessage: 'Treffpunkt morgen 17:00',
+      unreadCount: 2
+    });
+
+    this.feedbackEntries.push({
+      player: 'Jonas Krüger',
+      summary: 'Gutes Umschaltverhalten',
+      date: now.toISOString()
+    });
+
+    this.transactions.push(
+      { title: 'Monatsbeitrag', amount: 35, date: now.toISOString(), type: 'income' },
+      { title: 'Getränke', amount: 18, date: now.toISOString(), type: 'expense' }
+    );
+
+    this.personProfiles.push({
+      id: profileID,
+      linkedPlayerID: null,
+      linkedAdminPersonID: null,
+      core: {
+        avatarPath: null,
+        firstName: 'Luca',
+        lastName: 'Möller',
+        dateOfBirth: new Date(1988, 2, 20).toISOString(),
+        email: 'coach@pitchinsights.app',
+        phone: '+49 170 000000',
+        clubName: 'PitchInsights FC',
+        roles: ['headCoach'],
+        isActive: true,
+        internalNotes: ''
+      },
+      player: null,
+      headCoach: {
+        licenses: ['UEFA B'],
+        education: ['DFB Trainer-Akademie'],
+        careerPath: ['U19', '2. Mannschaft'],
+        preferredSystems: ['4-3-3', '4-2-3-1'],
+        matchPhilosophy: 'Aktives Pressing und mutiger Ballbesitz.',
+        trainingPhilosophy: 'Hohe Intensität mit klaren Prinzipien.',
+        personalGoals: 'Nachwuchs integrieren.',
+        responsibilities: ['Trainingssteuerung', 'Kadersteuerung'],
+        isPrimaryContact: true
+      },
+      assistantCoach: null,
+      athleticCoach: null,
+      medical: null,
+      teamManager: null,
+      board: null,
+      facility: null,
+      lockedFieldKeys: [],
+      updatedAt: now.toISOString(),
+      updatedBy: 'system'
+    });
+
+    const baseContexts = [
+      {
+        id: contextID,
+        clubName: 'PitchInsights FC',
+        teamName: '1. Mannschaft',
+        roleTitle: 'Chef-Trainer',
+        isCurrent: true
+      }
+    ];
+    this.settingsAccount = {
+      contexts: baseContexts,
+      selectedContextID: contextID,
+      canDeactivateAccount: true,
+      canLeaveTeam: false
+    };
+    this.settingsSecurity = {
+      twoFactorEnabled: false,
+      sessions: [
+        {
+          id: currentSessionID,
+          deviceName: 'MacBook Pro',
+          platformName: 'macOS',
+          lastUsedAt: now.toISOString(),
+          ipAddress: '127.0.0.1',
+          location: 'München',
+          isCurrentDevice: true
+        }
+      ],
+      apiTokens: [],
+      privacyURL: 'https://pitchinsights.app/privacy'
+    };
   }
 
   @Get('bootstrap')
@@ -61,6 +306,360 @@ export class AppController {
   @Get('health')
   health() {
     return { status: 'ok' };
+  }
+
+  @Get('profile')
+  getProfile() {
+    return this.coachProfile;
+  }
+
+  @Get('profiles')
+  listProfiles() {
+    return [...this.personProfiles].sort((a, b) => {
+      const left = this.profileDisplayName(a).toLowerCase();
+      const right = this.profileDisplayName(b).toLowerCase();
+      return left.localeCompare(right, 'de');
+    });
+  }
+
+  @Post('profiles')
+  createProfile(@Body() body: Json) {
+    const now = new Date().toISOString();
+    const created = this.normalizeProfilePayload({
+      ...body,
+      id: randomUUID(),
+      updatedAt: now,
+      updatedBy: 'system'
+    });
+    this.personProfiles.push(created);
+    this.appendProfileAudit(created.id, 'created', 'core.displayName', '', this.profileDisplayName(created));
+    return created;
+  }
+
+  @Put('profiles/:id')
+  updateProfile(@Param('id') id: string, @Body() body: Json) {
+    const profile = this.requireProfile(id);
+    const oldName = this.profileDisplayName(profile);
+
+    const merged = this.normalizeProfilePayload({
+      ...profile,
+      ...body,
+      id,
+      updatedAt: new Date().toISOString(),
+      updatedBy: String(body?.updatedBy ?? 'system')
+    });
+    Object.assign(profile, merged);
+
+    this.appendProfileAudit(id, 'updated', 'core.displayName', oldName, this.profileDisplayName(profile));
+    return profile;
+  }
+
+  @Delete('profiles/:id')
+  deleteProfile(@Param('id') id: string) {
+    const index = this.personProfiles.findIndex((item) => String(item.id) === id);
+    if (index < 0) {
+      throw new HttpException('Profile not found', 404);
+    }
+    this.personProfiles.splice(index, 1);
+    return {};
+  }
+
+  @Get('profiles/audit')
+  profileAudit(@Query('profileId') profileId?: string) {
+    if (!profileId || profileId.trim().length === 0) {
+      return [...this.profileAuditEntries].sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+    }
+    return this.profileAuditEntries
+      .filter((entry) => String(entry.profileID) === profileId)
+      .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+  }
+
+  @Get('players')
+  listPlayers() {
+    return [...this.players].sort((a, b) => Number(a.number) - Number(b.number));
+  }
+
+  @Post('players')
+  createPlayer(@Body() body: Json) {
+    const now = new Date().toISOString();
+    const created = {
+      id: randomUUID(),
+      name: String(body?.name ?? '').trim() || 'Neuer Spieler',
+      number: Math.max(0, Number(body?.number ?? 0)),
+      position: String(body?.position ?? 'ST'),
+      status: String(body?.status ?? 'fit'),
+      dateOfBirth: this.toISO(body?.dateOfBirth),
+      secondaryPositions: Array.isArray(body?.secondaryPositions) ? body.secondaryPositions : [],
+      heightCm: this.toOptionalInt(body?.heightCm),
+      weightKg: this.toOptionalInt(body?.weightKg),
+      preferredFoot: body?.preferredFoot ?? null,
+      teamName: String(body?.teamName ?? 'PitchInsights FC 1. Mannschaft'),
+      squadStatus: String(body?.squadStatus ?? 'active'),
+      joinedAt: this.toISO(body?.joinedAt) ?? now,
+      roles: Array.isArray(body?.roles) ? body.roles : [],
+      groups: Array.isArray(body?.groups) ? body.groups : [],
+      injuryStatus: String(body?.injuryStatus ?? ''),
+      notes: String(body?.notes ?? ''),
+      developmentGoals: String(body?.developmentGoals ?? '')
+    };
+    this.players.push(created);
+    return created;
+  }
+
+  @Put('players/:id')
+  updatePlayer(@Param('id') id: string, @Body() body: Json) {
+    const player = this.requirePlayer(id);
+    Object.assign(player, {
+      name: String(body?.name ?? player.name),
+      number: Math.max(0, Number(body?.number ?? player.number ?? 0)),
+      position: String(body?.position ?? player.position ?? 'ST'),
+      status: String(body?.status ?? player.status ?? 'fit'),
+      dateOfBirth: this.toISO(body?.dateOfBirth) ?? player.dateOfBirth ?? null,
+      secondaryPositions: Array.isArray(body?.secondaryPositions)
+        ? body.secondaryPositions
+        : player.secondaryPositions ?? [],
+      heightCm: this.toOptionalInt(body?.heightCm) ?? player.heightCm ?? null,
+      weightKg: this.toOptionalInt(body?.weightKg) ?? player.weightKg ?? null,
+      preferredFoot: body?.preferredFoot ?? player.preferredFoot ?? null,
+      teamName: String(body?.teamName ?? player.teamName ?? 'PitchInsights FC 1. Mannschaft'),
+      squadStatus: String(body?.squadStatus ?? player.squadStatus ?? 'active'),
+      joinedAt: this.toISO(body?.joinedAt) ?? player.joinedAt ?? null,
+      roles: Array.isArray(body?.roles) ? body.roles : player.roles ?? [],
+      groups: Array.isArray(body?.groups) ? body.groups : player.groups ?? [],
+      injuryStatus: String(body?.injuryStatus ?? player.injuryStatus ?? ''),
+      notes: String(body?.notes ?? player.notes ?? ''),
+      developmentGoals: String(body?.developmentGoals ?? player.developmentGoals ?? '')
+    });
+    return player;
+  }
+
+  @Delete('players/:id')
+  deletePlayer(@Param('id') id: string) {
+    const index = this.players.findIndex((item) => String(item.id) === id);
+    if (index < 0) {
+      throw new HttpException('Player not found', 404);
+    }
+    this.players.splice(index, 1);
+    return {};
+  }
+
+  @Get('calendar/categories')
+  listCalendarCategories() {
+    return this.calendarCategories;
+  }
+
+  @Get('calendar/events')
+  listCalendarEvents() {
+    return [...this.calendarEvents].sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+  }
+
+  @Post('calendar/events')
+  createCalendarEvent(@Body() body: Json) {
+    const created = {
+      id: randomUUID(),
+      title: String(body?.title ?? 'Neuer Termin'),
+      startDate: this.toISO(body?.startDate) ?? new Date().toISOString(),
+      endDate: this.toISO(body?.endDate) ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      categoryId: String(body?.categoryId ?? this.defaultCalendarCategoryId),
+      visibility: String(body?.visibility ?? 'team'),
+      audience: String(body?.audience ?? 'team'),
+      audiencePlayerIds: Array.isArray(body?.audiencePlayerIds) ? body.audiencePlayerIds : [],
+      recurrence: String(body?.recurrence ?? 'none'),
+      location: String(body?.location ?? ''),
+      notes: String(body?.notes ?? ''),
+      linkedTrainingPlanID: body?.linkedTrainingPlanID ?? null,
+      eventKind: String(body?.eventKind ?? 'generic'),
+      playerVisibleGoal: body?.playerVisibleGoal ?? null,
+      playerVisibleDurationMinutes:
+        body?.playerVisibleDurationMinutes == null ? null : Math.max(0, Number(body.playerVisibleDurationMinutes))
+    };
+    this.calendarEvents.push(created);
+    return created;
+  }
+
+  @Put('calendar/events/:id')
+  updateCalendarEvent(@Param('id') id: string, @Body() body: Json) {
+    const event = this.requireCalendarEvent(id);
+    Object.assign(event, {
+      title: String(body?.title ?? event.title),
+      startDate: this.toISO(body?.startDate) ?? event.startDate,
+      endDate: this.toISO(body?.endDate) ?? event.endDate,
+      categoryId: String(body?.categoryId ?? event.categoryId),
+      visibility: String(body?.visibility ?? event.visibility),
+      audience: String(body?.audience ?? event.audience),
+      audiencePlayerIds: Array.isArray(body?.audiencePlayerIds) ? body.audiencePlayerIds : event.audiencePlayerIds,
+      recurrence: String(body?.recurrence ?? event.recurrence),
+      location: String(body?.location ?? event.location ?? ''),
+      notes: String(body?.notes ?? event.notes ?? ''),
+      linkedTrainingPlanID: body?.linkedTrainingPlanID ?? event.linkedTrainingPlanID ?? null,
+      eventKind: String(body?.eventKind ?? event.eventKind ?? 'generic'),
+      playerVisibleGoal: body?.playerVisibleGoal ?? event.playerVisibleGoal ?? null,
+      playerVisibleDurationMinutes:
+        body?.playerVisibleDurationMinutes == null
+          ? event.playerVisibleDurationMinutes ?? null
+          : Math.max(0, Number(body.playerVisibleDurationMinutes))
+    });
+    return event;
+  }
+
+  @Delete('calendar/events/:id')
+  deleteCalendarEvent(@Param('id') id: string) {
+    const index = this.calendarEvents.findIndex((item) => String(item.id) === id);
+    if (index < 0) {
+      throw new HttpException('Calendar event not found', 404);
+    }
+    this.calendarEvents.splice(index, 1);
+    return {};
+  }
+
+  @Get('matches')
+  listMatches() {
+    return this.matches;
+  }
+
+  @Get('messages/threads')
+  listMessageThreads() {
+    return this.messageThreads;
+  }
+
+  @Get('feedback')
+  listFeedback() {
+    return this.feedbackEntries;
+  }
+
+  @Get('finance/transactions')
+  listTransactions() {
+    return this.transactions;
+  }
+
+  @Get('settings/bootstrap')
+  settingsBootstrap() {
+    return {
+      presentation: this.settingsPresentation,
+      notifications: this.settingsNotifications,
+      security: this.settingsSecurity,
+      appInfo: this.settingsAppInfo,
+      account: this.settingsAccount
+    };
+  }
+
+  @Put('settings/presentation')
+  savePresentation(@Body() body: Json) {
+    this.settingsPresentation = {
+      ...this.settingsPresentation,
+      language: String(body?.language ?? this.settingsPresentation.language),
+      region: String(body?.region ?? this.settingsPresentation.region),
+      timeZoneID: String(body?.timeZoneID ?? this.settingsPresentation.timeZoneID),
+      unitSystem: String(body?.unitSystem ?? this.settingsPresentation.unitSystem),
+      appearanceMode: String(body?.appearanceMode ?? this.settingsPresentation.appearanceMode),
+      contrastMode: String(body?.contrastMode ?? this.settingsPresentation.contrastMode),
+      uiScale: String(body?.uiScale ?? this.settingsPresentation.uiScale),
+      reduceAnimations: Boolean(body?.reduceAnimations ?? this.settingsPresentation.reduceAnimations),
+      interactivePreviews: Boolean(body?.interactivePreviews ?? this.settingsPresentation.interactivePreviews)
+    };
+    return this.settingsPresentation;
+  }
+
+  @Put('settings/notifications')
+  saveNotifications(@Body() body: Json) {
+    const modules = Array.isArray(body?.modules)
+      ? body.modules.map((module: Json) => ({
+          module: String(module?.module ?? ''),
+          push: Boolean(module?.push ?? false),
+          inApp: Boolean(module?.inApp ?? false),
+          email: Boolean(module?.email ?? false)
+        }))
+      : this.settingsNotifications.modules;
+    this.settingsNotifications = {
+      globalEnabled: Boolean(body?.globalEnabled ?? this.settingsNotifications.globalEnabled),
+      modules
+    };
+    return this.settingsNotifications;
+  }
+
+  @Get('settings/security')
+  getSecuritySettings() {
+    return this.settingsSecurity;
+  }
+
+  @Post('settings/security/password')
+  changePassword() {
+    return {};
+  }
+
+  @Post('settings/security/two-factor')
+  toggleTwoFactor(@Body() body: Json) {
+    this.settingsSecurity = {
+      ...this.settingsSecurity,
+      twoFactorEnabled: Boolean(body?.enabled ?? false)
+    };
+    return this.settingsSecurity;
+  }
+
+  @Post('settings/security/sessions/revoke')
+  revokeSession(@Body() body: Json) {
+    const sessionID = String(body?.sessionID ?? '');
+    const sessions = Array.isArray(this.settingsSecurity.sessions) ? this.settingsSecurity.sessions : [];
+    this.settingsSecurity = {
+      ...this.settingsSecurity,
+      sessions: sessions.filter((item: Json) => String(item.id) !== sessionID || Boolean(item.isCurrentDevice))
+    };
+    return this.settingsSecurity;
+  }
+
+  @Post('settings/security/sessions/revoke-all')
+  revokeAllSessions() {
+    const sessions = Array.isArray(this.settingsSecurity.sessions) ? this.settingsSecurity.sessions : [];
+    this.settingsSecurity = {
+      ...this.settingsSecurity,
+      sessions: sessions.filter((item: Json) => Boolean(item.isCurrentDevice))
+    };
+    return this.settingsSecurity;
+  }
+
+  @Get('settings/app-info')
+  appInfo() {
+    this.settingsAppInfo = {
+      ...this.settingsAppInfo,
+      lastUpdateAt: new Date().toISOString()
+    };
+    return this.settingsAppInfo;
+  }
+
+  @Post('settings/feedback')
+  submitSettingsFeedback(@Body() body: Json) {
+    this.feedbackEntries.unshift({
+      player: String(body?.category ?? 'Feedback'),
+      summary: String(body?.message ?? ''),
+      date: new Date().toISOString()
+    });
+    return {};
+  }
+
+  @Post('settings/account/context')
+  switchSettingsContext(@Body() body: Json) {
+    const contextID = String(body?.contextID ?? '');
+    const contexts = Array.isArray(this.settingsAccount.contexts) ? this.settingsAccount.contexts : [];
+    const updatedContexts = contexts.map((context: Json) => ({
+      ...context,
+      isCurrent: String(context.id) == contextID
+    }));
+    this.settingsAccount = {
+      ...this.settingsAccount,
+      contexts: updatedContexts,
+      selectedContextID: contextID
+    };
+    return this.settingsAccount;
+  }
+
+  @Post('settings/account/deactivate')
+  deactivateAccount() {
+    return {};
+  }
+
+  @Post('settings/account/leave-team')
+  leaveTeam() {
+    return {};
   }
 
   @Get('training/plans')
@@ -429,6 +1028,7 @@ export class AppController {
 
     plan.calendarEventID = event.id;
     plan.updatedAt = new Date().toISOString();
+    this.calendarEvents.push(event);
     return event;
   }
 
@@ -537,6 +1137,30 @@ export class AppController {
     throw new HttpException('Training group not found', 404);
   }
 
+  private requireProfile(id: string) {
+    const profile = this.personProfiles.find((item) => String(item.id) === id);
+    if (!profile) {
+      throw new HttpException('Profile not found', 404);
+    }
+    return profile;
+  }
+
+  private requirePlayer(id: string) {
+    const player = this.players.find((item) => String(item.id) === id);
+    if (!player) {
+      throw new HttpException('Player not found', 404);
+    }
+    return player;
+  }
+
+  private requireCalendarEvent(id: string) {
+    const event = this.calendarEvents.find((item) => String(item.id) === id);
+    if (!event) {
+      throw new HttpException('Calendar event not found', 404);
+    }
+    return event;
+  }
+
   private toISO(value: unknown): string | null {
     if (typeof value !== 'string' || value.trim().length === 0) {
       return null;
@@ -546,5 +1170,76 @@ export class AppController {
       return null;
     }
     return parsed.toISOString();
+  }
+
+  private toOptionalInt(value: unknown): number | null {
+    if (value == null) {
+      return null;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+    return Math.trunc(parsed);
+  }
+
+  private appendProfileAudit(
+    profileID: string,
+    action: string,
+    fieldPath: string,
+    oldValue: string,
+    newValue: string
+  ) {
+    this.profileAuditEntries.unshift({
+      id: randomUUID(),
+      profileID,
+      actorName: 'System',
+      fieldPath,
+      area: 'core',
+      oldValue,
+      newValue,
+      action,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  private profileDisplayName(profile: Json): string {
+    const core = (profile.core ?? {}) as Json;
+    const firstName = String(core.firstName ?? '').trim();
+    const lastName = String(core.lastName ?? '').trim();
+    return [firstName, lastName].filter((value) => value.length > 0).join(' ').trim();
+  }
+
+  private normalizeProfilePayload(profile: Json): Json {
+    const now = new Date().toISOString();
+    const core = (profile.core ?? {}) as Json;
+    return {
+      id: String(profile.id ?? randomUUID()),
+      linkedPlayerID: profile.linkedPlayerID ?? null,
+      linkedAdminPersonID: profile.linkedAdminPersonID ?? null,
+      core: {
+        avatarPath: core.avatarPath ?? null,
+        firstName: String(core.firstName ?? ''),
+        lastName: String(core.lastName ?? ''),
+        dateOfBirth: this.toISO(core.dateOfBirth) ?? null,
+        email: String(core.email ?? ''),
+        phone: core.phone == null ? null : String(core.phone),
+        clubName: String(core.clubName ?? ''),
+        roles: Array.isArray(core.roles) ? core.roles.map((item) => String(item)) : [],
+        isActive: Boolean(core.isActive ?? true),
+        internalNotes: String(core.internalNotes ?? '')
+      },
+      player: profile.player ?? null,
+      headCoach: profile.headCoach ?? null,
+      assistantCoach: profile.assistantCoach ?? null,
+      athleticCoach: profile.athleticCoach ?? null,
+      medical: profile.medical ?? null,
+      teamManager: profile.teamManager ?? null,
+      board: profile.board ?? null,
+      facility: profile.facility ?? null,
+      lockedFieldKeys: Array.isArray(profile.lockedFieldKeys) ? profile.lockedFieldKeys : [],
+      updatedAt: this.toISO(profile.updatedAt) ?? now,
+      updatedBy: String(profile.updatedBy ?? 'system')
+    };
   }
 }
