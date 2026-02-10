@@ -65,6 +65,7 @@ struct DesktopAreaView: View {
     }
 
     private func openItem(_ item: DesktopItem) {
+        Haptics.trigger(.light)
         if let module = item.module {
             appState.openFloatingWindow(module)
         } else if item.type == .folder {
@@ -74,6 +75,7 @@ struct DesktopAreaView: View {
 
     private func beginRename(_ item: DesktopItem) {
         guard item.type == .folder else { return }
+        Haptics.trigger(.soft)
         renameDraft = item.name
         renamingItemID = item.id
     }
@@ -82,6 +84,7 @@ struct DesktopAreaView: View {
         let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             item.wrappedValue.name = trimmed
+            Haptics.trigger(.success)
         }
         renamingItemID = nil
     }
@@ -162,6 +165,12 @@ private struct DesktopIconView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(isHovering ? AppTheme.hover : Color.clear)
         )
+        .interactiveSurface(
+            hoverScale: 1.012,
+            pressScale: 0.988,
+            hoverShadowOpacity: 0.12,
+            feedback: .light
+        )
         .transaction { transaction in
             if isDragging {
                 transaction.animation = nil
@@ -171,6 +180,7 @@ private struct DesktopIconView: View {
         .onHover { hovering in
             isHovering = hovering
         }
+        .animation(AppMotion.hover, value: isHovering)
         .onTapGesture(count: 2) {
             open()
         }
@@ -181,6 +191,7 @@ private struct DesktopIconView: View {
                     beginRename()
                 }
                 Button("Löschen", role: .destructive) {
+                    Haptics.trigger(.soft)
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                         appState.removeFromDesktop(item.id)
                     }
@@ -190,6 +201,7 @@ private struct DesktopIconView: View {
                     open()
                 }
                 Button("Vom Home entfernen", role: .destructive) {
+                    Haptics.trigger(.soft)
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
                         appState.removeFromDesktop(item.id)
                     }
@@ -232,8 +244,14 @@ private struct DesktopWidgetItemView: View {
     var body: some View {
         HomeWidgetCardView(module: module, size: item.widgetSize)
             .scaleEffect(isHovering ? 1.01 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isHovering)
+            .animation(AppMotion.hover, value: isHovering)
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .interactiveSurface(
+                hoverScale: 1.01,
+                pressScale: 0.988,
+                hoverShadowOpacity: 0.1,
+                feedback: .light
+            )
             .transaction { transaction in
                 if isDragging {
                     transaction.animation = nil
@@ -244,21 +262,25 @@ private struct DesktopWidgetItemView: View {
                 isHovering = hovering
             }
             .onTapGesture {
+                Haptics.trigger(.light)
                 appState.openFloatingWindow(module)
             }
             .gesture(dragGesture)
             .contextMenu {
                 Button("Öffnen") {
+                    Haptics.trigger(.light)
                     appState.openFloatingWindow(module)
                 }
                 Menu("Größe") {
                     ForEach(DesktopWidgetSize.allCases) { size in
                         Button(size.title) {
+                            Haptics.trigger(.soft)
                             appState.updateWidgetSize(item.id, size: size)
                         }
                     }
                 }
                 Button("Entfernen", role: .destructive) {
+                    Haptics.trigger(.soft)
                     appState.removeFromDesktop(item.id)
                 }
             }

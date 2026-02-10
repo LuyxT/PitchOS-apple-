@@ -36,6 +36,7 @@ struct AnalysisDrawingsPanel: View {
             HStack {
                 Spacer()
                 Button("Alle löschen", role: .destructive) {
+                    Haptics.trigger(.soft)
                     onDeleteAll()
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
@@ -73,6 +74,7 @@ struct AnalysisDrawingsPanel: View {
                     .foregroundStyle(.orange)
             }
             Button(role: .destructive) {
+                Haptics.trigger(.soft)
                 onDelete(drawing)
             } label: {
                 Image(systemName: "trash")
@@ -88,10 +90,13 @@ struct AnalysisDrawingsPanel: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
+            Haptics.trigger(.light)
             selectedDrawingID = drawing.id
         }
+        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .contextMenu {
             Button("Löschen", role: .destructive) {
+                Haptics.trigger(.soft)
                 onDelete(drawing)
             }
         }

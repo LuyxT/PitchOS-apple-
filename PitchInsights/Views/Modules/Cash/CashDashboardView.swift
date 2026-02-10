@@ -166,6 +166,7 @@ struct CashDashboardView: View {
                 Spacer()
                 if canManageGoals {
                     Button {
+                        Haptics.trigger(.soft)
                         onCreateGoal()
                     } label: {
                         Label("Ziel hinzufügen", systemImage: "plus")
@@ -211,7 +212,8 @@ struct CashDashboardView: View {
             ForEach(CashDashboardViewModel.RangePreset.allCases) { preset in
                 if viewModel.rangePreset == preset {
                     Button(preset.rawValue) {
-                        withAnimation(.easeInOut(duration: 0.16)) {
+                        Haptics.trigger(.light)
+                        withAnimation(AppMotion.settle) {
                             viewModel.rangePreset = preset
                         }
                     }
@@ -219,7 +221,8 @@ struct CashDashboardView: View {
                     .font(.system(size: 11, weight: .semibold))
                 } else {
                     Button(preset.rawValue) {
-                        withAnimation(.easeInOut(duration: 0.16)) {
+                        Haptics.trigger(.light)
+                        withAnimation(AppMotion.settle) {
                             viewModel.rangePreset = preset
                         }
                     }
@@ -235,7 +238,8 @@ struct CashDashboardView: View {
             ForEach(CashTimelineGranularity.allCases) { item in
                 if viewModel.granularity == item {
                     Button(item.rawValue) {
-                        withAnimation(.easeInOut(duration: 0.16)) {
+                        Haptics.trigger(.light)
+                        withAnimation(AppMotion.settle) {
                             viewModel.granularity = item
                         }
                     }
@@ -243,7 +247,8 @@ struct CashDashboardView: View {
                     .font(.system(size: 11, weight: .semibold))
                 } else {
                     Button(item.rawValue) {
-                        withAnimation(.easeInOut(duration: 0.16)) {
+                        Haptics.trigger(.light)
+                        withAnimation(AppMotion.settle) {
                             viewModel.granularity = item
                         }
                     }

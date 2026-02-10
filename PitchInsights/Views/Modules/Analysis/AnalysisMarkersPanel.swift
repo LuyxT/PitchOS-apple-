@@ -26,6 +26,7 @@ struct AnalysisMarkersPanel: View {
                 Menu("Kategorie") {
                     ForEach(categories) { category in
                         Button {
+                            Haptics.trigger(.soft)
                             if selectedCategoryFilters.contains(category.id) {
                                 selectedCategoryFilters.remove(category.id)
                             } else {
@@ -44,6 +45,7 @@ struct AnalysisMarkersPanel: View {
                 Menu("Spieler") {
                     ForEach(players) { player in
                         Button {
+                            Haptics.trigger(.soft)
                             if selectedPlayerFilters.contains(player.id) {
                                 selectedPlayerFilters.remove(player.id)
                             } else {
@@ -60,6 +62,7 @@ struct AnalysisMarkersPanel: View {
                 }
 
                 Button("Reset") {
+                    Haptics.trigger(.soft)
                     selectedCategoryFilters.removeAll()
                     selectedPlayerFilters.removeAll()
                 }
@@ -131,14 +134,18 @@ struct AnalysisMarkersPanel: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
+            Haptics.trigger(.light)
             selectedMarkerID = marker.id
             onSeek(marker)
         }
+        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .contextMenu {
             Button("Anspringen") {
+                Haptics.trigger(.light)
                 onSeek(marker)
             }
             Button("Löschen", role: .destructive) {
+                Haptics.trigger(.soft)
                 onDelete(marker)
             }
         }

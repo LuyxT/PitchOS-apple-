@@ -25,6 +25,7 @@ struct CashTransactionListView: View {
                     }
                     if canLoadMore {
                         Button {
+                            Haptics.trigger(.soft)
                             onLoadMore()
                         } label: {
                             Text("Mehr laden")
@@ -119,19 +120,31 @@ struct CashTransactionListView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
+            Haptics.trigger(.light)
             viewModel.select(transaction.id)
         }
         .onTapGesture(count: 2) {
             guard canEdit else { return }
+            Haptics.trigger(.light)
             onEdit(transaction)
         }
+        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .contextMenu {
             if canEdit {
-                Button("Bearbeiten") { onEdit(transaction) }
-                Button("Duplizieren") { onDuplicate(transaction) }
+                Button("Bearbeiten") {
+                    Haptics.trigger(.light)
+                    onEdit(transaction)
+                }
+                Button("Duplizieren") {
+                    Haptics.trigger(.soft)
+                    onDuplicate(transaction)
+                }
             }
             if canDelete {
-                Button("Löschen", role: .destructive) { onDelete(transaction) }
+                Button("Löschen", role: .destructive) {
+                    Haptics.trigger(.soft)
+                    onDelete(transaction)
+                }
             }
         }
         .overlay(alignment: .bottom) {

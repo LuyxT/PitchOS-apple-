@@ -72,6 +72,7 @@ struct SettingsView: View {
 
     private var refreshButton: some View {
         Button {
+            Haptics.trigger(.soft)
             Task {
                 await bootstrap()
             }
@@ -88,12 +89,18 @@ struct SettingsView: View {
                 ForEach(SettingsSection.allCases) { section in
                     if viewModel.selectedSection == section {
                         Button(section.title) {
-                            viewModel.selectedSection = section
+                            Haptics.trigger(.light)
+                            withAnimation(AppMotion.settle) {
+                                viewModel.selectedSection = section
+                            }
                         }
                         .buttonStyle(PrimaryActionButtonStyle())
                     } else {
                         Button(section.title) {
-                            viewModel.selectedSection = section
+                            Haptics.trigger(.light)
+                            withAnimation(AppMotion.settle) {
+                                viewModel.selectedSection = section
+                            }
                         }
                         .buttonStyle(SecondaryActionButtonStyle())
                     }

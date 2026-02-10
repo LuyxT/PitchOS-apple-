@@ -139,6 +139,7 @@ struct FilesWorkspaceView: View {
                 uploadButton
                 Menu("Mehr") {
                     Button("Neuer Ordner") {
+                        Haptics.trigger(.soft)
                         if pendingNewFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             pendingNewFolderName = "Neuer Ordner"
                         }
@@ -148,6 +149,7 @@ struct FilesWorkspaceView: View {
                         }
                     }
                     Button("Aktualisieren") {
+                        Haptics.trigger(.soft)
                         Task {
                             await viewModel.refresh(store: dataStore)
                             await dataStore.refreshCloudCleanupSuggestions()
@@ -162,6 +164,7 @@ struct FilesWorkspaceView: View {
 
     private var newFolderButton: some View {
         Button {
+            Haptics.trigger(.soft)
             if pendingNewFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 pendingNewFolderName = "Neuer Ordner"
             }
@@ -179,6 +182,7 @@ struct FilesWorkspaceView: View {
 
     private var uploadButton: some View {
         Button {
+            Haptics.trigger(.soft)
             isShowingImporter = true
         } label: {
             Label("Upload", systemImage: "arrow.up.doc")
@@ -190,6 +194,7 @@ struct FilesWorkspaceView: View {
 
     private var refreshButton: some View {
         Button {
+            Haptics.trigger(.soft)
             Task {
                 await viewModel.refresh(store: dataStore)
                 await dataStore.refreshCloudCleanupSuggestions()
@@ -306,9 +311,11 @@ struct FilesWorkspaceView: View {
                         .contextMenu {
                             if !folder.isSystemFolder {
                                 Button("Ordner umbenennen") {
+                                    Haptics.trigger(.soft)
                                     pendingNewFolderName = folder.name
                                 }
                                 Button("Als aktiver Ordner setzen") {
+                                    Haptics.trigger(.soft)
                                     viewModel.selectFolder(folder.id, store: dataStore)
                                 }
                             }
@@ -322,6 +329,7 @@ struct FilesWorkspaceView: View {
         }
         .frame(width: 220)
         .onChange(of: viewModel.selectedFolderID) { _, folderID in
+            Haptics.trigger(.light)
             viewModel.selectFolder(folderID, store: dataStore)
             Task { await viewModel.refresh(store: dataStore) }
         }
@@ -434,6 +442,7 @@ struct FilesWorkspaceView: View {
                                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                                 .filter { !$0.isEmpty }
                             Task {
+                                Haptics.trigger(.light)
                                 await viewModel.renameSelected(to: pendingRename.isEmpty ? file.name : pendingRename, store: dataStore)
                                 if !tags.isEmpty {
                                     try? await dataStore.updateCloudFile(fileID: file.id, name: nil, tags: tags, visibility: nil)
@@ -445,6 +454,7 @@ struct FilesWorkspaceView: View {
                         .buttonStyle(PrimaryActionButtonStyle())
 
                         Button("Öffnen") {
+                            Haptics.trigger(.light)
                             Task {
                                 await viewModel.openSelected(store: dataStore, appState: appState)
                             }

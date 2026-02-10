@@ -58,6 +58,7 @@ struct CalendarMonthView: View {
                 Spacer()
                 Button {
                     if let createDate = viewModel.calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) {
+                        Haptics.trigger(.soft)
                         viewModel.beginCreate(at: createDate)
                     }
                 } label: {
@@ -76,22 +77,27 @@ struct CalendarMonthView: View {
                         category: categories.first(where: { $0.id == event.categoryID })
                     )
                     .onTapGesture {
+                        Haptics.trigger(.light)
                         viewModel.selectedEventID = event.id
                     }
                     .onTapGesture(count: 2) {
+                        Haptics.trigger(.light)
                         viewModel.beginEdit(event: event)
                     }
                     .contextMenu {
                         Button("Bearbeiten") {
+                            Haptics.trigger(.light)
                             viewModel.beginEdit(event: event)
                         }
                         Button("Duplizieren") {
+                            Haptics.trigger(.soft)
                             Task {
                                 await dataStore.duplicateCalendarEvent(event)
                             }
                         }
                         Divider()
                         Button("Löschen", role: .destructive) {
+                            Haptics.trigger(.soft)
                             Task {
                                 await dataStore.deleteCalendarEvent(id: event.id)
                             }
@@ -122,8 +128,11 @@ struct CalendarMonthView: View {
             hoverSlot = hovering ? slot : nil
         }
         .onTapGesture {
+            Haptics.trigger(.light)
             viewModel.focusDate = date
         }
+        .interactiveSurface(hoverScale: 1.008, pressScale: 0.992, hoverShadowOpacity: 0.08, feedback: nil)
+        .animation(AppMotion.hover, value: hoverSlot == slot)
     }
 
     private func monthDates() -> [Date] {

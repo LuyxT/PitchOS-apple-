@@ -9,7 +9,9 @@ struct SegmentedControl<Item: Identifiable & Equatable>: View {
         HStack(spacing: 0) {
             ForEach(items) { item in
                 Button {
-                    selection = item
+                    withAnimation(AppMotion.settle) {
+                        selection = item
+                    }
                 } label: {
                     Text(title(item))
                         .font(.system(size: 12, weight: item == selection ? .semibold : .regular))
@@ -24,6 +26,12 @@ struct SegmentedControl<Item: Identifiable & Equatable>: View {
                     item == selection
                     ? AppTheme.surfaceAlt
                     : Color.clear
+                )
+                .interactiveSurface(
+                    hoverScale: 1.01,
+                    pressScale: 0.99,
+                    hoverShadowOpacity: 0.12,
+                    feedback: .light
                 )
                 .overlay(
                     Rectangle()
@@ -42,5 +50,6 @@ struct SegmentedControl<Item: Identifiable & Equatable>: View {
                 .stroke(AppTheme.border, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .animation(AppMotion.settle, value: selection)
     }
 }

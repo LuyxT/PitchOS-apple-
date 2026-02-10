@@ -103,6 +103,7 @@ struct ProfileView: View {
 
     private var createButton: some View {
         Button {
+            Haptics.trigger(.soft)
             viewModel.beginCreateProfile(defaultClubName: dataStore.profile.team)
         } label: {
             Label("Neu", systemImage: "plus")
@@ -114,6 +115,7 @@ struct ProfileView: View {
 
     private var refreshButton: some View {
         Button {
+            Haptics.trigger(.soft)
             Task { await viewModel.bootstrap(store: dataStore) }
         } label: {
             Label("Aktualisieren", systemImage: "arrow.clockwise")
@@ -131,6 +133,7 @@ struct ProfileView: View {
                 selection: Binding(
                     get: { viewModel.selectedProfileID },
                     set: { newValue in
+                        Haptics.trigger(.light)
                         Task { await viewModel.selectProfile(newValue, store: dataStore) }
                     }
                 )
@@ -152,6 +155,7 @@ struct ProfileView: View {
             List(profiles, selection: Binding(
                 get: { viewModel.selectedProfileID },
                 set: { newValue in
+                    Haptics.trigger(.light)
                     Task { await viewModel.selectProfile(newValue, store: dataStore) }
                 }
             )) { item in
@@ -186,12 +190,14 @@ struct ProfileView: View {
                     Spacer()
                     if permissions.canDeleteProfile {
                         Button("Löschen", role: .destructive) {
+                            Haptics.trigger(.soft)
                             Task { await viewModel.deleteSelected(store: dataStore) }
                         }
                         .buttonStyle(SecondaryActionButtonStyle())
                         .disabled(viewModel.isSaving || viewModel.selectedProfileID == nil)
                     }
                     Button("Speichern") {
+                        Haptics.trigger(.light)
                         Task { await viewModel.saveDraft(store: dataStore) }
                     }
                     .buttonStyle(PrimaryActionButtonStyle())

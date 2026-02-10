@@ -27,6 +27,7 @@ struct MessengerThreadView: View {
                         LazyVStack(spacing: 8) {
                             if hasMore {
                                 Button("Ältere Nachrichten laden") {
+                                    Haptics.trigger(.soft)
                                     onLoadOlder()
                                 }
                                 .buttonStyle(SecondaryActionButtonStyle())
@@ -47,7 +48,7 @@ struct MessengerThreadView: View {
                     }
                     .onChange(of: messages.last?.id) { _, newID in
                         guard let newID else { return }
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(AppMotion.settle) {
                             proxy.scrollTo(newID, anchor: .bottom)
                         }
                     }

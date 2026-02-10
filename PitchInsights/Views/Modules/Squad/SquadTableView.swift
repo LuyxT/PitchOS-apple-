@@ -71,7 +71,10 @@ struct SquadTableView: View {
 
     private func headerButton(title: String, field: SquadSortField, width: CGFloat, alignment: Alignment) -> some View {
         Button {
-            viewModel.toggleSort(field)
+            Haptics.trigger(.light)
+            withAnimation(AppMotion.settle) {
+                viewModel.toggleSort(field)
+            }
         } label: {
             HStack(spacing: 4) {
                 Text(title)
@@ -85,6 +88,7 @@ struct SquadTableView: View {
             .frame(width: width, alignment: alignment)
         }
         .buttonStyle(.plain)
+        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
     }
 }
 
@@ -133,10 +137,21 @@ private struct SquadRowView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? AppTheme.primary.opacity(0.16) : (isHovering ? AppTheme.hover : Color.clear))
         )
+        .scaleEffect(isHovering ? 1.01 : 1)
+        .shadow(color: AppTheme.shadow.opacity(isHovering ? 0.12 : 0), radius: isHovering ? 6 : 0, x: 0, y: 4)
         .contentShape(Rectangle())
-        .onTapGesture { onTap() }
-        .onTapGesture(count: 2) { onDoubleTap() }
+        .onTapGesture {
+            Haptics.trigger(.light)
+            withAnimation(AppMotion.settle) {
+                onTap()
+            }
+        }
+        .onTapGesture(count: 2) {
+            Haptics.trigger(.light)
+            onDoubleTap()
+        }
         .onHover { isHovering = $0 }
+        .animation(AppMotion.hover, value: isHovering)
         .contextMenu {
             Button("Profil öffnen", action: onOpenProfile)
             Button("Bearbeiten", action: onOpenProfile)
@@ -144,12 +159,16 @@ private struct SquadRowView: View {
             Menu("Status setzen") {
                 ForEach(AvailabilityStatus.allCases) { state in
                     Button(state.rawValue) {
+                        Haptics.trigger(.soft)
                         onSetAvailability(state)
                     }
                 }
             }
             Divider()
-            Button("Löschen", role: .destructive, action: onDelete)
+            Button("Löschen", role: .destructive) {
+                Haptics.trigger(.soft)
+                onDelete()
+            }
         }
     }
 

@@ -21,7 +21,10 @@ struct TrainingPlanListView: View {
                 LazyVStack(spacing: 6) {
                     ForEach(plans) { plan in
                         Button {
-                            onSelect(plan.id)
+                            Haptics.trigger(.light)
+                            withAnimation(AppMotion.settle) {
+                                onSelect(plan.id)
+                            }
                         } label: {
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -53,6 +56,7 @@ struct TrainingPlanListView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .interactiveSurface(hoverScale: 1.012, pressScale: 0.988, hoverShadowOpacity: 0.12, feedback: .light)
                     }
                 }
             }
@@ -66,5 +70,6 @@ struct TrainingPlanListView: View {
                         .stroke(AppTheme.border, lineWidth: 1)
                 )
         )
+        .animation(AppMotion.settle, value: selectedPlanID)
     }
 }

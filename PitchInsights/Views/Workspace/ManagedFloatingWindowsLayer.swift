@@ -2,6 +2,7 @@ import SwiftUI
 
 #if os(macOS)
 import AppKit
+import QuartzCore
 
 struct ManagedFloatingWindowsLayer: NSViewRepresentable {
     @Binding var windows: [FloatingWindowState]
@@ -466,10 +467,10 @@ private final class ManagedWorkspaceWindowView: NSView {
         guard let mode = interactionMode else { return }
 
         let finalFrame = pixelAlignedFrame(clampedFrame(frame, mode: mode))
-        setFrameWithoutAnimation(finalFrame)
         if mode != .move {
             endLiveResizeSnapshot()
         }
+        setFrameWithAnimation(finalFrame, duration: 0.14)
         onFrameCommitted?(windowID, finalFrame)
 
         interactionMode = nil
@@ -482,6 +483,7 @@ private final class ManagedWorkspaceWindowView: NSView {
     }
 
     @objc private func closeTapped() {
+        Haptics.trigger(.soft)
         onCloseRequested?(windowID)
     }
 
@@ -644,6 +646,16 @@ private final class ManagedWorkspaceWindowView: NSView {
         self.frame = frame
         layoutWindowSubviews()
         CATransaction.commit()
+    }
+
+    private func setFrameWithAnimation(_ frame: CGRect, duration: TimeInterval) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            self.animator().setFrame(frame)
+        } completionHandler: { [weak self] in
+            self?.layoutWindowSubviews()
+        }
     }
 
     private func interactionMode(at point: CGPoint) -> WindowInteractionMode? {

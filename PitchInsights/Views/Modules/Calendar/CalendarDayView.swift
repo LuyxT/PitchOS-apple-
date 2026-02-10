@@ -66,6 +66,7 @@ struct CalendarDayView: View {
 
             Button {
                 if let date = viewModel.calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) {
+                    Haptics.trigger(.soft)
                     viewModel.beginCreate(at: date)
                 }
             } label: {
@@ -80,6 +81,7 @@ struct CalendarDayView: View {
         .onHover { hovering in
             hoverSlot = hovering ? slot : nil
         }
+        .animation(AppMotion.hover, value: hoverSlot == slot)
     }
 
     private func eventsForDay() -> [CalendarEvent] {

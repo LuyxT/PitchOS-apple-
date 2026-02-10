@@ -55,6 +55,7 @@ struct MessengerChatListView: View {
         )
         .toolbar {
             Button("Aktualisieren") {
+                Haptics.trigger(.soft)
                 onRefresh()
             }
         }
@@ -116,16 +117,21 @@ struct MessengerChatListView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
+            Haptics.trigger(.light)
             selectedChatID = chat.id
         }
+        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .contextMenu {
             Button(chat.pinned ? "Loslösen" : "Anheften") {
+                Haptics.trigger(.soft)
                 onTogglePin(chat)
             }
             Button(chat.muted ? "Stumm aus" : "Stummschalten") {
+                Haptics.trigger(.soft)
                 onToggleMute(chat)
             }
             Button(chat.archived ? "Wiederherstellen" : "Archivieren") {
+                Haptics.trigger(.soft)
                 onToggleArchive(chat)
             }
         }

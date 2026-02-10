@@ -63,7 +63,10 @@ struct FloatingWindowView<Content: View>: View {
 
     private var titleBar: some View {
         HStack(spacing: 10) {
-            Button(action: close) {
+            Button {
+                Haptics.trigger(.soft)
+                close()
+            } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(AppTheme.textSecondary)
@@ -74,6 +77,12 @@ struct FloatingWindowView<Content: View>: View {
                     )
             }
             .buttonStyle(.plain)
+            .interactiveSurface(
+                hoverScale: 1.02,
+                pressScale: 0.98,
+                hoverShadowOpacity: 0.12,
+                feedback: .soft
+            )
 
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
@@ -110,11 +119,22 @@ struct FloatingWindowView<Content: View>: View {
                 )
             }
             .onEnded { _ in
-                window.origin = WindowSizing.clampedOrigin(
-                    origin: window.origin,
+                let momentum = CGSize(
+                    width: (value.predictedEndTranslation.width - value.translation.width) * 0.15,
+                    height: (value.predictedEndTranslation.height - value.translation.height) * 0.15
+                )
+                let proposedOrigin = CGPoint(
+                    x: window.origin.x + momentum.width,
+                    y: window.origin.y + momentum.height
+                )
+                let clamped = WindowSizing.clampedOrigin(
+                    origin: proposedOrigin,
                     size: window.size,
                     workspace: workspaceSize
                 )
+                withAnimation(AppMotion.settle) {
+                    window.origin = clamped
+                }
                 dragStart = nil
                 isDraggingWindow = false
             }
@@ -152,12 +172,16 @@ struct FloatingWindowView<Content: View>: View {
                 )
             }
             .onEnded { _ in
-                window.size = WindowSizing.clampedSize(window.size, for: window.kind)
-                window.origin = WindowSizing.clampedOrigin(
+                let finalSize = WindowSizing.clampedSize(window.size, for: window.kind)
+                let finalOrigin = WindowSizing.clampedOrigin(
                     origin: window.origin,
-                    size: window.size,
+                    size: finalSize,
                     workspace: workspaceSize
                 )
+                withAnimation(AppMotion.settle) {
+                    window.size = finalSize
+                    window.origin = finalOrigin
+                }
                 resizeStart = nil
                 isResizing = false
             }

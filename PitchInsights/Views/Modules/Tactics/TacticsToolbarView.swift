@@ -66,13 +66,25 @@ struct TacticsToolbarView: View {
 
     private var actionButtons: some View {
         HStack(spacing: 8) {
-            Button("Neu", action: onNewScenario)
+            Button("Neu") {
+                Haptics.trigger(.soft)
+                onNewScenario()
+            }
                 .buttonStyle(SecondaryActionButtonStyle())
-            Button("Duplizieren", action: onDuplicateScenario)
+            Button("Duplizieren") {
+                Haptics.trigger(.soft)
+                onDuplicateScenario()
+            }
                 .buttonStyle(SecondaryActionButtonStyle())
-            Button("Umbenennen", action: onRenameScenario)
+            Button("Umbenennen") {
+                Haptics.trigger(.soft)
+                onRenameScenario()
+            }
                 .buttonStyle(SecondaryActionButtonStyle())
-            Button("Zurücksetzen", action: onResetScenario)
+            Button("Zurücksetzen") {
+                Haptics.trigger(.soft)
+                onResetScenario()
+            }
                 .buttonStyle(SecondaryActionButtonStyle())
         }
     }
@@ -124,6 +136,7 @@ struct TacticsToolbarView: View {
 
     private var opponentButton: some View {
         Button(showOpponent ? "Gegner ausblenden" : "Gegner anzeigen") {
+            Haptics.trigger(.light)
             onToggleOpponent()
         }
         .buttonStyle(SecondaryActionButtonStyle())
@@ -131,9 +144,18 @@ struct TacticsToolbarView: View {
 
     private var opponentModeMenu: some View {
         Menu("Gegner: \(opponentMode.title)") {
-            Button("Aus") { onSetOpponentMode(.hidden) }
-            Button("Marker") { onSetOpponentMode(.markers) }
-            Button("Formation") { onSetOpponentMode(.formation) }
+            Button("Aus") {
+                Haptics.trigger(.light)
+                onSetOpponentMode(.hidden)
+            }
+            Button("Marker") {
+                Haptics.trigger(.light)
+                onSetOpponentMode(.markers)
+            }
+            Button("Formation") {
+                Haptics.trigger(.light)
+                onSetOpponentMode(.formation)
+            }
         }
         .menuStyle(.borderlessButton)
         .foregroundStyle(AppTheme.textPrimary)
@@ -141,6 +163,7 @@ struct TacticsToolbarView: View {
 
     private var drawingToggleButton: some View {
         Button(isDrawingMode ? "Platzieren" : "Zeichnen") {
+            Haptics.trigger(.light)
             onToggleDrawingMode()
         }
         .buttonStyle(SecondaryActionButtonStyle())
@@ -148,6 +171,7 @@ struct TacticsToolbarView: View {
 
     private var neutralMarkerButton: some View {
         Button("Neutraler Kreis") {
+            Haptics.trigger(.soft)
             onAddNeutralMarker()
         }
         .buttonStyle(SecondaryActionButtonStyle())
@@ -157,6 +181,7 @@ struct TacticsToolbarView: View {
         Menu("Werkzeug: \(drawingTool.title)") {
             ForEach(TacticalDrawingKind.allCases) { tool in
                 Button(tool.title) {
+                    Haptics.trigger(.light)
                     onSetDrawingTool(tool)
                 }
             }
@@ -199,6 +224,7 @@ struct TacticsToolbarView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(AppTheme.textPrimary)
             Button("−") {
+                Haptics.trigger(.soft)
                 onDecreasePlayerTokenSize()
             }
             .buttonStyle(SecondaryActionButtonStyle())
@@ -207,6 +233,7 @@ struct TacticsToolbarView: View {
                 .foregroundStyle(AppTheme.textSecondary)
                 .frame(minWidth: 40)
             Button("+") {
+                Haptics.trigger(.soft)
                 onIncreasePlayerTokenSize()
             }
             .buttonStyle(SecondaryActionButtonStyle())

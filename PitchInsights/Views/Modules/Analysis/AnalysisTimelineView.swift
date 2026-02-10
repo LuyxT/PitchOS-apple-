@@ -49,6 +49,7 @@ struct AnalysisTimelineView: View {
                                 .frame(width: 10, height: 10)
                                 .offset(x: x - 5, y: 3)
                                 .onTapGesture {
+                                    Haptics.trigger(.light)
                                     onMarkerTap(marker)
                                 }
                                 .help("\(format(marker.timeSeconds))")

@@ -87,9 +87,11 @@ struct ContentView: View {
             view = AnyView(PlayerProfileWindowView(playerID: playerID))
         }
         return AnyView(
-            view
-                .environmentObject(appState)
-                .environmentObject(dataStore)
+            WindowScaledContent(window: window) {
+                view
+                    .environmentObject(appState)
+                    .environmentObject(dataStore)
+            }
         )
     }
 }

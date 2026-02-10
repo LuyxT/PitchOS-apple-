@@ -122,11 +122,13 @@ struct SquadToolbarView: View {
 
             Menu("Aktionen") {
                 Button(filterViewModel.isAnalysisVisible ? "Analyse ausblenden" : "Analyse anzeigen") {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    Haptics.trigger(.light)
+                    withAnimation(AppMotion.settle) {
                         filterViewModel.isAnalysisVisible.toggle()
                     }
                 }
                 Button("Filter zurücksetzen") {
+                    Haptics.trigger(.soft)
                     filterViewModel.reset()
                 }
             }
@@ -145,7 +147,8 @@ struct SquadToolbarView: View {
 
     private var analysisToggleButton: some View {
         Button(filterViewModel.isAnalysisVisible ? "Analyse ausblenden" : "Analyse anzeigen") {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            Haptics.trigger(.light)
+            withAnimation(AppMotion.settle) {
                 filterViewModel.isAnalysisVisible.toggle()
             }
         }
@@ -156,6 +159,7 @@ struct SquadToolbarView: View {
 
     private var resetButton: some View {
         Button("Filter zurücksetzen") {
+            Haptics.trigger(.soft)
             filterViewModel.reset()
         }
         .buttonStyle(SecondaryActionButtonStyle())
@@ -165,6 +169,7 @@ struct SquadToolbarView: View {
 
     private var createButton: some View {
         Button {
+            Haptics.trigger(.soft)
             onNewPlayer()
         } label: {
             Label("Neuer Spieler", systemImage: "plus")
@@ -185,6 +190,7 @@ struct SquadToolbarView: View {
 
     private func toggleMenuItem(title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
+            Haptics.trigger(.soft)
             if isOn {
                 Label(title, systemImage: "checkmark")
             } else {

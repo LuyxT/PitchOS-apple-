@@ -126,6 +126,7 @@ struct AdminWorkspaceView: View {
 
     private var refreshButton: some View {
         Button {
+            Haptics.trigger(.soft)
             Task {
                 await workspaceViewModel.bootstrap(store: dataStore)
                 dashboardViewModel.refresh(store: dataStore)
@@ -139,6 +140,7 @@ struct AdminWorkspaceView: View {
 
     private var createPersonButton: some View {
         Button {
+            Haptics.trigger(.soft)
             workspaceViewModel.selectedSection = .users
             userViewModel.beginCreate(defaultTeam: dataStore.profile.team)
         } label: {
@@ -150,6 +152,7 @@ struct AdminWorkspaceView: View {
 
     private var createGroupButton: some View {
         Button {
+            Haptics.trigger(.soft)
             workspaceViewModel.selectedSection = .groups
             groupViewModel.beginCreate()
         } label: {
@@ -160,6 +163,7 @@ struct AdminWorkspaceView: View {
 
     private var inviteButton: some View {
         Button {
+            Haptics.trigger(.soft)
             workspaceViewModel.selectedSection = .invitations
             invitationViewModel.showComposer = true
         } label: {
@@ -187,14 +191,16 @@ struct AdminWorkspaceView: View {
                 ForEach(AdminSection.allCases) { section in
                     if section == workspaceViewModel.selectedSection {
                         Button(section.title) {
-                            withAnimation(.easeInOut(duration: 0.16)) {
+                            Haptics.trigger(.light)
+                            withAnimation(AppMotion.settle) {
                                 workspaceViewModel.selectedSection = section
                             }
                         }
                         .buttonStyle(PrimaryActionButtonStyle())
                     } else {
                         Button(section.title) {
-                            withAnimation(.easeInOut(duration: 0.16)) {
+                            Haptics.trigger(.light)
+                            withAnimation(AppMotion.settle) {
                                 workspaceViewModel.selectedSection = section
                             }
                         }

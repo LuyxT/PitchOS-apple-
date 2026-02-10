@@ -105,6 +105,7 @@ struct TrainingPlanToolbarView: View {
 
                 Button {
                     guard !isBusy else { return }
+                    Haptics.trigger(.soft)
                     onCreate()
                 } label: {
                     Label("Neu", systemImage: "plus")
@@ -113,6 +114,7 @@ struct TrainingPlanToolbarView: View {
 
                 Button {
                     guard !isBusy, hasSelection else { return }
+                    Haptics.trigger(.light)
                     onSave()
                 } label: {
                     Text("Speichern")
@@ -123,30 +125,35 @@ struct TrainingPlanToolbarView: View {
                 Menu("Mehr") {
                     Button("Löschen", role: .destructive) {
                         guard !isBusy, hasSelection else { return }
+                        Haptics.trigger(.soft)
                         onDelete()
                     }
                     .disabled(!hasSelection || isBusy)
 
                     Button("Vorlage") {
                         guard !isBusy, hasSelection else { return }
+                        Haptics.trigger(.soft)
                         onDuplicateTemplate()
                     }
                     .disabled(!hasSelection || isBusy)
 
                     Button("In Kalender") {
                         guard !isBusy, hasSelection else { return }
+                        Haptics.trigger(.soft)
                         onLinkToCalendar()
                     }
                     .disabled(!hasSelection || isBusy)
 
                     Button("Live-Modus") {
                         guard !isBusy, hasSelection else { return }
+                        Haptics.trigger(.light)
                         onStartLive()
                     }
                     .disabled(!hasSelection || isBusy)
 
                     Button("Reload") {
                         guard !isBusy else { return }
+                        Haptics.trigger(.soft)
                         onReload()
                     }
                     .disabled(isBusy)
@@ -217,6 +224,7 @@ struct TrainingPlanToolbarView: View {
         HStack(spacing: 8) {
             Button {
                 guard !isBusy else { return }
+                Haptics.trigger(.soft)
                 onCreate()
             } label: {
                 Text("Neu")
@@ -225,6 +233,7 @@ struct TrainingPlanToolbarView: View {
 
             Button {
                 guard !isBusy, hasSelection else { return }
+                Haptics.trigger(.light)
                 onSave()
             } label: {
                 Text("Speichern")
@@ -238,6 +247,7 @@ struct TrainingPlanToolbarView: View {
         HStack(spacing: 8) {
             Button {
                 guard !isBusy, hasSelection else { return }
+                Haptics.trigger(.soft)
                 onDelete()
             } label: {
                 Text("Löschen")
@@ -247,6 +257,7 @@ struct TrainingPlanToolbarView: View {
 
             Button {
                 guard !isBusy, hasSelection else { return }
+                Haptics.trigger(.soft)
                 onDuplicateTemplate()
             } label: {
                 Text("Vorlage")
@@ -256,6 +267,7 @@ struct TrainingPlanToolbarView: View {
 
             Button {
                 guard !isBusy, hasSelection else { return }
+                Haptics.trigger(.soft)
                 onLinkToCalendar()
             } label: {
                 Text("In Kalender")
@@ -265,6 +277,7 @@ struct TrainingPlanToolbarView: View {
 
             Button {
                 guard !isBusy, hasSelection else { return }
+                Haptics.trigger(.light)
                 onStartLive()
             } label: {
                 Text("Live-Modus")
@@ -274,6 +287,7 @@ struct TrainingPlanToolbarView: View {
 
             Button {
                 guard !isBusy else { return }
+                Haptics.trigger(.soft)
                 onReload()
             } label: {
                 Text("Reload")

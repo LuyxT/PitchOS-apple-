@@ -46,6 +46,13 @@ struct DockSwitcherView: View {
             .onHover { hovering in
                 isHovering = hovering
             }
+            .interactiveSurface(
+                hoverScale: 1.015,
+                pressScale: 0.985,
+                hoverShadowOpacity: 0.12,
+                feedback: .light
+            )
+            .animation(AppMotion.hover, value: isHovering)
             .contextMenu {
                 Button(appState.desktopItems.contains(where: { $0.module == module }) ? "Vom Home entfernen" : "Auf Home anzeigen") {
                     appState.toggleDesktopPresence(for: module)
@@ -58,11 +65,15 @@ struct DockSwitcherView: View {
         private var tapGesture: some Gesture {
             let doubleTap = TapGesture(count: 2)
                 .onEnded {
+                    Haptics.trigger(.light)
                     appState.openFloatingWindow(module)
                 }
             let singleTap = TapGesture(count: 1)
                 .onEnded {
-                    appState.setActive(module)
+                    Haptics.trigger(.light)
+                    withAnimation(AppMotion.settle) {
+                        appState.setActive(module)
+                    }
                 }
             return doubleTap.exclusively(before: singleTap)
         }

@@ -31,12 +31,14 @@ struct PlayerQuickCreatePopover: View {
             HStack {
                 Spacer()
                 Button("Abbrechen") {
+                    Haptics.trigger(.soft)
                     dismiss()
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
 
                 Button("Anlegen") {
                     guard let number = Int(numberText) else { return }
+                    Haptics.trigger(.success)
                     onCreate(name, number, position)
                     dismiss()
                 }
