@@ -10,38 +10,9 @@ struct SquadToolbarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                TextField("Spieler suchen", text: $filterViewModel.filters.searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 220, maxWidth: 320)
-                    .focused(searchFocus)
-
-                Spacer(minLength: 8)
-
-                Button(filterViewModel.isAnalysisVisible ? "Analyse ausblenden" : "Analyse anzeigen") {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        filterViewModel.isAnalysisVisible.toggle()
-                    }
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-
-                Button("Filter zurücksetzen") {
-                    filterViewModel.reset()
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-
-                Button {
-                    onNewPlayer()
-                } label: {
-                    Label("Neuer Spieler", systemImage: "plus")
-                }
-                .buttonStyle(PrimaryActionButtonStyle())
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
+            ViewThatFits(in: .horizontal) {
+                expandedTopRow
+                compactTopRow
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -129,6 +100,78 @@ struct SquadToolbarView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(AppTheme.surface)
+    }
+
+    private var expandedTopRow: some View {
+        HStack(spacing: 10) {
+            searchField
+                .frame(minWidth: 220, maxWidth: 320)
+
+            Spacer(minLength: 8)
+
+            analysisToggleButton
+            resetButton
+            createButton
+        }
+    }
+
+    private var compactTopRow: some View {
+        HStack(spacing: 8) {
+            searchField
+                .frame(maxWidth: .infinity)
+
+            Menu("Aktionen") {
+                Button(filterViewModel.isAnalysisVisible ? "Analyse ausblenden" : "Analyse anzeigen") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        filterViewModel.isAnalysisVisible.toggle()
+                    }
+                }
+                Button("Filter zurücksetzen") {
+                    filterViewModel.reset()
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize(horizontal: true, vertical: false)
+
+            createButton
+        }
+    }
+
+    private var searchField: some View {
+        TextField("Spieler suchen", text: $filterViewModel.filters.searchText)
+            .textFieldStyle(.roundedBorder)
+            .focused(searchFocus)
+    }
+
+    private var analysisToggleButton: some View {
+        Button(filterViewModel.isAnalysisVisible ? "Analyse ausblenden" : "Analyse anzeigen") {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                filterViewModel.isAnalysisVisible.toggle()
+            }
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var resetButton: some View {
+        Button("Filter zurücksetzen") {
+            filterViewModel.reset()
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var createButton: some View {
+        Button {
+            onNewPlayer()
+        } label: {
+            Label("Neuer Spieler", systemImage: "plus")
+        }
+        .buttonStyle(PrimaryActionButtonStyle())
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func menu<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {

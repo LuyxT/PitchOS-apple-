@@ -6,6 +6,10 @@ struct PrimaryActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .minimumScaleFactor(0.84)
+            .allowsTightening(true)
             .foregroundStyle(Color.black.opacity(isEnabled ? 1 : 0.85))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -27,6 +31,10 @@ struct SecondaryActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .minimumScaleFactor(0.84)
+            .allowsTightening(true)
             .foregroundStyle(Color.black.opacity(isEnabled ? 1 : 0.85))
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

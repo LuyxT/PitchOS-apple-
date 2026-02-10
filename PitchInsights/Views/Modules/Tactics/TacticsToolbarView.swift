@@ -46,80 +46,9 @@ struct TacticsToolbarView: View {
                 }
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    Button(showOpponent ? "Gegner ausblenden" : "Gegner anzeigen") {
-                        onToggleOpponent()
-                    }
-                    .buttonStyle(SecondaryActionButtonStyle())
-
-                    Menu("Gegner: \(opponentMode.title)") {
-                        Button("Aus") { onSetOpponentMode(.hidden) }
-                        Button("Marker") { onSetOpponentMode(.markers) }
-                        Button("Formation") { onSetOpponentMode(.formation) }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .foregroundStyle(AppTheme.textPrimary)
-
-                    Button(isDrawingMode ? "Platzieren" : "Zeichnen") {
-                        onToggleDrawingMode()
-                    }
-                    .buttonStyle(SecondaryActionButtonStyle())
-
-                    Button("Neutraler Kreis") {
-                        onAddNeutralMarker()
-                    }
-                    .buttonStyle(SecondaryActionButtonStyle())
-
-                    Menu("Werkzeug: \(drawingTool.title)") {
-                        ForEach(TacticalDrawingKind.allCases) { tool in
-                            Button(tool.title) {
-                                onSetDrawingTool(tool)
-                            }
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .foregroundStyle(AppTheme.textPrimary)
-
-                    toolbarToggle("Temporär", isOn: Binding(
-                        get: { drawingIsTemporary },
-                        set: { onSetDrawingTemporary($0) }
-                    ))
-
-                    toolbarToggle("Linien", isOn: Binding(
-                        get: { showLines },
-                        set: { _ in onToggleLines() }
-                    ))
-
-                    toolbarToggle("Zonen", isOn: Binding(
-                        get: { showZones },
-                        set: { _ in onToggleZones() }
-                    ))
-
-                    toolbarToggle("Zeichnungen zeigen", isOn: Binding(
-                        get: { drawingsVisible },
-                        set: { _ in onToggleDrawingsVisible() }
-                    ))
-
-                    HStack(spacing: 6) {
-                        Text("Spielergröße")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(AppTheme.textPrimary)
-                        Button("−") {
-                            onDecreasePlayerTokenSize()
-                        }
-                        .buttonStyle(SecondaryActionButtonStyle())
-                        Text("\(Int((playerTokenScale * 100).rounded()))%")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
-                            .frame(minWidth: 40)
-                        Button("+") {
-                            onIncreasePlayerTokenSize()
-                        }
-                        .buttonStyle(SecondaryActionButtonStyle())
-                    }
-                }
-                .padding(.horizontal, 2)
+            ViewThatFits(in: .horizontal) {
+                expandedControlsRow
+                compactControlsRow
             }
         }
         .padding(.horizontal, 16)
@@ -146,6 +75,143 @@ struct TacticsToolbarView: View {
             Button("Zurücksetzen", action: onResetScenario)
                 .buttonStyle(SecondaryActionButtonStyle())
         }
+    }
+
+    private var expandedControlsRow: some View {
+        HStack(spacing: 8) {
+            opponentButton
+            opponentModeMenu
+            drawingToggleButton
+            neutralMarkerButton
+            drawingToolMenu
+            temporaryToggle
+            linesToggle
+            zonesToggle
+            drawingsToggle
+            playerSizeControl
+        }
+    }
+
+    private var compactControlsRow: some View {
+        HStack(spacing: 8) {
+            opponentButton
+            drawingToggleButton
+            neutralMarkerButton
+            playerSizeControl
+
+            Menu("Mehr") {
+                Menu("Gegnermodus") {
+                    Button("Aus") { onSetOpponentMode(.hidden) }
+                    Button("Marker") { onSetOpponentMode(.markers) }
+                    Button("Formation") { onSetOpponentMode(.formation) }
+                }
+                Menu("Werkzeug") {
+                    ForEach(TacticalDrawingKind.allCases) { tool in
+                        Button(tool.title) {
+                            onSetDrawingTool(tool)
+                        }
+                    }
+                }
+                temporaryToggle
+                linesToggle
+                zonesToggle
+                drawingsToggle
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private var opponentButton: some View {
+        Button(showOpponent ? "Gegner ausblenden" : "Gegner anzeigen") {
+            onToggleOpponent()
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var opponentModeMenu: some View {
+        Menu("Gegner: \(opponentMode.title)") {
+            Button("Aus") { onSetOpponentMode(.hidden) }
+            Button("Marker") { onSetOpponentMode(.markers) }
+            Button("Formation") { onSetOpponentMode(.formation) }
+        }
+        .menuStyle(.borderlessButton)
+        .foregroundStyle(AppTheme.textPrimary)
+    }
+
+    private var drawingToggleButton: some View {
+        Button(isDrawingMode ? "Platzieren" : "Zeichnen") {
+            onToggleDrawingMode()
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var neutralMarkerButton: some View {
+        Button("Neutraler Kreis") {
+            onAddNeutralMarker()
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var drawingToolMenu: some View {
+        Menu("Werkzeug: \(drawingTool.title)") {
+            ForEach(TacticalDrawingKind.allCases) { tool in
+                Button(tool.title) {
+                    onSetDrawingTool(tool)
+                }
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .foregroundStyle(AppTheme.textPrimary)
+    }
+
+    private var temporaryToggle: some View {
+        toolbarToggle("Temporär", isOn: Binding(
+            get: { drawingIsTemporary },
+            set: { onSetDrawingTemporary($0) }
+        ))
+    }
+
+    private var linesToggle: some View {
+        toolbarToggle("Linien", isOn: Binding(
+            get: { showLines },
+            set: { _ in onToggleLines() }
+        ))
+    }
+
+    private var zonesToggle: some View {
+        toolbarToggle("Zonen", isOn: Binding(
+            get: { showZones },
+            set: { _ in onToggleZones() }
+        ))
+    }
+
+    private var drawingsToggle: some View {
+        toolbarToggle("Zeichnungen zeigen", isOn: Binding(
+            get: { drawingsVisible },
+            set: { _ in onToggleDrawingsVisible() }
+        ))
+    }
+
+    private var playerSizeControl: some View {
+        HStack(spacing: 6) {
+            Text("Spielergröße")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.textPrimary)
+            Button("−") {
+                onDecreasePlayerTokenSize()
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+            Text("\(Int((playerTokenScale * 100).rounded()))%")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .frame(minWidth: 40)
+            Button("+") {
+                onIncreasePlayerTokenSize()
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func toolbarToggle(_ title: String, isOn: Binding<Bool>) -> some View {

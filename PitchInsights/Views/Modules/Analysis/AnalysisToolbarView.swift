@@ -14,88 +14,14 @@ struct AnalysisToolbarView: View {
     let onToggleClip: () -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                Picker("Analyse", selection: $selectedSessionID) {
-                    ForEach(sessions) { session in
-                        Text(session.title).tag(Optional(session.id))
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(width: 220)
-
-                Button {
-                    onImportVideo()
-                } label: {
-                    Label("Video", systemImage: "plus")
-                        .lineLimit(1)
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .help("Video importieren")
-
-                Button {
-                    onAddMarker()
-                } label: {
-                    Label("Marker", systemImage: "bookmark")
-                        .lineLimit(1)
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .help("Marker setzen")
-
-                Button {
-                    onToggleClip()
-                } label: {
-                    Label("Clip", systemImage: "scissors")
-                        .lineLimit(1)
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .help("Clip Start/Ende")
-
-                Toggle("Zeichnen", isOn: $isDrawingMode)
-                    .toggleStyle(.switch)
-                    .fixedSize()
-
-                if isDrawingMode {
-                    Picker("Werkzeug", selection: $drawingTool) {
-                        ForEach(AnalysisDrawingTool.allCases) { tool in
-                            Text(tool.title).tag(tool)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .frame(width: 110)
-
-                    Toggle("Temporär", isOn: $isTemporaryDrawing)
-                        .toggleStyle(.switch)
-                        .fixedSize()
-                }
-
-                Toggle("Layer", isOn: $areDrawingsVisible)
-                    .toggleStyle(.switch)
-                    .fixedSize()
-                    .help("Zeichnungen ein-/ausblenden")
-
-                Button("Vergleich") {
-                    isCompareMode.toggle()
-                    if isCompareMode {
-                        isPresentationMode = false
-                    }
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-
-                Button("Präsentation") {
-                    isPresentationMode.toggle()
-                    if isPresentationMode {
-                        isCompareMode = false
-                    }
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
+        VStack(spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                expandedToolbar
+                compactToolbar
             }
-            .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(AppTheme.surface)
         .foregroundStyle(Color.black)
         .overlay(alignment: .bottom) {
@@ -103,6 +29,183 @@ struct AnalysisToolbarView: View {
                 .fill(AppTheme.border)
                 .frame(height: 1)
         }
-        .frame(height: 56)
+    }
+
+    private var expandedToolbar: some View {
+        HStack(spacing: 10) {
+            analysisPicker
+                .frame(width: 230)
+
+            actionButtons
+
+            Spacer(minLength: 8)
+
+            drawingControls
+            compareButtons
+        }
+    }
+
+    private var compactToolbar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                analysisPicker
+                    .frame(maxWidth: .infinity)
+                actionButtons
+                Menu("Mehr") {
+                    drawingControlsMenu
+                    Divider()
+                    compareButtonsMenu
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+
+            if isDrawingMode {
+                HStack(spacing: 8) {
+                    Picker("Werkzeug", selection: $drawingTool) {
+                        ForEach(AnalysisDrawingTool.allCases) { tool in
+                            Text(tool.title).tag(tool)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 160)
+
+                    Toggle("Temporär", isOn: $isTemporaryDrawing)
+                        .toggleStyle(.switch)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    Toggle("Layer", isOn: $areDrawingsVisible)
+                        .toggleStyle(.switch)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+            }
+        }
+    }
+
+    private var analysisPicker: some View {
+        Picker("Analyse", selection: $selectedSessionID) {
+            ForEach(sessions) { session in
+                Text(session.title)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .tag(Optional(session.id))
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            Button {
+                onImportVideo()
+            } label: {
+                Label("Video", systemImage: "plus")
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+            .help("Video importieren")
+
+            Button {
+                onAddMarker()
+            } label: {
+                Label("Marker", systemImage: "bookmark")
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+            .help("Marker setzen")
+
+            Button {
+                onToggleClip()
+            } label: {
+                Label("Clip", systemImage: "scissors")
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+            .help("Clip Start/Ende")
+        }
+    }
+
+    private var drawingControls: some View {
+        HStack(spacing: 8) {
+            Toggle("Zeichnen", isOn: $isDrawingMode)
+                .toggleStyle(.switch)
+                .fixedSize(horizontal: true, vertical: false)
+
+            if isDrawingMode {
+                Picker("Werkzeug", selection: $drawingTool) {
+                    ForEach(AnalysisDrawingTool.allCases) { tool in
+                        Text(tool.title).tag(tool)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 110)
+
+                Toggle("Temporär", isOn: $isTemporaryDrawing)
+                    .toggleStyle(.switch)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            Toggle("Layer", isOn: $areDrawingsVisible)
+                .toggleStyle(.switch)
+                .fixedSize(horizontal: true, vertical: false)
+                .help("Zeichnungen ein-/ausblenden")
+        }
+    }
+
+    private var compareButtons: some View {
+        HStack(spacing: 8) {
+            Button("Vergleich") {
+                isCompareMode.toggle()
+                if isCompareMode {
+                    isPresentationMode = false
+                }
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+
+            Button("Präsentation") {
+                isPresentationMode.toggle()
+                if isPresentationMode {
+                    isCompareMode = false
+                }
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+        }
+    }
+
+    @ViewBuilder
+    private var drawingControlsMenu: some View {
+        Toggle(isOn: $isDrawingMode) {
+            Text("Zeichnen")
+        }
+
+        if isDrawingMode {
+            Picker("Werkzeug", selection: $drawingTool) {
+                ForEach(AnalysisDrawingTool.allCases) { tool in
+                    Text(tool.title).tag(tool)
+                }
+            }
+            Toggle(isOn: $isTemporaryDrawing) {
+                Text("Temporär")
+            }
+        }
+
+        Toggle(isOn: $areDrawingsVisible) {
+            Text("Layer anzeigen")
+        }
+    }
+
+    @ViewBuilder
+    private var compareButtonsMenu: some View {
+        Button(isCompareMode ? "Vergleich aus" : "Vergleich an") {
+            isCompareMode.toggle()
+            if isCompareMode {
+                isPresentationMode = false
+            }
+        }
+        Button(isPresentationMode ? "Präsentation aus" : "Präsentation an") {
+            isPresentationMode.toggle()
+            if isPresentationMode {
+                isCompareMode = false
+            }
+        }
     }
 }

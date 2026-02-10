@@ -85,56 +85,100 @@ struct AdminWorkspaceView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 8) {
-            Button {
-                Task {
-                    await workspaceViewModel.bootstrap(store: dataStore)
-                    dashboardViewModel.refresh(store: dataStore)
-                    await auditViewModel.apply(store: dataStore)
-                }
-            } label: {
-                Label("Aktualisieren", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-
-            Button {
-                workspaceViewModel.selectedSection = .users
-                userViewModel.beginCreate(defaultTeam: dataStore.profile.team)
-            } label: {
-                Label("Person", systemImage: "person.badge.plus")
-            }
-            .buttonStyle(PrimaryActionButtonStyle())
-            .keyboardShortcut("n", modifiers: [.command])
-
-            Button {
-                workspaceViewModel.selectedSection = .groups
-                groupViewModel.beginCreate()
-            } label: {
-                Label("Gruppe", systemImage: "person.3.sequence")
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-
-            Button {
-                workspaceViewModel.selectedSection = .invitations
-                invitationViewModel.showComposer = true
-            } label: {
-                Label("Einladen", systemImage: "envelope.badge")
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-
-            Spacer()
-
-            Text(connectionLabel)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(connectionColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(connectionColor.opacity(0.12))
-                )
+        ViewThatFits(in: .horizontal) {
+            expandedToolbar
+            compactToolbar
         }
         .padding(12)
+    }
+
+    private var expandedToolbar: some View {
+        HStack(spacing: 8) {
+            refreshButton
+            createPersonButton
+            createGroupButton
+            inviteButton
+            Spacer(minLength: 8)
+            connectionBadge
+        }
+    }
+
+    private var compactToolbar: some View {
+        HStack(spacing: 8) {
+            refreshButton
+            createPersonButton
+            Menu("Aktionen") {
+                Button("Gruppe erstellen") {
+                    workspaceViewModel.selectedSection = .groups
+                    groupViewModel.beginCreate()
+                }
+                Button("Einladung senden") {
+                    workspaceViewModel.selectedSection = .invitations
+                    invitationViewModel.showComposer = true
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 8)
+            connectionBadge
+        }
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task {
+                await workspaceViewModel.bootstrap(store: dataStore)
+                dashboardViewModel.refresh(store: dataStore)
+                await auditViewModel.apply(store: dataStore)
+            }
+        } label: {
+            Label("Aktualisieren", systemImage: "arrow.clockwise")
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var createPersonButton: some View {
+        Button {
+            workspaceViewModel.selectedSection = .users
+            userViewModel.beginCreate(defaultTeam: dataStore.profile.team)
+        } label: {
+            Label("Person", systemImage: "person.badge.plus")
+        }
+        .buttonStyle(PrimaryActionButtonStyle())
+        .keyboardShortcut("n", modifiers: [.command])
+    }
+
+    private var createGroupButton: some View {
+        Button {
+            workspaceViewModel.selectedSection = .groups
+            groupViewModel.beginCreate()
+        } label: {
+            Label("Gruppe", systemImage: "person.3.sequence")
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var inviteButton: some View {
+        Button {
+            workspaceViewModel.selectedSection = .invitations
+            invitationViewModel.showComposer = true
+        } label: {
+            Label("Einladen", systemImage: "envelope.badge")
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var connectionBadge: some View {
+        Text(connectionLabel)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(connectionColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(connectionColor.opacity(0.12))
+            )
+            .lineLimit(1)
     }
 
     private var sectionPicker: some View {

@@ -143,7 +143,8 @@ private struct WidgetBrowserTile: View {
             .padding(.horizontal, 4)
             .frame(width: size.dimensions.width)
         }
-        .frame(width: size.dimensions.width)
+        .frame(width: size.dimensions.width, height: size.dimensions.height + 30, alignment: .top)
+        .clipped()
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
     }

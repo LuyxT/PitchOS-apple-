@@ -72,7 +72,25 @@ struct CashWorkspaceView: View {
     }
 
     private var toolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            expandedToolbar
+            compactToolbar
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(AppTheme.surface)
+    }
+
+    private var expandedToolbar: some View {
         HStack(spacing: 10) {
+            directActionButtons
+            Spacer(minLength: 8)
+            connectionBadge
+        }
+    }
+
+    private var compactToolbar: some View {
+        HStack(spacing: 8) {
             if dataStore.cashAccessContext.canManageTransactions {
                 Button {
                     workspaceViewModel.presentCreateTransaction(store: dataStore)
@@ -84,41 +102,72 @@ struct CashWorkspaceView: View {
                 .keyboardShortcut("n", modifiers: [.command])
             }
 
-            if dataStore.cashAccessContext.permissions.contains(.manageGoals) {
-                Button {
-                    workspaceViewModel.presentCreateGoal()
-                } label: {
-                    Label("Ziel", systemImage: "flag")
-                        .foregroundStyle(Color.black)
+            Menu("Aktionen") {
+                if dataStore.cashAccessContext.permissions.contains(.manageGoals) {
+                    Button("Ziel hinzufügen") {
+                        workspaceViewModel.presentCreateGoal()
+                    }
                 }
-                .buttonStyle(SecondaryActionButtonStyle())
-            }
-
-            if dataStore.cashAccessContext.permissions.contains(.manageContributions) {
-                Button {
-                    Task { await paymentsViewModel.generateCurrentMonthContributions(store: dataStore, amount: 35) }
-                } label: {
-                    Label("Monatsbeiträge", systemImage: "calendar.badge.plus")
-                        .foregroundStyle(Color.black)
+                if dataStore.cashAccessContext.permissions.contains(.manageContributions) {
+                    Button("Monatsbeiträge erzeugen") {
+                        Task { await paymentsViewModel.generateCurrentMonthContributions(store: dataStore, amount: 35) }
+                    }
                 }
-                .buttonStyle(SecondaryActionButtonStyle())
             }
+            .menuStyle(.borderlessButton)
+            .fixedSize(horizontal: true, vertical: false)
 
-            Spacer()
-
-            Text(connectionLabel)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(connectionColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(connectionColor.opacity(0.12))
-                )
+            Spacer(minLength: 8)
+            connectionBadge
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(AppTheme.surface)
+    }
+
+    @ViewBuilder
+    private var directActionButtons: some View {
+        if dataStore.cashAccessContext.canManageTransactions {
+            Button {
+                workspaceViewModel.presentCreateTransaction(store: dataStore)
+            } label: {
+                Label("Buchung", systemImage: "plus")
+                    .foregroundStyle(Color.black)
+            }
+            .buttonStyle(PrimaryActionButtonStyle())
+            .keyboardShortcut("n", modifiers: [.command])
+        }
+
+        if dataStore.cashAccessContext.permissions.contains(.manageGoals) {
+            Button {
+                workspaceViewModel.presentCreateGoal()
+            } label: {
+                Label("Ziel", systemImage: "flag")
+                    .foregroundStyle(Color.black)
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+        }
+
+        if dataStore.cashAccessContext.permissions.contains(.manageContributions) {
+            Button {
+                Task { await paymentsViewModel.generateCurrentMonthContributions(store: dataStore, amount: 35) }
+            } label: {
+                Label("Monatsbeiträge", systemImage: "calendar.badge.plus")
+                    .foregroundStyle(Color.black)
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+        }
+    }
+
+    private var connectionBadge: some View {
+        Text(connectionLabel)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(connectionColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(connectionColor.opacity(0.12))
+            )
+            .lineLimit(1)
+            .truncationMode(.tail)
     }
 
     private var sectionPicker: some View {
@@ -151,73 +200,110 @@ struct CashWorkspaceView: View {
     }
 
     private var transactionFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                TextField("Suche", text: Binding(
-                    get: { workspaceViewModel.filter.query },
-                    set: { workspaceViewModel.applySearch($0) }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 220)
-                .foregroundStyle(Color.black)
-
-                Picker("Typ", selection: Binding(
-                    get: { workspaceViewModel.filter.transactionType },
-                    set: {
-                        workspaceViewModel.filter.transactionType = $0
-                        workspaceViewModel.transactionPage = 1
-                    }
-                )) {
-                    Text("Alle").tag(Optional<CashTransactionKind>.none)
-                    ForEach(CashTransactionKind.allCases) { type in
-                        Text(type.title).tag(Optional(type))
-                    }
-                }
-                .pickerStyle(.menu)
-                .foregroundStyle(Color.black)
-
-                Picker("Status", selection: Binding(
-                    get: { workspaceViewModel.filter.statuses.first },
-                    set: { newValue in
-                        workspaceViewModel.filter.statuses = newValue.map { [$0] } ?? []
-                        workspaceViewModel.transactionPage = 1
-                    }
-                )) {
-                    Text("Alle").tag(Optional<CashPaymentStatus>.none)
-                    ForEach(CashPaymentStatus.allCases) { status in
-                        Text(status.title).tag(Optional(status))
-                    }
-                }
-                .pickerStyle(.menu)
-                .foregroundStyle(Color.black)
-
-                Picker("Kategorie", selection: Binding(
-                    get: { workspaceViewModel.filter.categoryIDs.first },
-                    set: { newValue in
-                        workspaceViewModel.filter.categoryIDs = newValue.map { [$0] } ?? []
-                        workspaceViewModel.transactionPage = 1
-                    }
-                )) {
-                    Text("Alle Kategorien").tag(Optional<UUID>.none)
-                    ForEach(dataStore.cashCategories) { category in
-                        Text(category.name).tag(Optional(category.id))
-                    }
-                }
-                .pickerStyle(.menu)
-                .foregroundStyle(Color.black)
-
-                Button {
-                    workspaceViewModel.resetFilters()
-                } label: {
-                    Text("Filter zurücksetzen")
-                        .foregroundStyle(Color.black)
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
+        ViewThatFits(in: .horizontal) {
+            expandedFilterBar
+            compactFilterBar
         }
         .background(AppTheme.surface)
+    }
+
+    private var expandedFilterBar: some View {
+        HStack(spacing: 10) {
+            searchField
+                .frame(width: 220)
+            typePicker
+            statusPicker
+            categoryPicker
+            resetFiltersButton
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+    }
+
+    private var compactFilterBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                searchField
+                resetFiltersButton
+            }
+            HStack(spacing: 8) {
+                typePicker
+                statusPicker
+                categoryPicker
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+    }
+
+    private var searchField: some View {
+        TextField("Suche", text: Binding(
+            get: { workspaceViewModel.filter.query },
+            set: { workspaceViewModel.applySearch($0) }
+        ))
+        .textFieldStyle(.roundedBorder)
+        .foregroundStyle(Color.black)
+    }
+
+    private var typePicker: some View {
+        Picker("Typ", selection: Binding(
+            get: { workspaceViewModel.filter.transactionType },
+            set: {
+                workspaceViewModel.filter.transactionType = $0
+                workspaceViewModel.transactionPage = 1
+            }
+        )) {
+            Text("Alle").tag(Optional<CashTransactionKind>.none)
+            ForEach(CashTransactionKind.allCases) { type in
+                Text(type.title).tag(Optional(type))
+            }
+        }
+        .pickerStyle(.menu)
+        .foregroundStyle(Color.black)
+    }
+
+    private var statusPicker: some View {
+        Picker("Status", selection: Binding(
+            get: { workspaceViewModel.filter.statuses.first },
+            set: { newValue in
+                workspaceViewModel.filter.statuses = newValue.map { [$0] } ?? []
+                workspaceViewModel.transactionPage = 1
+            }
+        )) {
+            Text("Alle").tag(Optional<CashPaymentStatus>.none)
+            ForEach(CashPaymentStatus.allCases) { status in
+                Text(status.title).tag(Optional(status))
+            }
+        }
+        .pickerStyle(.menu)
+        .foregroundStyle(Color.black)
+    }
+
+    private var categoryPicker: some View {
+        Picker("Kategorie", selection: Binding(
+            get: { workspaceViewModel.filter.categoryIDs.first },
+            set: { newValue in
+                workspaceViewModel.filter.categoryIDs = newValue.map { [$0] } ?? []
+                workspaceViewModel.transactionPage = 1
+            }
+        )) {
+            Text("Alle Kategorien").tag(Optional<UUID>.none)
+            ForEach(dataStore.cashCategories) { category in
+                Text(category.name).tag(Optional(category.id))
+            }
+        }
+        .pickerStyle(.menu)
+        .foregroundStyle(Color.black)
+    }
+
+    private var resetFiltersButton: some View {
+        Button {
+            workspaceViewModel.resetFilters()
+        } label: {
+            Text("Filter zurücksetzen")
+                .foregroundStyle(Color.black)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
     }
 
     @ViewBuilder

@@ -32,31 +32,54 @@ struct SettingsView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 10) {
-            Label("System-Einstellungen", systemImage: "gearshape")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.black)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                titleLabel
 
-            Spacer()
+                Spacer(minLength: 8)
 
-            if viewModel.isBootstrapping {
-                ProgressView()
-                    .controlSize(.small)
-            }
-
-            Button {
-                Task {
-                    await bootstrap()
+                if viewModel.isBootstrapping {
+                    ProgressView()
+                        .controlSize(.small)
                 }
-            } label: {
-                Label("Aktualisieren", systemImage: "arrow.clockwise")
-                    .foregroundStyle(Color.black)
+
+                refreshButton
             }
-            .buttonStyle(SecondaryActionButtonStyle())
+
+            HStack(spacing: 8) {
+                titleLabel
+                Spacer(minLength: 8)
+                if viewModel.isBootstrapping {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                refreshButton
+                    .fixedSize(horizontal: true, vertical: false)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(AppTheme.surface)
+    }
+
+    private var titleLabel: some View {
+        Label("System-Einstellungen", systemImage: "gearshape")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Color.black)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task {
+                await bootstrap()
+            }
+        } label: {
+            Label("Aktualisieren", systemImage: "arrow.clockwise")
+                .foregroundStyle(Color.black)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
     }
 
     private var sectionBar: some View {

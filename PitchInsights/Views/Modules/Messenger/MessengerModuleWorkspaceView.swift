@@ -320,35 +320,60 @@ struct MessengerModuleWorkspaceView: View {
     }
 
     private var headerBar: some View {
-        HStack(spacing: 8) {
-            Menu("Direktchat") {
-                ForEach(dataStore.messengerUserDirectory.filter { $0.backendUserID != dataStore.messengerCurrentUser?.userID }) { participant in
-                    Button(participant.displayName) {
-                        Task {
-                            try? await dataStore.createDirectChat(participantID: participant.backendUserID)
-                            listViewModel.ensureValidSelection(chats: visibleChats)
-                        }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                directChatMenu
+                groupButton
+                Spacer(minLength: 8)
+                connectionText
+            }
+
+            HStack(spacing: 8) {
+                directChatMenu
+                Menu("Aktionen") {
+                    Button("Neue Gruppe") {
+                        showGroupCreator = true
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                Spacer(minLength: 8)
+                connectionText
+            }
+        }
+    }
+
+    private var directChatMenu: some View {
+        Menu("Direktchat") {
+            ForEach(dataStore.messengerUserDirectory.filter { $0.backendUserID != dataStore.messengerCurrentUser?.userID }) { participant in
+                Button(participant.displayName) {
+                    Task {
+                        try? await dataStore.createDirectChat(participantID: participant.backendUserID)
+                        listViewModel.ensureValidSelection(chats: visibleChats)
                     }
                 }
             }
-            .buttonStyle(SecondaryActionButtonStyle())
-
-            Button("Gruppe") {
-                showGroupCreator = true
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-            .popover(isPresented: $showGroupCreator) {
-                groupCreator
-                    .padding(12)
-                    .frame(width: 320)
-            }
-
-            Spacer()
-
-            Text(connectionLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
         }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var groupButton: some View {
+        Button("Gruppe") {
+            showGroupCreator = true
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+        .popover(isPresented: $showGroupCreator) {
+            groupCreator
+                .padding(12)
+                .frame(width: 320)
+        }
+    }
+
+    private var connectionText: some View {
+        Text(connectionLabel)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(AppTheme.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
     }
 
     private var groupCreator: some View {

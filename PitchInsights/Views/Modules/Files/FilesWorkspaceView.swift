@@ -128,43 +128,78 @@ struct FilesWorkspaceView: View {
     }
 
     private var actionButtonsRow: some View {
-        HStack(spacing: 8) {
-            Button {
-                if pendingNewFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    pendingNewFolderName = "Neuer Ordner"
-                }
-                Task {
-                    await viewModel.createFolder(name: pendingNewFolderName, store: dataStore)
-                    pendingNewFolderName = ""
-                }
-            } label: {
-                Label("Neuer Ordner", systemImage: "folder.badge.plus")
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                newFolderButton
+                uploadButton
+                refreshButton
             }
-            .buttonStyle(PrimaryActionButtonStyle())
 
-            Button {
-                isShowingImporter = true
-            } label: {
-                Label("Upload", systemImage: "arrow.up.doc")
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-
-            Button {
-                Task {
-                    await viewModel.refresh(store: dataStore)
-                    await dataStore.refreshCloudCleanupSuggestions()
+            HStack(spacing: 8) {
+                uploadButton
+                Menu("Mehr") {
+                    Button("Neuer Ordner") {
+                        if pendingNewFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            pendingNewFolderName = "Neuer Ordner"
+                        }
+                        Task {
+                            await viewModel.createFolder(name: pendingNewFolderName, store: dataStore)
+                            pendingNewFolderName = ""
+                        }
+                    }
+                    Button("Aktualisieren") {
+                        Task {
+                            await viewModel.refresh(store: dataStore)
+                            await dataStore.refreshCloudCleanupSuggestions()
+                        }
+                    }
                 }
-            } label: {
-                Label("Aktualisieren", systemImage: "arrow.clockwise")
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                .menuStyle(.borderlessButton)
+                .fixedSize(horizontal: true, vertical: false)
             }
-            .buttonStyle(SecondaryActionButtonStyle())
         }
+    }
+
+    private var newFolderButton: some View {
+        Button {
+            if pendingNewFolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pendingNewFolderName = "Neuer Ordner"
+            }
+            Task {
+                await viewModel.createFolder(name: pendingNewFolderName, store: dataStore)
+                pendingNewFolderName = ""
+            }
+        } label: {
+            Label("Neuer Ordner", systemImage: "folder.badge.plus")
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .buttonStyle(PrimaryActionButtonStyle())
+    }
+
+    private var uploadButton: some View {
+        Button {
+            isShowingImporter = true
+        } label: {
+            Label("Upload", systemImage: "arrow.up.doc")
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task {
+                await viewModel.refresh(store: dataStore)
+                await dataStore.refreshCloudCleanupSuggestions()
+            }
+        } label: {
+            Label("Aktualisieren", systemImage: "arrow.clockwise")
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
     }
 
     private var searchField: some View {
@@ -229,10 +264,29 @@ struct FilesWorkspaceView: View {
     }
 
     private var content: some View {
-        HStack(spacing: 10) {
-            folderColumn
-            filesTable
-            detailsColumn
+        GeometryReader { proxy in
+            if proxy.size.width < 1180 {
+                VStack(spacing: 10) {
+                    folderColumn
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 180)
+
+                    filesTable
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    ScrollView {
+                        detailsColumn
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    .frame(height: 250)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    folderColumn
+                    filesTable
+                    detailsColumn
+                }
+            }
         }
         .padding(12)
     }

@@ -46,20 +46,12 @@ struct TopBarView: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            appMenu
-
-            searchBar
-                .frame(maxWidth: 360)
-
-            Spacer(minLength: 6)
-
-            systemStatus
-            controlCenterMenu
-            widgetButton
+        ViewThatFits(in: .horizontal) {
+            expandedRow
+            compactRow
         }
         .padding(.horizontal, 12)
-        .frame(height: 36)
+        .padding(.vertical, 4)
         .background(AppTheme.surface.opacity(0.96))
         .overlay(
             Rectangle()
@@ -76,6 +68,38 @@ struct TopBarView: View {
             }
         }
         .zIndex(20)
+    }
+
+    private var expandedRow: some View {
+        HStack(spacing: 10) {
+            appMenu
+
+            searchBar
+                .frame(maxWidth: 360)
+
+            Spacer(minLength: 6)
+
+            systemStatus
+            controlCenterMenu
+            widgetButton
+        }
+        .frame(height: 28)
+    }
+
+    private var compactRow: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                appMenu
+                Spacer(minLength: 4)
+                systemStatus
+                widgetButton
+            }
+            HStack(spacing: 8) {
+                searchBar
+                    .frame(maxWidth: .infinity)
+                controlCenterMenu
+            }
+        }
     }
 
     private var appMenu: some View {

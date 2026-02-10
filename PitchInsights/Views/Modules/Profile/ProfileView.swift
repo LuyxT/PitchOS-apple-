@@ -8,11 +8,24 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             toolbar
             Divider()
-            HStack(spacing: 0) {
-                personListPane
-                    .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
-                Divider()
-                detailPane
+            GeometryReader { proxy in
+                if proxy.size.width < 1040 {
+                    VStack(spacing: 0) {
+                        personListPane
+                            .frame(height: max(220, min(300, proxy.size.height * 0.34)))
+                        Divider()
+                        detailPane
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    HStack(spacing: 0) {
+                        personListPane
+                            .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
+                        Divider()
+                        detailPane
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
             statusFooter
         }
@@ -24,48 +37,89 @@ struct ProfileView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 10) {
-            TextField("Person suchen", text: $viewModel.filter.search)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 240)
-                .foregroundStyle(Color.black)
-
-            Picker("Rolle", selection: $viewModel.filter.role) {
-                Text("Alle Rollen").tag(Optional<ProfileRoleType>.none)
-                ForEach(ProfileRoleType.allCases) { role in
-                    Text(role.title).tag(Optional(role))
-                }
-            }
-            .pickerStyle(.menu)
-            .frame(width: 190)
-            .foregroundStyle(Color.black)
-
-            Toggle("Inaktiv einblenden", isOn: $viewModel.filter.includeInactive)
-                .toggleStyle(.switch)
-                .foregroundStyle(Color.black)
-
-            Spacer()
-
-            Button {
-                viewModel.beginCreateProfile(defaultClubName: dataStore.profile.team)
-            } label: {
-                Label("Neu", systemImage: "plus")
-                    .foregroundStyle(Color.black)
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
-            .keyboardShortcut("n", modifiers: [.command])
-
-            Button {
-                Task { await viewModel.bootstrap(store: dataStore) }
-            } label: {
-                Label("Aktualisieren", systemImage: "arrow.clockwise")
-                    .foregroundStyle(Color.black)
-            }
-            .buttonStyle(SecondaryActionButtonStyle())
+        ViewThatFits(in: .horizontal) {
+            expandedToolbar
+            compactToolbar
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(AppTheme.surface)
+    }
+
+    private var expandedToolbar: some View {
+        HStack(spacing: 10) {
+            searchField
+                .frame(width: 240)
+
+            rolePicker
+                .frame(width: 190)
+
+            Toggle("Inaktiv einblenden", isOn: $viewModel.filter.includeInactive)
+                .toggleStyle(.switch)
+                .foregroundStyle(Color.black)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            createButton
+            refreshButton
+        }
+    }
+
+    private var compactToolbar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                searchField
+                rolePicker
+            }
+            HStack(spacing: 8) {
+                Toggle("Inaktiv einblenden", isOn: $viewModel.filter.includeInactive)
+                    .toggleStyle(.switch)
+                    .foregroundStyle(Color.black)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                createButton
+                refreshButton
+            }
+        }
+    }
+
+    private var searchField: some View {
+        TextField("Person suchen", text: $viewModel.filter.search)
+            .textFieldStyle(.roundedBorder)
+            .foregroundStyle(Color.black)
+    }
+
+    private var rolePicker: some View {
+        Picker("Rolle", selection: $viewModel.filter.role) {
+            Text("Alle Rollen").tag(Optional<ProfileRoleType>.none)
+            ForEach(ProfileRoleType.allCases) { role in
+                Text(role.title).tag(Optional(role))
+            }
+        }
+        .pickerStyle(.menu)
+        .foregroundStyle(Color.black)
+    }
+
+    private var createButton: some View {
+        Button {
+            viewModel.beginCreateProfile(defaultClubName: dataStore.profile.team)
+        } label: {
+            Label("Neu", systemImage: "plus")
+                .foregroundStyle(Color.black)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+        .keyboardShortcut("n", modifiers: [.command])
+    }
+
+    private var refreshButton: some View {
+        Button {
+            Task { await viewModel.bootstrap(store: dataStore) }
+        } label: {
+            Label("Aktualisieren", systemImage: "arrow.clockwise")
+                .foregroundStyle(Color.black)
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
     }
 
     private var personListPane: some View {

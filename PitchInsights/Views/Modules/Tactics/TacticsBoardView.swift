@@ -145,14 +145,20 @@ struct TacticsBoardView: View {
         if usesSplitLayout {
             HStack(spacing: 12) {
                 fieldPane
-                sidePane(compact: false)
-                    .frame(width: min(360, max(300, size.width * 0.3)))
+                ScrollView {
+                    sidePane(compact: false)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                }
+                .frame(width: min(360, max(300, size.width * 0.3)))
             }
         } else {
             VStack(spacing: 12) {
                 fieldPane
                     .frame(height: min(420, max(250, size.height * 0.48)))
-                sidePane(compact: true)
+                ScrollView {
+                    sidePane(compact: true)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                }
             }
         }
     }
