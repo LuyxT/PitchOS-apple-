@@ -15,19 +15,9 @@ enum AnalysisPlaybackServiceError: LocalizedError {
 }
 
 final class AnalysisPlaybackService {
-    private let videoStore: AnalysisVideoStore
-
-    init(videoStore: AnalysisVideoStore) {
-        self.videoStore = videoStore
-    }
+    init() {}
 
     func resolvedPlaybackURL(for asset: AnalysisVideoAsset, backend: BackendRepository) async throws -> URL {
-        if !asset.localRelativePath.isEmpty,
-           let localURL = videoStore.fileURL(for: asset.localRelativePath),
-           FileManager.default.fileExists(atPath: localURL.path(percentEncoded: false)) {
-            return localURL
-        }
-
         guard let videoID = asset.backendVideoID else {
             throw AnalysisPlaybackServiceError.missingVideoID
         }

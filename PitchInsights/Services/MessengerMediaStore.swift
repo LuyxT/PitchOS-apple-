@@ -41,9 +41,13 @@ enum MessengerMediaStoreError: LocalizedError {
 
 final class MessengerMediaStore {
     private let fileManager: FileManager
+    private let sessionRootURL: URL
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
+        self.sessionRootURL = fileManager.temporaryDirectory
+            .appendingPathComponent("PitchInsights", isDirectory: true)
+            .appendingPathComponent("MessengerSession-\(UUID().uuidString)", isDirectory: true)
     }
 
     func persistImportedMedia(from sourceURL: URL) throws -> PersistedMessengerMedia {
@@ -130,10 +134,7 @@ final class MessengerMediaStore {
     }
 
     private func rootDirectoryURL() throws -> URL {
-        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw MessengerMediaStoreError.appSupportUnavailable
-        }
-        let root = appSupport.appendingPathComponent("PitchInsights", isDirectory: true)
+        let root = sessionRootURL
         if !fileManager.fileExists(atPath: root.path(percentEncoded: false)) {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         }
@@ -172,4 +173,3 @@ final class MessengerMediaStore {
         return type.preferredMIMEType ?? "application/octet-stream"
     }
 }
-

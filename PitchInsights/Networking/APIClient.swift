@@ -3,6 +3,7 @@ import Foundation
 final class APIClient {
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let apiPrefix = "/api/v1"
 
     init(session: URLSession = .shared) {
         self.session = session
@@ -12,11 +13,10 @@ final class APIClient {
     }
 
     func send<T: Decodable>(_ endpoint: Endpoint, token: String? = nil) async throws -> T {
-        guard let baseURL = AppConfiguration.baseURL else {
-            throw NetworkError.invalidBaseURL
-        }
+        let baseURL = BackendConfig.baseURL
 
-        var components = URLComponents(url: baseURL.appendingPathComponent(endpoint.path), resolvingAgainstBaseURL: false)
+        let resolvedPath = normalizedPath(endpoint.path, baseURL: baseURL)
+        var components = URLComponents(url: baseURL.appendingPathComponent(resolvedPath), resolvingAgainstBaseURL: false)
         if !endpoint.queryItems.isEmpty {
             components?.queryItems = endpoint.queryItems
         }
@@ -56,6 +56,17 @@ final class APIClient {
             }
             throw NetworkError.decodingFailed(underlying: error)
         }
+    }
+
+    private func normalizedPath(_ rawPath: String, baseURL: URL) -> String {
+        let path = rawPath.hasPrefix("/") ? rawPath : "/\(rawPath)"
+        if path == "/health" || path == "/bootstrap" || path.hasPrefix("/api/") {
+            return path
+        }
+        if baseURL.path == apiPrefix || baseURL.path.hasSuffix("\(apiPrefix)/") {
+            return path
+        }
+        return "\(apiPrefix)\(path)"
     }
 }
 

@@ -3,14 +3,6 @@ import Foundation
 @MainActor
 extension AppDataStore {
     func bootstrapSettings() async {
-        seedSettingsFromCurrentState()
-
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         settingsConnectionState = .syncing
         do {
             let dto = try await backend.fetchSettingsBootstrap()
@@ -29,12 +21,6 @@ extension AppDataStore {
 
     func savePresentationSettings(_ settings: AppPresentationSettings) async throws {
         settingsPresentation = settings
-
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
 
         let request = SavePresentationSettingsRequest(
             language: settings.language.rawValue,
@@ -63,12 +49,6 @@ extension AppDataStore {
     func saveNotificationSettings(_ settings: NotificationSettingsState) async throws {
         settingsNotifications = settings
 
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         let request = SaveNotificationSettingsRequest(
             globalEnabled: settings.globalEnabled,
             modules: settings.modules.map {
@@ -94,11 +74,6 @@ extension AppDataStore {
     }
 
     func refreshSecuritySettings() async {
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            return
-        }
-
         do {
             let response = try await backend.fetchSecuritySettings()
             settingsSecurity = mapSecuritySettings(response)
@@ -111,12 +86,6 @@ extension AppDataStore {
     }
 
     func changePassword(currentPassword: String, newPassword: String) async throws {
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         let request = ChangePasswordRequest(currentPassword: currentPassword, newPassword: newPassword)
         do {
             _ = try await backend.changePassword(request)
@@ -132,12 +101,6 @@ extension AppDataStore {
     func updateTwoFactor(enabled: Bool) async throws {
         settingsSecurity.twoFactorEnabled = enabled
 
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         do {
             let response = try await backend.updateTwoFactor(UpdateTwoFactorRequest(enabled: enabled))
             settingsSecurity = mapSecuritySettings(response)
@@ -152,12 +115,6 @@ extension AppDataStore {
 
     func revokeSecuritySession(_ session: SecuritySessionInfo) async throws {
         settingsSecurity.sessions.removeAll { $0.id == session.id }
-
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
 
         guard let backendID = session.backendID else {
             throw SettingsStoreError.missingBackendID
@@ -178,12 +135,6 @@ extension AppDataStore {
     func revokeAllSecuritySessions() async throws {
         settingsSecurity.sessions = settingsSecurity.sessions.filter(\.isCurrentDevice)
 
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         do {
             let response = try await backend.revokeAllSessions()
             settingsSecurity = mapSecuritySettings(response)
@@ -197,12 +148,6 @@ extension AppDataStore {
     }
 
     func refreshAppInfoSettings() async {
-        seedAppInfoFromBundle()
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            return
-        }
-
         do {
             let response = try await backend.fetchAppInfoSettings()
             settingsAppInfo = mapAppInfoSettings(response)
@@ -215,12 +160,6 @@ extension AppDataStore {
     }
 
     func submitSettingsFeedback(_ payload: SettingsFeedbackPayload) async throws {
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         let request = SubmitSettingsFeedbackRequest(
             category: payload.category,
             message: payload.message,
@@ -253,12 +192,6 @@ extension AppDataStore {
         }
         settingsAccount.selectedContextID = contextID
 
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         guard let backendID = context.backendID else {
             throw SettingsStoreError.missingBackendID
         }
@@ -285,12 +218,6 @@ extension AppDataStore {
             throw SettingsStoreError.notAllowed
         }
 
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
-        }
-
         do {
             _ = try await backend.deactivateAccount()
             settingsConnectionState = .live
@@ -305,12 +232,6 @@ extension AppDataStore {
     func leaveCurrentTeam() async throws {
         guard settingsAccount.canLeaveTeam else {
             throw SettingsStoreError.notAllowed
-        }
-
-        if AppConfiguration.isPlaceholder {
-            settingsConnectionState = .placeholder
-            settingsLastErrorMessage = nil
-            return
         }
 
         do {

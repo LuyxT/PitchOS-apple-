@@ -24,56 +24,11 @@ final class AppState: ObservableObject {
     @Published var workspaceSize: CGSize = .zero
     @Published var pendingAnalysisClipReference: MessengerClipReference?
 
-    private let defaults: UserDefaults = .standard
-    private var cancellables: Set<AnyCancellable> = []
     private var nextZIndex: Double = 1
 
     init() {
-        if let storedItems = defaults.string(forKey: "state.desktopItems"),
-           let data = storedItems.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode([DesktopItem].self, from: data) {
-            desktopItems = sanitizeDesktopItems(decoded)
-        } else if let storedDesktop = defaults.string(forKey: "state.desktopApps") {
-            let modules = storedDesktop.split(separator: ",").compactMap { Module.from(id: String($0)) }
-            desktopItems = modules.map { DesktopItem.module($0) }
-        }
-
-        let restoredActiveID = defaults.string(forKey: "state.activeModuleID") ?? Module.trainerProfil.id
-        activeModule = Module.from(id: restoredActiveID) ?? .trainerProfil
-
-        $activeModule
-            .dropFirst()
-            .sink { [weak self] module in
-                self?.defaults.set(module.id, forKey: "state.activeModuleID")
-            }
-            .store(in: &cancellables)
-
-        $desktopItems
-            .dropFirst()
-            .sink { [weak self] modules in
-                guard let data = try? JSONEncoder().encode(modules),
-                      let storage = String(data: data, encoding: .utf8) else { return }
-                self?.defaults.set(storage, forKey: "state.desktopItems")
-            }
-            .store(in: &cancellables)
-    }
-
-    private func sanitizeDesktopItems(_ items: [DesktopItem]) -> [DesktopItem] {
-        items.compactMap { item in
-            var sanitized = item
-            switch sanitized.type {
-            case .module:
-                return sanitized.module != nil ? sanitized : nil
-            case .widget:
-                guard sanitized.module != nil else { return nil }
-                if DesktopWidgetSize(rawValue: sanitized.widgetSizeRaw ?? "") == nil {
-                    sanitized.widgetSize = .medium
-                }
-                return sanitized
-            case .folder:
-                return sanitized
-            }
-        }
+        activeModule = .trainerProfil
+        desktopItems = []
     }
 
     func setActive(_ module: Module) {

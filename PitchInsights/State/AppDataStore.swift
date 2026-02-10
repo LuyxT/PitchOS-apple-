@@ -37,6 +37,17 @@ enum AnalysisStoreError: LocalizedError {
     }
 }
 
+enum BootstrapCheckError: LocalizedError, Equatable {
+    case timeout
+
+    var errorDescription: String? {
+        switch self {
+        case .timeout:
+            return "Timeout beim Backend-Check"
+        }
+    }
+}
+
 @MainActor
 final class AppDataStore: ObservableObject {
     let backend: BackendRepository
@@ -58,192 +69,41 @@ final class AppDataStore: ObservableObject {
     var messengerRealtimeCursor: String?
     var messengerReconnectAttempt = 0
 
-    @Published var backendConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var backendConnectionState: BackendConnectionState = .syncing
 
     @Published var profile: CoachProfile = CoachProfile(
-        name: "Tyler Tenger",
-        license: "UEFA B",
-        team: "1. Mannschaft",
-        seasonGoal: "Aufstieg sichern"
+        name: "",
+        license: "",
+        team: "",
+        seasonGoal: ""
     )
     @Published var personProfiles: [PersonProfile] = []
     @Published var profileAuditEntries: [ProfileAuditEntry] = []
     @Published var activePersonProfileID: UUID?
-    @Published var profileConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var profileConnectionState: BackendConnectionState = .syncing
     @Published var settingsPresentation: AppPresentationSettings = .default
     @Published var settingsNotifications: NotificationSettingsState = .default
     @Published var settingsSecurity: SecuritySettingsState = .default
     @Published var settingsAppInfo: AppInfoState = .default
     @Published var settingsAccount: AccountSettingsState = .default
-    @Published var settingsConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var settingsConnectionState: BackendConnectionState = .syncing
     @Published var settingsLastErrorMessage: String?
     @Published var cloudFolders: [CloudFolder] = []
     @Published var cloudFiles: [CloudFile] = []
     @Published var cloudUsage: TeamStorageUsage = .default
     @Published var cloudUploads: [CloudUploadProgress] = []
     @Published var cloudFileNextCursor: String?
-    @Published var cloudConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var cloudConnectionState: BackendConnectionState = .syncing
     @Published var cloudLastErrorMessage: String?
     @Published var cloudLargestFiles: [CloudFile] = []
     @Published var cloudOldFiles: [CloudFile] = []
     @Published var selectedCloudFileID: UUID?
     @Published var cloudActiveFolderID: UUID?
 
-    @Published var players: [Player] = [
-        Player(
-            id: UUID(),
-            name: "Luca Meyer",
-            number: 7,
-            position: "RA",
-            status: .fit,
-            dateOfBirth: Calendar.current.date(byAdding: .year, value: -22, to: Date()),
-            secondaryPositions: [.la, .st],
-            heightCm: 178,
-            weightKg: 72,
-            preferredFoot: .right,
-            teamName: "1. Mannschaft",
-            squadStatus: .active,
-            joinedAt: Calendar.current.date(byAdding: .year, value: -3, to: Date()),
-            roles: ["Pressing", "Standards"],
-            groups: ["Offensive"],
-            injuryStatus: "",
-            notes: "Explosiv im Eins-gegen-Eins",
-            developmentGoals: "Abschluss unter Druck"
-        ),
-        Player(
-            id: UUID(),
-            name: "Jonas Krüger",
-            number: 10,
-            position: "OM",
-            status: .fit,
-            dateOfBirth: Calendar.current.date(byAdding: .year, value: -24, to: Date()),
-            secondaryPositions: [.zm],
-            heightCm: 181,
-            weightKg: 75,
-            preferredFoot: .both,
-            teamName: "1. Mannschaft",
-            squadStatus: .active,
-            joinedAt: Calendar.current.date(byAdding: .year, value: -4, to: Date()),
-            roles: ["Captain"],
-            groups: ["Mittelfeld"],
-            injuryStatus: "",
-            notes: "Taktisch sehr stabil",
-            developmentGoals: "Vertikale Pässe"
-        ),
-        Player(
-            id: UUID(),
-            name: "Nico Baum",
-            number: 4,
-            position: "IV",
-            status: .unavailable,
-            dateOfBirth: Calendar.current.date(byAdding: .year, value: -27, to: Date()),
-            secondaryPositions: [.dm],
-            heightCm: 188,
-            weightKg: 82,
-            preferredFoot: .left,
-            teamName: "1. Mannschaft",
-            squadStatus: .rehab,
-            joinedAt: Calendar.current.date(byAdding: .year, value: -5, to: Date()),
-            roles: ["Aufbau"],
-            groups: ["Defensive"],
-            injuryStatus: "Oberschenkel, Rückkehr in 2 Wochen",
-            notes: "Belastung aktuell reduziert",
-            developmentGoals: "Reha-Progression"
-        ),
-        Player(
-            id: UUID(),
-            name: "Timo Wagner",
-            number: 1,
-            position: "TW",
-            status: .fit,
-            dateOfBirth: Calendar.current.date(byAdding: .year, value: -29, to: Date()),
-            secondaryPositions: [],
-            heightCm: 192,
-            weightKg: 86,
-            preferredFoot: .right,
-            teamName: "1. Mannschaft",
-            squadStatus: .active,
-            joinedAt: Calendar.current.date(byAdding: .year, value: -6, to: Date()),
-            roles: ["Captain"],
-            groups: ["Defensive"],
-            injuryStatus: "",
-            notes: "Starke Strafraumbeherrschung",
-            developmentGoals: "Spielaufbau unter Pressing"
-        ),
-        Player(
-            id: UUID(),
-            name: "Adrian Wolf",
-            number: 9,
-            position: "ST",
-            status: .limited,
-            dateOfBirth: Calendar.current.date(byAdding: .year, value: -21, to: Date()),
-            secondaryPositions: [.la, .ra],
-            heightCm: 184,
-            weightKg: 78,
-            preferredFoot: .right,
-            teamName: "1. Mannschaft",
-            squadStatus: .prospect,
-            joinedAt: Calendar.current.date(byAdding: .year, value: -1, to: Date()),
-            roles: ["Umschalten"],
-            groups: ["Offensive"],
-            injuryStatus: "Sprunggelenk leicht angeschlagen",
-            notes: "Belastung anpassen",
-            developmentGoals: "Abstimmung Tiefenlauf"
-        )
-    ]
-
-    @Published var calendarCategories: [CalendarCategory] = [
-        CalendarCategory.training,
-        CalendarCategory.match
-    ]
-
-    @Published var calendarEvents: [CalendarEvent] = [
-        CalendarEvent(
-            id: UUID(),
-            title: "Teammeeting",
-            startDate: Date().addingTimeInterval(3600),
-            endDate: Date().addingTimeInterval(3600 * 2),
-            categoryID: CalendarCategory.training.id,
-            visibility: .team,
-            audience: .team,
-            audiencePlayerIDs: [],
-            recurrence: .none,
-            location: "Raum A",
-            notes: ""
-        ),
-        CalendarEvent(
-            id: UUID(),
-            title: "Training",
-            startDate: Date().addingTimeInterval(3600 * 6),
-            endDate: Date().addingTimeInterval(3600 * 7.5),
-            categoryID: CalendarCategory.training.id,
-            visibility: .team,
-            audience: .team,
-            audiencePlayerIDs: [],
-            recurrence: .weekly,
-            location: "Platz 1",
-            notes: ""
-        ),
-        CalendarEvent(
-            id: UUID(),
-            title: "Spieltag",
-            startDate: Date().addingTimeInterval(3600 * 24 * 2),
-            endDate: Date().addingTimeInterval(3600 * 24 * 2.5),
-            categoryID: CalendarCategory.match.id,
-            visibility: .team,
-            audience: .team,
-            audiencePlayerIDs: [],
-            recurrence: .none,
-            location: "Heim",
-            notes: ""
-        )
-    ]
-
-    @Published var trainings: [TrainingSession] = [
-        TrainingSession(title: "Aufbau & Pressing", date: Date().addingTimeInterval(3600 * 24), focus: "Taktik"),
-        TrainingSession(title: "Athletik Zirkel", date: Date().addingTimeInterval(3600 * 48), focus: "Athletik"),
-        TrainingSession(title: "Standards", date: Date().addingTimeInterval(3600 * 72), focus: "Standards")
-    ]
+    @Published var players: [Player] = []
+    @Published var calendarCategories: [CalendarCategory] = [CalendarCategory.training, CalendarCategory.match]
+    @Published var calendarEvents: [CalendarEvent] = []
+    @Published var trainings: [TrainingSession] = []
 
     @Published var trainingPlans: [TrainingPlan] = []
     @Published var trainingPhasesByPlan: [UUID: [TrainingPhase]] = [:]
@@ -255,19 +115,11 @@ final class AppDataStore: ObservableObject {
     @Published var trainingAvailabilityByPlan: [UUID: [TrainingAvailabilitySnapshot]] = [:]
     @Published var trainingDeviationsByPlan: [UUID: [TrainingLiveDeviation]] = [:]
     @Published var activeTrainingPlanID: UUID?
-    @Published var trainingConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .failed("Backend für Trainingsplanung erforderlich.") : .syncing
+    @Published var trainingConnectionState: BackendConnectionState = .syncing
     @Published var trainingFilterAssignedCoachID: String?
 
-    @Published var matches: [MatchInfo] = [
-        MatchInfo(opponent: "SV Süd", date: Date().addingTimeInterval(3600 * 24 * 3), homeAway: "Heim"),
-        MatchInfo(opponent: "TSV Nord", date: Date().addingTimeInterval(3600 * 24 * 10), homeAway: "Auswärts")
-    ]
-
-    @Published var threads: [MessageThread] = [
-        MessageThread(title: "Teamchat", lastMessage: "Training beginnt 18:00", unreadCount: 3),
-        MessageThread(title: "Trainerstab", lastMessage: "Analyse-Meeting morgen", unreadCount: 1),
-        MessageThread(title: "Medical", lastMessage: "Update zu Nico", unreadCount: 0)
-    ]
+    @Published var matches: [MatchInfo] = []
+    @Published var threads: [MessageThread] = []
 
     @Published var messengerCurrentUser: MessengerCurrentUser?
     @Published var messengerUserDirectory: [MessengerParticipant] = []
@@ -275,26 +127,18 @@ final class AppDataStore: ObservableObject {
     @Published var messengerArchivedChats: [MessengerChat] = []
     @Published var messengerMessagesByChat: [UUID: [MessengerMessage]] = [:]
     @Published var messengerSearchResults: [MessengerSearchResult] = []
-    @Published var messengerConnectionState: MessengerConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .disconnected
+    @Published var messengerConnectionState: MessengerConnectionState = .disconnected
     @Published var messengerOutboxCount: Int = 0
     @Published var messengerChatNextCursor: String?
     @Published var messengerMessageNextCursorByChat: [UUID: String] = [:]
 
-    @Published var feedbackEntries: [FeedbackEntry] = [
-        FeedbackEntry(player: "Luca Meyer", summary: "Stark im Umschaltspiel", date: Date().addingTimeInterval(-3600 * 24)),
-        FeedbackEntry(player: "Nico Baum", summary: "Reha-Plan aktualisiert", date: Date().addingTimeInterval(-3600 * 48))
-    ]
-
-    @Published var transactions: [TransactionEntry] = [
-        TransactionEntry(title: "Mitgliedsbeiträge", amount: 300, date: Date().addingTimeInterval(-3600 * 24 * 3), type: .income),
-        TransactionEntry(title: "Ballpaket", amount: -120, date: Date().addingTimeInterval(-3600 * 24 * 7), type: .expense),
-        TransactionEntry(title: "Platzmiete", amount: -80, date: Date().addingTimeInterval(-3600 * 24 * 12), type: .expense)
-    ]
+    @Published var feedbackEntries: [FeedbackEntry] = []
+    @Published var transactions: [TransactionEntry] = []
     @Published var cashTransactions: [CashTransaction] = []
     @Published var cashCategories: [CashCategory] = []
     @Published var cashMonthlyContributions: [MonthlyContribution] = []
     @Published var cashGoals: [CashGoal] = []
-    @Published var cashConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var cashConnectionState: BackendConnectionState = .syncing
     @Published var cashTransactionsNextCursor: String?
     @Published var cashLastErrorMessage: String?
     @Published var cashAccessContext: CashAccessContext = CashAccessContext(
@@ -303,16 +147,8 @@ final class AppDataStore: ObservableObject {
         currentPlayerID: nil
     )
 
-    @Published var files: [FileItem] = [
-        FileItem(name: "Saisonplan.pdf", category: "Dokumente"),
-        FileItem(name: "Analyse_vs_SV_Sued.mp4", category: "Videos"),
-        FileItem(name: "Kaderliste.xlsx", category: "Tabellen")
-    ]
-
-    @Published var tactics: [TacticBoard] = [
-        TacticBoard(title: "4-3-3 Pressing", detail: "Hoher Block"),
-        TacticBoard(title: "Standards Ecken", detail: "Zonenlauf")
-    ]
+    @Published var files: [FileItem] = []
+    @Published var tactics: [TacticBoard] = []
     @Published var tacticsScenarios: [TacticsScenario] = []
     @Published var tacticsBoardStates: [UUID: TacticsBoardState] = [:]
     @Published var activeTacticsScenarioID: UUID?
@@ -326,10 +162,7 @@ final class AppDataStore: ObservableObject {
     @Published var activeAnalysisSessionID: UUID?
     @Published var sharedClipReferences: [SharedClipReference] = []
 
-    @Published var adminTasks: [AdminTask] = [
-        AdminTask(title: "Spielerpass verlängern", due: "15.02."),
-        AdminTask(title: "Lizenzdokumente", due: "28.02.")
-    ]
+    @Published var adminTasks: [AdminTask] = []
     @Published var adminPersons: [AdminPerson] = []
     @Published var adminGroups: [AdminGroup] = []
     @Published var adminInvitations: [AdminInvitation] = []
@@ -338,7 +171,7 @@ final class AppDataStore: ObservableObject {
     @Published var activeAdminSeasonID: UUID?
     @Published var adminClubSettings: AdminClubSettings = .default
     @Published var adminMessengerRules: AdminMessengerRules = .default
-    @Published var adminConnectionState: BackendConnectionState = AppConfiguration.isPlaceholder ? .placeholder : .syncing
+    @Published var adminConnectionState: BackendConnectionState = .syncing
 
     init() {
         let client = APIClient()
@@ -348,26 +181,17 @@ final class AppDataStore: ObservableObject {
         cloudFileSyncService = CloudFileSyncService(backend: backend)
         fileOpenRouter = FileOpenRouter()
         analysisVideoStore = AnalysisVideoStore()
-        analysisPlaybackService = AnalysisPlaybackService(videoStore: analysisVideoStore)
+        analysisPlaybackService = AnalysisPlaybackService()
         analysisSyncService = AnalysisSyncService(backend: backend)
         messengerSyncService = MessengerSyncService(backend: backend)
         messengerOutboxStore = MessengerOutboxStore()
         messengerMediaStore = MessengerMediaStore()
         messengerRealtimeService = MessengerRealtimeService()
         configureMessengerRealtimeCallbacks()
-        seedMessengerPlaceholderData()
-        ensureDefaultTacticsScenario()
-        seedAdminPlaceholderDataIfNeeded()
-        seedCashPlaceholderDataIfNeeded()
-        seedProfilesFromCurrentStateIfNeeded(forceRebuild: true)
-        seedSettingsFromCurrentState()
+        clearSeededDataForBackendOnlyMode()
     }
 
     func refreshFromBackend() async {
-        guard !AppConfiguration.isPlaceholder else {
-            backendConnectionState = .placeholder
-            return
-        }
         backendConnectionState = .syncing
         do {
             let profileDTO = try await backend.fetchProfile()
@@ -453,20 +277,69 @@ final class AppDataStore: ObservableObject {
                 if let profileAuditDTO {
                     profileAuditEntries = profileAuditDTO.map(mapProfileAuditEntry(_:))
                 }
-            } else {
-                seedProfilesFromCurrentStateIfNeeded(forceRebuild: true)
             }
             syncLegacyCoachProfileFromProfiles()
             backendConnectionState = .live
         } catch {
+            clearSeededDataForBackendOnlyMode()
             backendConnectionState = .failed(error.localizedDescription)
         }
     }
 
-    func refreshCalendar() async {
-        guard !AppConfiguration.isPlaceholder else {
-            return
+    func checkBackendBootstrap() async -> Bool {
+        print("[client] bootstrap start")
+        do {
+            let response: BackendBootstrapResponse = try await withBootstrapTimeout(seconds: 10) { [self] in
+                try await self.backend.bootstrapCheck()
+            }
+            let normalized = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if normalized == "ok" {
+                print("[client] bootstrap success")
+                return true
+            }
+            print("[client] bootstrap failed: invalid status \(response.status)")
+            return true
+        } catch {
+            print("[client] bootstrap failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed("Backend nicht erreichbar")
+                return false
+            }
+            return true
         }
+    }
+
+    private func withBootstrapTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw BootstrapCheckError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+
+    private func isConnectivityFailure(_ error: Error) -> Bool {
+        if let timeout = error as? BootstrapCheckError, timeout == .timeout {
+            return true
+        }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .timedOut:
+                return true
+            default:
+                return false
+            }
+        }
+        return false
+    }
+
+    func refreshCalendar() async {
         do {
             let eventsDTO = try await backend.fetchCalendarEvents()
             let categoriesDTO = try await backend.fetchCalendarCategories()
@@ -514,36 +387,17 @@ final class AppDataStore: ObservableObject {
             location: draft.location,
             notes: draft.notes
         )
-        calendarEvents.append(event)
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let request = CreateCalendarEventRequest(from: event)
             _ = try await backend.createCalendarEvent(request)
+            await refreshCalendar()
         } catch {
-            // Keep local event if backend fails.
+            backendConnectionState = .failed(error.localizedDescription)
         }
     }
 
     @MainActor
     func updateCalendarEvent(id: UUID, draft: CalendarEventDraft) async {
-        if let index = calendarEvents.firstIndex(where: { $0.id == id }) {
-            calendarEvents[index] = CalendarEvent(
-                id: id,
-                title: draft.title,
-                startDate: draft.startDate,
-                endDate: draft.endDate,
-                categoryID: draft.categoryID,
-                visibility: draft.visibility,
-                audience: draft.audience,
-                audiencePlayerIDs: draft.audiencePlayerIDs,
-                recurrence: draft.recurrence,
-                location: draft.location,
-                notes: draft.notes
-            )
-        }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let request = UpdateCalendarEventRequest(
                 title: draft.title,
@@ -562,19 +416,19 @@ final class AppDataStore: ObservableObject {
                 playerVisibleDurationMinutes: nil
             )
             _ = try await backend.updateCalendarEvent(id: id, request: request)
+            await refreshCalendar()
         } catch {
-            // Keep local update on failure.
+            backendConnectionState = .failed(error.localizedDescription)
         }
     }
 
     @MainActor
     func deleteCalendarEvent(id: UUID) async {
-        calendarEvents.removeAll { $0.id == id }
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             _ = try await backend.deleteCalendarEvent(id: id)
+            await refreshCalendar()
         } catch {
-            // Ignore delete failure for now.
+            backendConnectionState = .failed(error.localizedDescription)
         }
     }
 
@@ -593,14 +447,12 @@ final class AppDataStore: ObservableObject {
             location: event.location,
             notes: event.notes
         )
-        calendarEvents.append(copy)
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let request = CreateCalendarEventRequest(from: copy)
             _ = try await backend.createCalendarEvent(request)
+            await refreshCalendar()
         } catch {
-            // Keep local copy on failure.
+            backendConnectionState = .failed(error.localizedDescription)
         }
     }
 
@@ -651,10 +503,13 @@ final class AppDataStore: ObservableObject {
             )
         }
         let persistedVideo = try analysisVideoStore.persistImportedVideo(from: sourceURL)
+        defer {
+            analysisVideoStore.removeVideo(relativePath: persistedVideo.localRelativePath)
+        }
         var videoAsset = AnalysisVideoAsset(
             cloudFileID: cloudFile.id,
             originalFilename: persistedVideo.originalFilename,
-            localRelativePath: persistedVideo.localRelativePath,
+            localRelativePath: "",
             fileSize: persistedVideo.fileSize,
             mimeType: persistedVideo.mimeType,
             sha256: persistedVideo.sha256,
@@ -662,17 +517,11 @@ final class AppDataStore: ObservableObject {
         )
 
         do {
-            if AppConfiguration.isPlaceholder {
-                videoAsset.syncState = AnalysisSyncState.synced
-                videoAsset.uploadedAt = Date()
-            } else {
-                let registerResponse = try await analysisSyncService.registerUploadAndCompleteVideo(persistedVideo)
-                videoAsset.backendVideoID = registerResponse.videoID
-                videoAsset.uploadedAt = Date()
-                videoAsset.syncState = AnalysisSyncState.synced
-            }
+            let registerResponse = try await analysisSyncService.registerUploadAndCompleteVideo(persistedVideo)
+            videoAsset.backendVideoID = registerResponse.videoID
+            videoAsset.uploadedAt = Date()
+            videoAsset.syncState = AnalysisSyncState.synced
         } catch {
-            analysisVideoStore.removeVideo(relativePath: persistedVideo.localRelativePath)
             throw error
         }
 
@@ -685,27 +534,22 @@ final class AppDataStore: ObservableObject {
         )
 
         do {
-            if AppConfiguration.isPlaceholder {
-                session.syncState = AnalysisSyncState.synced
-            } else {
-                guard let backendVideoID = videoAsset.backendVideoID else {
-                    throw AnalysisStoreError.backendIdentifierMissing
-                }
-                let dto = try await analysisSyncService.createSession(
-                    CreateAnalysisSessionRequest(
-                        videoID: backendVideoID,
-                        title: trimmedTitle,
-                        matchID: matchID,
-                        teamID: teamID
-                    )
-                )
-                session.backendSessionID = dto.id
-                session.createdAt = dto.createdAt
-                session.updatedAt = dto.updatedAt
-                session.syncState = AnalysisSyncState.synced
+            guard let backendVideoID = videoAsset.backendVideoID else {
+                throw AnalysisStoreError.backendIdentifierMissing
             }
+            let dto = try await analysisSyncService.createSession(
+                CreateAnalysisSessionRequest(
+                    videoID: backendVideoID,
+                    title: trimmedTitle,
+                    matchID: matchID,
+                    teamID: teamID
+                )
+                )
+            session.backendSessionID = dto.id
+            session.createdAt = dto.createdAt
+            session.updatedAt = dto.updatedAt
+            session.syncState = AnalysisSyncState.synced
         } catch {
-            analysisVideoStore.removeVideo(relativePath: persistedVideo.localRelativePath)
             throw error
         }
 
@@ -1703,6 +1547,76 @@ final class AppDataStore: ObservableObject {
             }
         }
         return true
+    }
+
+    private func clearSeededDataForBackendOnlyMode() {
+        profile = CoachProfile(name: "", license: "", team: "", seasonGoal: "")
+        personProfiles = []
+        profileAuditEntries = []
+        activePersonProfileID = nil
+
+        players = []
+        calendarCategories = [CalendarCategory.training, CalendarCategory.match]
+        calendarEvents = []
+        trainings = []
+        trainingPlans = []
+        trainingPhasesByPlan = [:]
+        trainingExercisesByPhase = [:]
+        trainingGroupsByPlan = [:]
+        trainingBriefingsByGroup = [:]
+        trainingReportsByPlan = [:]
+        trainingTemplates = []
+        trainingAvailabilityByPlan = [:]
+        trainingDeviationsByPlan = [:]
+        activeTrainingPlanID = nil
+
+        matches = []
+        threads = []
+        feedbackEntries = []
+        transactions = []
+        files = []
+        tactics = []
+        tacticsScenarios = []
+        tacticsBoardStates = [:]
+        activeTacticsScenarioID = nil
+
+        analysisVideoAssets = []
+        analysisSessions = []
+        analysisMarkers = []
+        analysisClips = []
+        analysisDrawings = []
+        activeAnalysisSessionID = nil
+        sharedClipReferences = []
+
+        messengerCurrentUser = nil
+        messengerUserDirectory = []
+        messengerChats = []
+        messengerArchivedChats = []
+        messengerMessagesByChat = [:]
+        messengerSearchResults = []
+        messengerOutboxItems = []
+        messengerOutboxCount = 0
+        messengerChatNextCursor = nil
+        messengerMessageNextCursorByChat = [:]
+        messengerRealtimeCursor = nil
+
+        cloudFolders = []
+        cloudFiles = []
+        cloudUsage = .default
+        cloudUploads = []
+        cloudFileNextCursor = nil
+        cloudLargestFiles = []
+        cloudOldFiles = []
+        selectedCloudFileID = nil
+        cloudActiveFolderID = nil
+
+        adminTasks = []
+        adminPersons = []
+        adminGroups = []
+        adminInvitations = []
+        adminAuditEntries = []
+        adminSeasons = []
+        activeAdminSeasonID = nil
     }
 }
 

@@ -1,5 +1,16 @@
 import Foundation
 
+struct BackendHealthResponse: Decodable {
+    var status: String
+}
+
+struct BackendBootstrapResponse: Decodable {
+    var status: String
+    var service: String
+    var version: String
+    var time: String
+}
+
 final class BackendRepository {
     private let client: APIClient
     private let auth: AuthService
@@ -838,6 +849,14 @@ final class BackendRepository {
 
     func leaveCurrentTeam() async throws -> EmptyResponse {
         try await sendAuthorized(.post("/settings/account/leave-team"))
+    }
+
+    func healthCheck() async throws -> BackendHealthResponse {
+        try await client.send(.get("/health"))
+    }
+
+    func bootstrapCheck() async throws -> BackendBootstrapResponse {
+        try await client.send(.get("/bootstrap"))
     }
 
     func logoutCurrentSession() {

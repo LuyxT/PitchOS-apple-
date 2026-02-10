@@ -39,9 +39,13 @@ enum CloudFileStoreError: LocalizedError {
 
 final class CloudFileStore {
     private let fileManager: FileManager
+    private let sessionRootURL: URL
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
+        self.sessionRootURL = fileManager.temporaryDirectory
+            .appendingPathComponent("PitchInsights", isDirectory: true)
+            .appendingPathComponent("CloudSession-\(UUID().uuidString)", isDirectory: true)
     }
 
     func persistImportedFile(from sourceURL: URL) throws -> PersistedCloudImport {
@@ -135,10 +139,7 @@ final class CloudFileStore {
     }
 
     private func rootDirectoryURL() throws -> URL {
-        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw CloudFileStoreError.appSupportUnavailable
-        }
-        let root = appSupport.appendingPathComponent("PitchInsights", isDirectory: true)
+        let root = sessionRootURL
         if !fileManager.fileExists(atPath: root.path(percentEncoded: false)) {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         }

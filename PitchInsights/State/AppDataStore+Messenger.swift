@@ -7,12 +7,6 @@ extension AppDataStore {
         messengerOutboxCount = messengerOutboxItems.count
         startMessengerOutboxRetryLoop()
 
-        if AppConfiguration.isPlaceholder {
-            messengerConnectionState = .placeholder
-            seedMessengerPlaceholderData()
-            return
-        }
-
         do {
             let me = try await messengerSyncService.fetchAuthMe()
             messengerCurrentUser = MessengerCurrentUser(
@@ -34,10 +28,6 @@ extension AppDataStore {
     }
 
     func reconnectMessengerRealtimeIfNeeded() async {
-        guard !AppConfiguration.isPlaceholder else {
-            messengerConnectionState = .placeholder
-            return
-        }
         if case .connected = messengerConnectionState {
             return
         }
@@ -45,23 +35,6 @@ extension AppDataStore {
     }
 
     func loadChats(cursor: String?, includeArchived: Bool, query: String?) async {
-        if AppConfiguration.isPlaceholder {
-            if messengerChats.isEmpty && messengerArchivedChats.isEmpty {
-                seedMessengerPlaceholderData()
-            }
-            let source = includeArchived ? messengerArchivedChats : messengerChats
-            let needle = (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if !needle.isEmpty {
-                if includeArchived {
-                    messengerArchivedChats = source.filter { $0.title.lowercased().contains(needle) }
-                } else {
-                    messengerChats = source.filter { $0.title.lowercased().contains(needle) || $0.lastMessagePreview.lowercased().contains(needle) }
-                }
-            }
-            messengerChatNextCursor = nil
-            return
-        }
-
         do {
             let page = try await messengerSyncService.fetchChats(
                 cursor: cursor,
@@ -79,11 +52,6 @@ extension AppDataStore {
 
     func loadMessages(chatID: UUID, before: Date?, limit: Int) async {
         guard let chat = messengerChatByLocalID(chatID) else { return }
-
-        if AppConfiguration.isPlaceholder {
-            messengerMessagesByChat[chatID] = (messengerMessagesByChat[chatID] ?? []).sorted { $0.createdAt < $1.createdAt }
-            return
-        }
 
         let cursor: String?
         if let before {
@@ -103,19 +71,6 @@ extension AppDataStore {
     }
 
     func createDirectChat(participantID: String) async throws {
-        if AppConfiguration.isPlaceholder {
-            let participant = messengerUserDirectory.first(where: { $0.backendUserID == participantID })
-            let title = participant?.displayName ?? "Direktchat"
-            let chat = MessengerChat(
-                backendChatID: "local.chat.\(UUID().uuidString)",
-                title: title,
-                type: .direct,
-                participants: [messengerSelfParticipant(), participant].compactMap { $0 },
-                writePermission: .allMembers
-            )
-            messengerChats.insert(chat, at: 0)
-            return
-        }
         let dto = try await messengerSyncService.createDirectChat(participantUserID: participantID)
         let chat = mapMessengerChat(dto: dto)
         upsertChat(chat)
@@ -127,21 +82,6 @@ extension AppDataStore {
         writePermission: MessengerChatPermission,
         temporaryUntil: Date?
     ) async throws {
-        if AppConfiguration.isPlaceholder {
-            let participants = messengerUserDirectory
-                .filter { participantUserIDs.contains($0.backendUserID) || $0.backendUserID == messengerCurrentUser?.userID }
-            let chat = MessengerChat(
-                backendChatID: "local.chat.\(UUID().uuidString)",
-                title: title,
-                type: .group,
-                participants: participants,
-                writePermission: writePermission,
-                temporaryUntil: temporaryUntil
-            )
-            messengerChats.insert(chat, at: 0)
-            return
-        }
-
         let dto = try await messengerSyncService.createGroupChat(
             title: title,
             participantUserIDs: participantUserIDs,
@@ -157,8 +97,6 @@ extension AppDataStore {
         updateLocalChat(chatID: chatID) { mutable in
             mutable.writePermission = permission
         }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         let updated = try await messengerSyncService.updateChat(
             chatID: chat.backendChatID,
             writePolicy: permission
@@ -172,8 +110,6 @@ extension AppDataStore {
         updateLocalChat(chatID: chatID) { mutable in
             mutable.pinned = newValue
         }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let dto = try await messengerSyncService.updateChat(chatID: chat.backendChatID, pinned: newValue)
             upsertChat(mapMessengerChat(dto: dto))
@@ -188,8 +124,6 @@ extension AppDataStore {
         updateLocalChat(chatID: chatID) { mutable in
             mutable.muted = newValue
         }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let dto = try await messengerSyncService.updateChat(chatID: chat.backendChatID, muted: newValue)
             upsertChat(mapMessengerChat(dto: dto))
@@ -213,8 +147,6 @@ extension AppDataStore {
             active.archived = false
             messengerChats.insert(active, at: 0)
         }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         do {
             let dto: MessengerChatDTO
             if targetArchived {
@@ -231,7 +163,7 @@ extension AppDataStore {
     func sendText(chatID: UUID, text: String, contextLabel: String?) async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let me = messengerCurrentUser ?? placeholderCurrentUser() else { return }
+        guard let me = messengerCurrentUser else { return }
 
         let message = MessengerMessage(
             chatID: chatID,
@@ -259,7 +191,7 @@ extension AppDataStore {
     }
 
     func sendMedia(chatID: UUID, fileURL: URL, contextLabel: String?) async {
-        guard let me = messengerCurrentUser ?? placeholderCurrentUser() else { return }
+        guard let me = messengerCurrentUser else { return }
         do {
             let inferredType = cloudFileStore.inferFileType(for: fileURL)
             let preferredType: CloudFileType = inferredType == .image ? .image : .video
@@ -313,7 +245,7 @@ extension AppDataStore {
     }
 
     func sendCloudFileReference(chatID: UUID, cloudFileID: UUID, contextLabel: String?) async {
-        guard let me = messengerCurrentUser ?? placeholderCurrentUser() else { return }
+        guard let me = messengerCurrentUser else { return }
         guard let cloudFile = cloudFiles.first(where: { $0.id == cloudFileID }) else { return }
 
         let type: MessengerMessageType
@@ -368,7 +300,7 @@ extension AppDataStore {
         guard let clip = analysisClips.first(where: { $0.id == clipID }),
               let session = analysisSessions.first(where: { $0.id == clip.sessionID }),
               let asset = analysisVideoAssets.first(where: { $0.id == clip.videoAssetID }),
-              let me = messengerCurrentUser ?? placeholderCurrentUser() else { return }
+              let me = messengerCurrentUser else { return }
 
         let ref = MessengerClipReference(
             backendClipID: clip.backendClipID ?? "",
@@ -413,8 +345,6 @@ extension AppDataStore {
         updateLocalChat(chatID: chatID) { mutable in
             mutable.unreadCount = 0
         }
-
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let chat = messengerChatByLocalID(chatID) else { return }
         let backendMessageID = messageID.flatMap { localID in
             messengerMessagesByChat[chatID]?.first(where: { $0.id == localID })?.backendMessageID
@@ -439,7 +369,6 @@ extension AppDataStore {
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard !AppConfiguration.isPlaceholder else { return }
 
         do {
             let remote = try await messengerSyncService.search(query: trimmed, cursor: nil, limit: 30, includeArchived: includeArchived)
@@ -486,8 +415,6 @@ extension AppDataStore {
         messengerOutboxItems.removeAll { $0.localMessageID == localMessageID }
         persistOutbox()
         updateOutboxCount()
-
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let chat = messengerChatByLocalID(chatID), let backendMessageID else { return }
         do {
             try await messengerSyncService.deleteMessage(chatID: chat.backendChatID, messageID: backendMessageID)
@@ -497,10 +424,6 @@ extension AppDataStore {
     }
 
     private func connectMessengerRealtime() async {
-        guard !AppConfiguration.isPlaceholder else {
-            messengerConnectionState = .placeholder
-            return
-        }
         guard let baseURL = AppConfiguration.baseURL else {
             messengerConnectionState = .failed("Backend-URL fehlt")
             return
@@ -626,15 +549,6 @@ extension AppDataStore {
     private func dispatchOutboxItem(_ item: MessengerOutboxItem) async throws -> MessengerMessage {
         guard let chat = messengerChatByLocalID(item.chatID) else {
             throw NSError(domain: "Messenger", code: 1, userInfo: [NSLocalizedDescriptionKey: "Chat nicht gefunden"])
-        }
-
-        if AppConfiguration.isPlaceholder {
-            guard var message = messengerMessagesByChat[item.chatID]?.first(where: { $0.id == item.localMessageID }) else {
-                throw NSError(domain: "Messenger", code: 2, userInfo: [NSLocalizedDescriptionKey: "Nachricht nicht gefunden"])
-            }
-            message.status = .sent
-            message.updatedAt = Date()
-            return message
         }
 
         switch item.payload.kind {
@@ -1101,85 +1015,8 @@ extension AppDataStore {
         messengerUserDirectory = directory
     }
 
-    func seedMessengerPlaceholderData() {
-        if messengerCurrentUser == nil {
-            messengerCurrentUser = placeholderCurrentUser()
-        }
-        if messengerUserDirectory.isEmpty {
-            buildMessengerDirectoryFromPlayers()
-        }
-        guard messengerChats.isEmpty && messengerArchivedChats.isEmpty else { return }
-
-        let me = messengerSelfParticipant()
-        let teamParticipants = ([me] + messengerUserDirectory.filter { $0.role == .player }).compactMap { $0 }
-        let teamChat = MessengerChat(
-            backendChatID: "local.chat.team",
-            title: "Teamchat",
-            type: .group,
-            participants: teamParticipants,
-            lastMessagePreview: "Training beginnt 18:00",
-            lastMessageAt: Date().addingTimeInterval(-900),
-            unreadCount: 2,
-            pinned: true,
-            muted: false,
-            archived: false,
-            writePermission: .allMembers
-        )
-        let staffChat = MessengerChat(
-            backendChatID: "local.chat.staff",
-            title: "Trainerstab",
-            type: .group,
-            participants: [me].compactMap { $0 },
-            lastMessagePreview: "Analyse morgen 08:30",
-            lastMessageAt: Date().addingTimeInterval(-3600),
-            unreadCount: 0,
-            pinned: false,
-            muted: false,
-            archived: false,
-            writePermission: .trainerOnly
-        )
-        messengerChats = [teamChat, staffChat]
-
-        if let teamChatID = messengerChats.first?.id, let me {
-            messengerMessagesByChat[teamChatID] = [
-                MessengerMessage(
-                    chatID: teamChatID,
-                    senderUserID: me.backendUserID,
-                    senderName: me.displayName,
-                    type: .text,
-                    text: "Bitte 15 Minuten vor Trainingsstart da sein.",
-                    createdAt: Date().addingTimeInterval(-3500),
-                    updatedAt: Date().addingTimeInterval(-3500),
-                    status: .read,
-                    isMine: true
-                ),
-                MessengerMessage(
-                    chatID: teamChatID,
-                    senderUserID: "player.sample",
-                    senderName: "Luca Meyer",
-                    type: .text,
-                    text: "Verstanden, ich bin 17:45 da.",
-                    createdAt: Date().addingTimeInterval(-3000),
-                    updatedAt: Date().addingTimeInterval(-3000),
-                    status: .sent,
-                    isMine: false
-                )
-            ]
-        }
-    }
-
-    private func placeholderCurrentUser() -> MessengerCurrentUser? {
-        MessengerCurrentUser(
-            userID: "trainer.local",
-            displayName: profile.name,
-            role: .trainer,
-            clubID: "club.local",
-            teamIDs: [profile.team]
-        )
-    }
-
     private func messengerSelfParticipant() -> MessengerParticipant? {
-        guard let me = messengerCurrentUser ?? placeholderCurrentUser() else { return nil }
+        guard let me = messengerCurrentUser else { return nil }
         return MessengerParticipant(
             backendUserID: me.userID,
             displayName: me.displayName,

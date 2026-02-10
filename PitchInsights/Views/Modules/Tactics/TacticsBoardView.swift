@@ -7,7 +7,7 @@ struct TacticsBoardView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var dataStore: AppDataStore
 
-    @AppStorage("tactics.playerTokenScale") private var playerTokenScale = 1.0
+    @State private var playerTokenScale = 1.0
     @StateObject private var viewModel = TacticsViewModel()
     @StateObject private var drawingViewModel = TacticsDrawingViewModel()
     @State private var isDrawingMode = false

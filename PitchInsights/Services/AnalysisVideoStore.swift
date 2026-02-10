@@ -37,9 +37,13 @@ enum AnalysisVideoStoreError: LocalizedError {
 
 final class AnalysisVideoStore {
     private let fileManager: FileManager
+    private let sessionRootURL: URL
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
+        self.sessionRootURL = fileManager.temporaryDirectory
+            .appendingPathComponent("PitchInsights", isDirectory: true)
+            .appendingPathComponent("AnalysisSession-\(UUID().uuidString)", isDirectory: true)
     }
 
     func persistImportedVideo(from sourceURL: URL) throws -> PersistedAnalysisVideo {
@@ -117,10 +121,7 @@ final class AnalysisVideoStore {
     }
 
     private func rootDirectoryURL() throws -> URL {
-        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw AnalysisVideoStoreError.appSupportUnavailable
-        }
-        let root = appSupport.appendingPathComponent("PitchInsights", isDirectory: true)
+        let root = sessionRootURL
         if !fileManager.fileExists(atPath: root.path(percentEncoded: false)) {
             try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         }

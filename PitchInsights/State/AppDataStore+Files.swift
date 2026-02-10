@@ -18,7 +18,7 @@ enum CloudFilesStoreError: LocalizedError {
         case .backendIdentifierMissing:
             return "Server-ID fehlt."
         case .noLocalVideoCache:
-            return "Video lokal nicht verfügbar."
+            return "Diese Datei muss zuerst serverseitig einer Analyse zugeordnet werden."
         }
     }
 }
@@ -26,13 +26,6 @@ enum CloudFilesStoreError: LocalizedError {
 @MainActor
 extension AppDataStore {
     func bootstrapCloudFiles() async {
-        if AppConfiguration.isPlaceholder {
-            seedCloudPlaceholderDataIfNeeded()
-            cloudConnectionState = .placeholder
-            syncLegacyFilesList()
-            return
-        }
-
         cloudConnectionState = .syncing
         do {
             let bootstrap = try await cloudFileSyncService.fetchBootstrap(teamID: activeCloudTeamID())
@@ -43,10 +36,6 @@ extension AppDataStore {
         } catch {
             cloudConnectionState = .failed(error.localizedDescription)
             cloudLastErrorMessage = error.localizedDescription
-            if cloudFolders.isEmpty {
-                seedCloudPlaceholderDataIfNeeded()
-                syncLegacyFilesList()
-            }
         }
     }
 
@@ -54,13 +43,6 @@ extension AppDataStore {
         filter: CloudFileFilterState,
         cursor: String? = nil
     ) async {
-        if AppConfiguration.isPlaceholder {
-            cloudFileNextCursor = nil
-            cloudConnectionState = .placeholder
-            syncLegacyFilesList()
-            return
-        }
-
         do {
             let page = try await cloudFileSyncService.fetchFiles(makeCloudQueryRequest(filter: filter, cursor: cursor))
             let mapped = page.items.map(mapCloudFile(dto:))
@@ -80,10 +62,6 @@ extension AppDataStore {
     ) async {
         var trashFilter = filter
         trashFilter.status = .trash
-        if AppConfiguration.isPlaceholder {
-            cloudFileNextCursor = nil
-            return
-        }
         do {
             let page = try await cloudFileSyncService.fetchTrash(makeCloudQueryRequest(filter: trashFilter, cursor: cursor))
             let mapped = page.items.map(mapCloudFile(dto:))
@@ -99,24 +77,6 @@ extension AppDataStore {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw CloudFilesStoreError.folderNotFound
-        }
-
-        if AppConfiguration.isPlaceholder {
-            let folder = CloudFolder(
-                id: UUID(),
-                backendID: nil,
-                teamID: activeCloudTeamID(),
-                parentID: parentID,
-                parentBackendID: cloudFolders.first(where: { $0.id == parentID })?.backendID,
-                name: trimmed,
-                createdAt: Date(),
-                updatedAt: Date(),
-                isSystemFolder: false,
-                isDeleted: false
-            )
-            cloudFolders.append(folder)
-            cloudActiveFolderID = folder.id
-            return folder
         }
 
         let dto = try await cloudFileSyncService.createFolder(
@@ -141,7 +101,6 @@ extension AppDataStore {
         cloudFolders[index].name = trimmed
         cloudFolders[index].updatedAt = Date()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFolders[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -160,7 +119,6 @@ extension AppDataStore {
         cloudFolders[index].parentBackendID = cloudFolders.first(where: { $0.id == parentID })?.backendID
         cloudFolders[index].updatedAt = Date()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFolders[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -187,9 +145,11 @@ extension AppDataStore {
         linkedTrainingPlanID: UUID? = nil
     ) async throws -> CloudFile {
         let imported = try cloudFileStore.persistImportedFile(from: sourceURL)
+        defer {
+            cloudFileStore.removeFile(relativePath: imported.localRelativePath)
+        }
         let resolvedType = preferredType ?? imported.inferredType
         if cloudUsage.remainingBytes < imported.fileSize {
-            cloudFileStore.removeFile(relativePath: imported.localRelativePath)
             throw CloudFilesStoreError.storageLimitReached
         }
 
@@ -208,69 +168,39 @@ extension AppDataStore {
 
         do {
             let mapped: CloudFile
-            if AppConfiguration.isPlaceholder {
-                mapped = CloudFile(
-                    id: UUID(),
-                    backendID: nil,
+            updateUploadProgress(progressID: progressID, uploadedBytes: 0, state: .uploading, message: nil)
+            let dto = try await cloudFileSyncService.registerAndUploadFile(
+                importedFile: imported,
+                request: RegisterCloudFileUploadRequest(
                     teamID: activeCloudTeamID(),
-                    ownerUserID: activeCloudUserID(),
+                    folderID: cloudFolders.first(where: { $0.id == (folderID ?? resolveDefaultFolderID(for: resolvedType)) })?.backendID,
                     name: imported.originalFilename,
                     originalName: imported.originalFilename,
-                    type: resolvedType,
+                    type: resolvedType.rawValue,
                     mimeType: imported.mimeType,
                     sizeBytes: imported.fileSize,
-                    createdAt: Date(),
-                    updatedAt: Date(),
-                    folderID: folderID ?? resolveDefaultFolderID(for: resolvedType),
-                    folderBackendID: cloudFolders.first(where: { $0.id == folderID })?.backendID,
+                    moduleHint: moduleHint.rawValue,
+                    visibility: visibility.rawValue,
                     tags: sanitizeTags(tags),
-                    moduleHint: moduleHint,
-                    visibility: visibility,
-                    sharedUserIDs: [],
                     checksum: imported.sha256,
-                    uploadStatus: .ready,
-                    deletedAt: nil,
-                    localCacheRelativePath: imported.localRelativePath,
-                    linkedAnalysisSessionID: linkedAnalysisSessionID,
-                    linkedAnalysisClipID: linkedAnalysisClipID,
-                    linkedTacticsScenarioID: linkedTacticsScenarioID,
-                    linkedTrainingPlanID: linkedTrainingPlanID
-                )
-            } else {
-                updateUploadProgress(progressID: progressID, uploadedBytes: 0, state: .uploading, message: nil)
-                let dto = try await cloudFileSyncService.registerAndUploadFile(
-                    importedFile: imported,
-                    request: RegisterCloudFileUploadRequest(
-                        teamID: activeCloudTeamID(),
-                        folderID: cloudFolders.first(where: { $0.id == (folderID ?? resolveDefaultFolderID(for: resolvedType)) })?.backendID,
-                        name: imported.originalFilename,
-                        originalName: imported.originalFilename,
-                        type: resolvedType.rawValue,
-                        mimeType: imported.mimeType,
-                        sizeBytes: imported.fileSize,
-                        moduleHint: moduleHint.rawValue,
-                        visibility: visibility.rawValue,
-                        tags: sanitizeTags(tags),
-                        checksum: imported.sha256,
-                        linkedAnalysisSessionID: linkedAnalysisSessionID?.uuidString,
-                        linkedAnalysisClipID: linkedAnalysisClipID?.uuidString,
-                        linkedTacticsScenarioID: linkedTacticsScenarioID?.uuidString,
-                        linkedTrainingPlanID: linkedTrainingPlanID?.uuidString
-                    ),
-                    onProgress: { [progressID] uploaded, total in
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            self.updateUploadProgress(progressID: progressID, uploadedBytes: uploaded, state: .uploading, message: nil)
-                            if let index = self.cloudUploads.firstIndex(where: { $0.id == progressID }) {
-                                self.cloudUploads[index].totalBytes = total
-                            }
+                    linkedAnalysisSessionID: linkedAnalysisSessionID?.uuidString,
+                    linkedAnalysisClipID: linkedAnalysisClipID?.uuidString,
+                    linkedTacticsScenarioID: linkedTacticsScenarioID?.uuidString,
+                    linkedTrainingPlanID: linkedTrainingPlanID?.uuidString
+                ),
+                onProgress: { [progressID] uploaded, total in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        self.updateUploadProgress(progressID: progressID, uploadedBytes: uploaded, state: .uploading, message: nil)
+                        if let index = self.cloudUploads.firstIndex(where: { $0.id == progressID }) {
+                            self.cloudUploads[index].totalBytes = total
                         }
                     }
-                )
-                var local = mapCloudFile(dto: dto)
-                local.localCacheRelativePath = imported.localRelativePath
-                mapped = local
-            }
+                }
+            )
+            var remote = mapCloudFile(dto: dto)
+            remote.localCacheRelativePath = nil
+            mapped = remote
 
             upsertCloudFile(mapped)
             cloudUsage.usedBytes += mapped.sizeBytes
@@ -306,7 +236,6 @@ extension AppDataStore {
         cloudFiles[index].updatedAt = Date()
         syncLegacyFilesList()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFiles[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -338,7 +267,6 @@ extension AppDataStore {
         cloudFiles[index].updatedAt = Date()
         syncLegacyFilesList()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFiles[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -357,7 +285,6 @@ extension AppDataStore {
         cloudFiles[index].updatedAt = Date()
         syncLegacyFilesList()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFiles[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -378,7 +305,6 @@ extension AppDataStore {
         cloudFiles[index].updatedAt = Date()
         syncLegacyFilesList()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFiles[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -397,12 +323,8 @@ extension AppDataStore {
         cloudFiles.remove(at: index)
         cloudUsage.usedBytes = max(0, cloudUsage.usedBytes - target.sizeBytes)
         cloudUsage.updatedAt = Date()
-        if let localPath = target.localCacheRelativePath, !localPath.isEmpty {
-            cloudFileStore.removeFile(relativePath: localPath)
-        }
         syncLegacyFilesList()
 
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = target.backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -443,21 +365,6 @@ extension AppDataStore {
     }
 
     func refreshCloudCleanupSuggestions() async {
-        if AppConfiguration.isPlaceholder {
-            cloudLargestFiles = cloudFiles
-                .filter { $0.deletedAt == nil }
-                .sorted { $0.sizeBytes > $1.sizeBytes }
-                .prefix(8)
-                .map { $0 }
-            let cutoff = Calendar.current.date(byAdding: .day, value: -90, to: Date()) ?? Date()
-            cloudOldFiles = cloudFiles
-                .filter { $0.deletedAt == nil && $0.updatedAt < cutoff }
-                .sorted { $0.updatedAt < $1.updatedAt }
-                .prefix(8)
-                .map { $0 }
-            return
-        }
-
         do {
             let largestDTO = try await cloudFileSyncService.listLargestFiles(teamID: activeCloudTeamID(), limit: 8)
             cloudLargestFiles = largestDTO.map(mapCloudFile(dto:))
@@ -477,18 +384,6 @@ extension AppDataStore {
             activeAnalysisSessionID = existing.id
             return existing
         }
-
-        if let localPath = file.localCacheRelativePath,
-           let url = cloudFileStore.fileURL(for: localPath) {
-            let session = try await createAnalysisFromImportedVideo(
-                sourceURL: url,
-                title: file.name,
-                cloudFileID: file.id
-            )
-            try? await attachAnalysisSession(session.id, toCloudFileID: file.id)
-            return session
-        }
-
         throw CloudFilesStoreError.noLocalVideoCache
     }
 
@@ -498,7 +393,6 @@ extension AppDataStore {
         }
         cloudFiles[index].linkedAnalysisSessionID = sessionID
         cloudFiles[index].updatedAt = Date()
-        guard !AppConfiguration.isPlaceholder else { return }
         guard let backendID = cloudFiles[index].backendID else {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
@@ -887,7 +781,6 @@ extension AppDataStore {
 
     private func ensureSystemFoldersExist() {
         if cloudFolders.isEmpty {
-            seedCloudPlaceholderDataIfNeeded()
             return
         }
         guard let root = cloudFolders.first(where: { $0.parentID == nil && $0.name == CloudSystemFolder.root.rawValue }) else {

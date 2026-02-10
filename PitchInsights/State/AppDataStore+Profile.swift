@@ -3,20 +3,11 @@ import Foundation
 @MainActor
 extension AppDataStore {
     func bootstrapProfiles() async {
-        if AppConfiguration.isPlaceholder {
-            profileConnectionState = .placeholder
-            seedProfilesFromCurrentStateIfNeeded(forceRebuild: true)
-            return
-        }
-
         profileConnectionState = .syncing
         do {
             let profileDTOs = try await backend.fetchPersonProfiles()
             personProfiles = profileDTOs.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
-            mergeMissingProfilesFromCurrentState()
-            if personProfiles.isEmpty {
-                seedProfilesFromCurrentStateIfNeeded(forceRebuild: true)
-            } else if let selected = activePersonProfileID, !personProfiles.contains(where: { $0.id == selected }) {
+            if let selected = activePersonProfileID, !personProfiles.contains(where: { $0.id == selected }) {
                 activePersonProfileID = personProfiles.first?.id
             } else if activePersonProfileID == nil {
                 activePersonProfileID = preferredProfileSelection()?.id
@@ -24,24 +15,10 @@ extension AppDataStore {
             profileConnectionState = .live
         } catch {
             profileConnectionState = .failed(error.localizedDescription)
-            if personProfiles.isEmpty {
-                seedProfilesFromCurrentStateIfNeeded(forceRebuild: true)
-            }
         }
     }
 
     func loadProfileAudit(profileID: UUID?) async {
-        if AppConfiguration.isPlaceholder {
-            let filtered: [ProfileAuditEntry]
-            if let profileID {
-                filtered = profileAuditEntries.filter { $0.profileID == profileID }
-            } else {
-                filtered = profileAuditEntries
-            }
-            profileAuditEntries = filtered.sorted { $0.timestamp > $1.timestamp }
-            return
-        }
-
         do {
             let backendID = profileID.flatMap { id in
                 personProfiles.first(where: { $0.id == id })?.backendID
@@ -56,14 +33,6 @@ extension AppDataStore {
     func upsertProfile(_ value: PersonProfile) async throws -> PersonProfile {
         let normalized = normalizeProfile(value)
         let previous = personProfiles.first(where: { $0.id == normalized.id })
-
-        if AppConfiguration.isPlaceholder {
-            upsertLocalProfile(normalized)
-            applyProfileToLinkedModules(normalized)
-            appendProfileAudit(previous: previous, current: normalized, actorName: currentProfileActorName())
-            profileConnectionState = .placeholder
-            return normalized
-        }
 
         do {
             let request = makeUpsertProfileRequest(normalized)
@@ -83,14 +52,15 @@ extension AppDataStore {
     func deleteProfile(_ profileID: UUID) async throws {
         guard let profileToDelete = personProfiles.first(where: { $0.id == profileID }) else { return }
 
-        if !AppConfiguration.isPlaceholder, let backendID = profileToDelete.backendID {
-            do {
-                _ = try await backend.deletePersonProfile(profileID: backendID)
-                profileConnectionState = .live
-            } catch {
-                profileConnectionState = .failed(error.localizedDescription)
-                throw error
-            }
+        guard let backendID = profileToDelete.backendID else {
+            throw ProfileStoreError.missingBackendID
+        }
+        do {
+            _ = try await backend.deletePersonProfile(profileID: backendID)
+            profileConnectionState = .live
+        } catch {
+            profileConnectionState = .failed(error.localizedDescription)
+            throw error
         }
 
         personProfiles.removeAll { $0.id == profileID }
@@ -234,6 +204,17 @@ extension AppDataStore {
     }
 }
 
+enum ProfileStoreError: LocalizedError {
+    case missingBackendID
+
+    var errorDescription: String? {
+        switch self {
+        case .missingBackendID:
+            return "Server-ID fehlt für diese Aktion."
+        }
+    }
+}
+
 extension AppDataStore {
     func preferredProfileSelection() -> PersonProfile? {
         if let activePersonProfileID,
@@ -269,9 +250,6 @@ extension AppDataStore {
             profile.core.roles = [.player]
         }
         profile.updatedAt = Date()
-        if profile.backendID == nil, AppConfiguration.isPlaceholder {
-            profile.backendID = "local.profile.\(profile.id.uuidString.lowercased())"
-        }
         return profile
     }
 
