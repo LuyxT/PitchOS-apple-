@@ -189,8 +189,10 @@ struct SquadToolbarView: View {
     }
 
     private func toggleMenuItem(title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
             Haptics.trigger(.soft)
+            action()
+        } label: {
             if isOn {
                 Label(title, systemImage: "checkmark")
             } else {
