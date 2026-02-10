@@ -27,6 +27,7 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
             windows: windows,
             titleProvider: titleProvider,
             contentProvider: contentProvider,
+            onBringToFront: onBringToFront,
             onClose: onClose,
             onFrameCommit: onFrameCommit
         )
@@ -47,6 +48,7 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
             windows: [FloatingWindowState],
             titleProvider: (FloatingWindowState) -> String,
             contentProvider: (FloatingWindowState) -> AnyView,
+            onBringToFront: @escaping (UUID) -> Void,
             onClose: @escaping (UUID) -> Void,
             onFrameCommit: @escaping (UUID, CGPoint, CGSize) -> Void
         ) {
@@ -70,6 +72,7 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
                 } else {
                     runtime = makeRuntimeWindow(
                         state: state,
+                        onBringToFront: onBringToFront,
                         onClose: onClose,
                         onFrameCommit: onFrameCommit
                     )
@@ -117,13 +120,16 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
 
         private func makeRuntimeWindow(
             state: FloatingWindowState,
+            onBringToFront: @escaping (UUID) -> Void,
             onClose: @escaping (UUID) -> Void,
             onFrameCommit: @escaping (UUID, CGPoint, CGSize) -> Void
         ) -> ManagedWorkspaceWindowView {
             let runtime = ManagedWorkspaceWindowView(windowID: state.id)
 
             runtime.onRequestFront = { [weak self] id in
-                self?.bringToFront(id)
+                self?.bringToFront(id) {
+                    onBringToFront(id)
+                }
             }
             runtime.onCloseRequested = { id in
                 onClose(id)
@@ -136,10 +142,16 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
             return runtime
         }
 
-        private func bringToFront(_ id: UUID) {
+        private func bringToFront(_ id: UUID, notifyModel: (() -> Void)? = nil) {
+            guard let currentZ = zOrder[id] else { return }
+            let topZ = zOrder.values.max() ?? currentZ
+            if currentZ >= topZ {
+                return
+            }
             zOrder[id] = nextZIndex
             nextZIndex += 1
             reorderSubviews()
+            notifyModel?()
         }
 
         private func reorderSubviews() {
