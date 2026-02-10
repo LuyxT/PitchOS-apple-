@@ -1,0 +1,869 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  ADMIN
+  TRAINER
+  CO_TRAINER
+  ANALYST
+  TEAM_MANAGER
+  PHYSIO
+  PLAYER
+  BOARD
+}
+
+enum PermissionType {
+  TRAINING_CREATE
+  TRAINING_EDIT
+  TRAINING_DELETE
+  SQUAD_EDIT
+  PEOPLE_MANAGE
+  MESSENGER_MANAGE
+  GROUPS_MANAGE
+  REPORT_RELEASE
+  SEASON_MANAGE
+  SETTINGS_EDIT
+  FILES_MANAGE
+  CASH_MANAGE
+}
+
+enum InvitationStatus {
+  OPEN
+  ACCEPTED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum TeamMemberStatus {
+  ACTIVE
+  INACTIVE
+  ABSENT
+}
+
+enum CalendarVisibility {
+  PRIVATE
+  TEAM
+  PUBLIC
+}
+
+enum CalendarEventKind {
+  GENERIC
+  TRAINING
+  MATCH
+}
+
+enum TrainingStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  COMPLETED
+}
+
+enum TrainingPhaseType {
+  WARMUP
+  ACTIVATION
+  MAIN
+  COOLDOWN
+}
+
+enum TrainingIntensity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TacticsOpponentMode {
+  HIDDEN
+  MARKERS
+  FORMATION
+}
+
+enum AnalysisDrawingKind {
+  LINE
+  ARROW
+  CIRCLE
+  RECTANGLE
+}
+
+enum MessengerChatType {
+  DIRECT
+  GROUP
+}
+
+enum MessengerWritePolicy {
+  TRAINER_ONLY
+  ALL_MEMBERS
+  CUSTOM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  ANALYSIS_CLIP_REFERENCE
+}
+
+enum MessageStatus {
+  QUEUED
+  UPLOADING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum FileType {
+  VIDEO
+  CLIP
+  TACTICBOARD
+  TRAININGPLAN
+  IMAGE
+  DOCUMENT
+  EXPORT
+  ANALYSIS_EXPORT
+  OTHER
+}
+
+enum FileVisibility {
+  TEAM
+  RESTRICTED
+  EXPLICIT
+}
+
+enum FileUploadStatus {
+  REGISTERED
+  UPLOADING
+  READY
+  FAILED
+}
+
+enum PaymentStatus {
+  PAID
+  OPEN
+  OVERDUE
+}
+
+enum CashTransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum SettingsThemeMode {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum SyncState {
+  SYNCED
+  PENDING
+  FAILED
+}
+
+model Organization {
+  id            String          @id @default(uuid())
+  name          String
+  logoFileId    String?
+  colors        Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  teams         Team[]
+  users         User[]
+  roles         Role[]
+  invitations   Invitation[]
+  seasons       Season[]
+  auditLogs     AuditLog[]
+  cloudFolders  CloudFolder[]
+  cloudFiles    CloudFile[]
+  teamQuota     TeamQuota?
+
+  @@index([name])
+}
+
+model Team {
+  id             String                  @id @default(uuid())
+  organizationId String
+  name           String
+  shortName      String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  primaryUsers   User[]                  @relation("UserPrimaryTeam")
+  memberships    TeamMembership[]
+  players        Player[]
+  calendarEvents CalendarEvent[]
+  trainingPlans  TrainingPlan[]
+  tacticsBoards  TacticsBoard[]
+  analysis       AnalysisSession[]
+  messengerChats MessengerChat[]
+  cashTx         CashTransaction[]
+  monthlyFees    MonthlyContribution[]
+  cashGoals      CashGoal[]
+
+  @@index([organizationId])
+  @@unique([organizationId, name])
+}
+
+model Role {
+  id             String          @id @default(uuid())
+  organizationId String
+  name           String
+  type           RoleType
+  permissions    PermissionType[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles      UserRole[]
+
+  @@index([organizationId])
+  @@unique([organizationId, type])
+}
+
+model User {
+  id                 String               @id @default(uuid())
+  organizationId     String
+  email              String               @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  active             Boolean              @default(true)
+  primaryTeamId      String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  primaryTeam        Team?                @relation("UserPrimaryTeam", fields: [primaryTeamId], references: [id])
+  roles              UserRole[]
+  memberships        TeamMembership[]
+  profile            Profile?
+  refreshTokens      RefreshToken[]
+  sentMessages       MessengerMessage[]   @relation("message_sender")
+  chatMemberships    MessengerChatMember[]
+  readReceipts       MessengerReadReceipt[]
+  createdFiles       CloudFile[]          @relation("file_owner")
+  cashTransactions   CashTransaction[]    @relation("cash_responsible")
+  playerLinks        Player[]
+
+  @@index([organizationId])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model TeamMembership {
+  id          String           @id @default(uuid())
+  teamId       String
+  userId       String
+  status       TeamMemberStatus @default(ACTIVE)
+  joinedAt     DateTime         @default(now())
+  leftAt       DateTime?
+  team         Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Profile {
+  id                   String               @id @default(uuid())
+  userId               String               @unique
+  birthDate            DateTime?
+  clubMembership       String?
+  notes                String?
+  avatarFileId         String?
+  activeStatus         Boolean              @default(true)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerProfile        PlayerProfile?
+  trainerProfile       TrainerProfile?
+  physioProfile        PhysioProfile?
+  boardProfile         BoardProfile?
+  managerProfile       ManagerProfile?
+  profileVersions      ProfileVersion[]
+
+  @@index([userId])
+}
+
+model ProfileVersion {
+  id         String   @id @default(uuid())
+  profileId  String
+  changedBy  String
+  diff       Json
+  createdAt  DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model Player {
+  id                  String    @id @default(uuid())
+  teamId               String
+  userId               String?
+  jerseyNumber         Int?
+  primaryPosition      String
+  secondaryPositions   String[]
+  fitnessStatus        String
+  squadStatus          String
+  availabilityStatus   String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  team                 Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user                 User?    @relation(fields: [userId], references: [id])
+
+  @@index([teamId])
+}
+
+model PlayerProfile {
+  id                String   @id @default(uuid())
+  profileId         String   @unique
+  heightCm          Int?
+  weightKg          Int?
+  preferredFoot     String?
+  preferredRole     String?
+  goals             String[]
+  biography         String?
+  injuryHistory     String?
+  resilience        String?
+  profile           Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model TrainerProfile {
+  id                  String   @id @default(uuid())
+  profileId           String   @unique
+  licenses            String[]
+  education           String[]
+  philosophy          String?
+  goals               String[]
+  careerHistory       String?
+  responsibilities    String[]
+  contactLead         Boolean  @default(false)
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model PhysioProfile {
+  id                  String   @id @default(uuid())
+  profileId           String   @unique
+  qualifications      String[]
+  specializations     String[]
+  assignedGroups      String[]
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model ManagerProfile {
+  id                  String   @id @default(uuid())
+  profileId           String   @unique
+  function            String?
+  responsibilities    String[]
+  communicationScope  String?
+  profile             Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model BoardProfile {
+  id                String   @id @default(uuid())
+  profileId         String   @unique
+  boardFunction     String?
+  responsibilities  String[]
+  mandateFrom       DateTime?
+  mandateUntil      DateTime?
+  profile           Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model CalendarEvent {
+  id                         String            @id @default(uuid())
+  teamId                      String
+  title                       String
+  description                 String?
+  startAt                     DateTime
+  endAt                       DateTime
+  visibility                  CalendarVisibility @default(TEAM)
+  category                    String?
+  eventKind                   CalendarEventKind @default(GENERIC)
+  linkedTrainingPlanId        String?
+  playerVisibleGoal           String?
+  playerVisibleDurationMin    Int?
+  createdBy                   String
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+  team                        Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, startAt])
+}
+
+model TrainingPlan {
+  id                String          @id @default(uuid())
+  teamId             String
+  title              String
+  date               DateTime
+  location           String?
+  mainGoal           String
+  secondaryGoals     String[]
+  status             TrainingStatus @default(DRAFT)
+  linkedMatchId      String?
+  calendarEventId    String?
+  syncState          SyncState      @default(SYNCED)
+  createdBy          String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  team               Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  phases             TrainingPhase[]
+  groups             TrainingGroup[]
+  report             TrainingReport?
+
+  @@index([teamId, date])
+}
+
+model TrainingPhase {
+  id              String            @id @default(uuid())
+  trainingPlanId  String
+  orderIndex      Int
+  type            TrainingPhaseType
+  title           String
+  durationMinutes Int
+  goal            String
+  intensity       TrainingIntensity
+  description     String?
+  completedLive   Boolean           @default(false)
+  exercises       TrainingExercise[]
+  trainingPlan    TrainingPlan      @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+
+  @@index([trainingPlanId, orderIndex])
+}
+
+model TrainingExercise {
+  id                 String            @id @default(uuid())
+  phaseId            String
+  orderIndex         Int
+  name               String
+  description        String?
+  durationMinutes    Int
+  intensity          TrainingIntensity
+  requiredPlayers    Int?
+  materials          Json?
+  excludedPlayerIds  String[]
+  templateSourceId   String?
+  skippedLive        Boolean           @default(false)
+  actualDurationMin  Int?
+  phase              TrainingPhase     @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@index([phaseId, orderIndex])
+}
+
+model TrainingTemplate {
+  id                   String            @id @default(uuid())
+  teamId                String
+  name                  String
+  payload               Json
+  createdBy             String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([teamId])
+}
+
+model TrainingGroup {
+  id                   String               @id @default(uuid())
+  trainingPlanId       String
+  name                 String
+  goal                 String?
+  playerIds            String[]
+  headCoachUserId      String
+  assistantCoachUserId String?
+  briefing             TrainingGroupBriefing?
+  trainingPlan         TrainingPlan         @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+}
+
+model TrainingGroupBriefing {
+  id               String         @id @default(uuid())
+  trainingGroupId  String         @unique
+  goal             String?
+  coachingPoints   String?
+  focusPoints      String?
+  commonMistakes   String?
+  targetIntensity  TrainingIntensity?
+  trainingGroup    TrainingGroup  @relation(fields: [trainingGroupId], references: [id], onDelete: Cascade)
+}
+
+model TrainingDeviation {
+  id               String    @id @default(uuid())
+  trainingPlanId   String
+  phaseId          String?
+  exerciseId       String?
+  kind             String
+  plannedValue     String?
+  actualValue      String?
+  note             String?
+  createdAt        DateTime  @default(now())
+
+  @@index([trainingPlanId, createdAt])
+}
+
+model TrainingReport {
+  id                String       @id @default(uuid())
+  trainingPlanId     String       @unique
+  generatedAt        DateTime     @default(now())
+  plannedTotalMin    Int
+  actualTotalMin     Int
+  attendance         Json
+  groupFeedback      Json
+  playerNotes        Json
+  summary            String?
+  trainingPlan       TrainingPlan @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+}
+
+model TacticsBoard {
+  id                String             @id @default(uuid())
+  teamId             String
+  name               String
+  scenarioName       String
+  placements         Json
+  benchPlayerIds     String[]
+  excludedPlayerIds  String[]
+  opponentMode       TacticsOpponentMode @default(HIDDEN)
+  opponentMarkers    Json?
+  drawings           Json?
+  version            Int                @default(1)
+  cloudFileId        String?
+  createdBy          String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  team               Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, updatedAt])
+}
+
+model AnalysisSession {
+  id               String           @id @default(uuid())
+  teamId            String
+  videoFileId       String
+  title             String
+  matchId           String?
+  createdBy         String
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  markers           AnalysisMarker[]
+  clips             AnalysisClip[]
+  drawings          AnalysisDrawing[]
+  team              Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+}
+
+model AnalysisMarker {
+  id               String          @id @default(uuid())
+  sessionId         String
+  playerId          String?
+  category          String?
+  comment           String?
+  timeMs            Int
+  createdBy         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  session           AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timeMs])
+}
+
+model AnalysisClip {
+  id               String          @id @default(uuid())
+  sessionId         String
+  videoFileId       String
+  name              String
+  startMs           Int
+  endMs             Int
+  createdBy         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  session           AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model AnalysisDrawing {
+  id               String            @id @default(uuid())
+  sessionId         String
+  kind              AnalysisDrawingKind
+  points            Json
+  color             String
+  isTemporary       Boolean           @default(false)
+  createdBy         String
+  createdAt         DateTime          @default(now())
+  expiresAt         DateTime?
+  session           AnalysisSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model MessengerChat {
+  id                String                @id @default(uuid())
+  teamId             String
+  name               String?
+  type               MessengerChatType
+  writePolicy        MessengerWritePolicy @default(ALL_MEMBERS)
+  isArchived         Boolean               @default(false)
+  temporaryUntil     DateTime?
+  createdBy          String
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  team               Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  members            MessengerChatMember[]
+  messages           MessengerMessage[]
+
+  @@index([teamId, updatedAt])
+}
+
+model MessengerChatMember {
+  id               String          @id @default(uuid())
+  chatId           String
+  userId           String
+  muted            Boolean         @default(false)
+  pinned           Boolean         @default(false)
+  canWrite         Boolean         @default(true)
+  unreadCount      Int             @default(0)
+  lastReadMessageId String?
+  joinedAt         DateTime        @default(now())
+  chat             MessengerChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model MessengerMessage {
+  id                String                  @id @default(uuid())
+  chatId             String
+  senderId           String
+  type               MessageType
+  text               String?
+  context            String?
+  attachmentFileId   String?
+  clipId             String?
+  analysisSessionId  String?
+  status             MessageStatus          @default(SENT)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  chat               MessengerChat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender             User                   @relation("message_sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receipts           MessengerReadReceipt[]
+
+  @@index([chatId, createdAt])
+}
+
+model MessengerReadReceipt {
+  id          String            @id @default(uuid())
+  messageId   String
+  userId      String
+  readAt      DateTime          @default(now())
+  message     MessengerMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model CloudFolder {
+  id             String        @id @default(uuid())
+  organizationId String
+  parentId       String?
+  name           String
+  path           String
+  createdBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  files          CloudFile[]
+
+  @@index([organizationId, parentId])
+  @@unique([organizationId, path])
+}
+
+model CloudFile {
+  id               String           @id @default(uuid())
+  organizationId   String
+  teamId           String?
+  ownerUserId      String
+  folderId         String?
+  name             String
+  originalName     String
+  type             FileType
+  mimeType         String
+  sizeBytes        BigInt
+  storageKey       String
+  moduleHint       String?
+  tags             String[]
+  visibility       FileVisibility   @default(TEAM)
+  explicitShareIds String[]
+  checksum         String?
+  uploadStatus     FileUploadStatus @default(REGISTERED)
+  deletedAt        DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner            User             @relation("file_owner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  folder           CloudFolder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, teamId, deletedAt])
+  @@index([type, createdAt])
+  @@unique([storageKey])
+}
+
+model TeamQuota {
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  quotaBytes     BigInt
+  usedBytes      BigInt       @default(0)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model CashTransaction {
+  id                 String               @id @default(uuid())
+  teamId              String
+  amount              Decimal              @db.Decimal(12, 2)
+  date                DateTime
+  category            String
+  description         String?
+  type                CashTransactionType
+  playerId            String?
+  responsibleUserId   String?
+  comment             String?
+  paymentStatus       PaymentStatus       @default(PAID)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  team                Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  responsibleUser     User?               @relation("cash_responsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, date])
+}
+
+model MonthlyContribution {
+  id                String         @id @default(uuid())
+  teamId             String
+  playerId           String
+  amount             Decimal        @db.Decimal(12, 2)
+  dueDate            DateTime
+  status             PaymentStatus  @default(OPEN)
+  paidAt             DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  team               Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, dueDate])
+}
+
+model CashGoal {
+  id                String       @id @default(uuid())
+  teamId             String
+  name               String
+  targetAmount       Decimal      @db.Decimal(12, 2)
+  currentProgress    Decimal      @db.Decimal(12, 2)
+  startDate          DateTime
+  endDate            DateTime
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  team               Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, endDate])
+}
+
+model Invitation {
+  id               String            @id @default(uuid())
+  organizationId   String
+  email            String
+  inviteToken      String            @unique
+  roleType         RoleType
+  teamId           String?
+  status           InvitationStatus  @default(OPEN)
+  expiresAt        DateTime
+  createdBy        String
+  createdAt        DateTime          @default(now())
+  acceptedAt       DateTime?
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+}
+
+model Season {
+  id               String      @id @default(uuid())
+  organizationId   String
+  name             String
+  startsAt         DateTime
+  endsAt           DateTime
+  isActive         Boolean     @default(false)
+  isLocked         Boolean     @default(false)
+  isArchived       Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+}
+
+model AuditLog {
+  id               String      @id @default(uuid())
+  organizationId   String
+  actorUserId      String
+  area             String
+  action           String
+  targetType       String
+  targetId         String
+  payload          Json?
+  createdAt        DateTime    @default(now())
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId])
+}
+
+model UserSettings {
+  id                      String            @id @default(uuid())
+  userId                   String            @unique
+  language                 String            @default("de")
+  region                   String            @default("DE")
+  timezone                 String            @default("Europe/Berlin")
+  unitSystem               String            @default("metric")
+  themeMode                SettingsThemeMode @default(SYSTEM)
+  highContrast             Boolean           @default(false)
+  uiScale                  String            @default("medium")
+  reduceAnimations         Boolean           @default(false)
+  interactivePreviews      Boolean           @default(true)
+  notificationsEnabled     Boolean           @default(true)
+  moduleNotifications      Json?
+  updatedAt                DateTime          @updatedAt
+  createdAt                DateTime          @default(now())
+}
+
+model WidgetSnapshot {
+  id               String      @id @default(uuid())
+  teamId            String
+  module            String
+  size              String
+  payload           Json
+  updatedAt         DateTime   @updatedAt
+  createdAt         DateTime   @default(now())
+
+  @@index([teamId, module, size])
+}
