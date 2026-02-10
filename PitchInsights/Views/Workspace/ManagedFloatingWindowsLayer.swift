@@ -161,98 +161,9 @@ struct ManagedFloatingWindowsLayer: NSViewRepresentable {
 final class WorkspaceWindowCanvasView: NSView {
     override var isFlipped: Bool { true }
 
-    private struct ActiveInteraction {
-        weak var window: ManagedWorkspaceWindowView?
-    }
-
-    private var localMonitor: Any?
-    private var activeInteraction: ActiveInteraction?
-
-    deinit {
-        removeLocalMonitor()
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window == nil {
-            removeLocalMonitor()
-        } else {
-            installLocalMonitorIfNeeded()
-        }
-    }
-
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let hit = super.hitTest(point) else { return nil }
         return hit === self ? nil : hit
-    }
-
-    private func installLocalMonitorIfNeeded() {
-        guard localMonitor == nil else { return }
-        localMonitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
-        ) { [weak self] event in
-            self?.handleMouseEvent(event) ?? event
-        }
-    }
-
-    private func removeLocalMonitor() {
-        guard let localMonitor else { return }
-        NSEvent.removeMonitor(localMonitor)
-        self.localMonitor = nil
-        activeInteraction = nil
-    }
-
-    private func handleMouseEvent(_ event: NSEvent) -> NSEvent? {
-        switch event.type {
-        case .leftMouseDown:
-            return handleMouseDown(event)
-        case .leftMouseDragged:
-            return handleMouseDragged(event)
-        case .leftMouseUp:
-            return handleMouseUp(event)
-        default:
-            return event
-        }
-    }
-
-    private func handleMouseDown(_ event: NSEvent) -> NSEvent? {
-        let point = convert(event.locationInWindow, from: nil)
-        guard let target = topWindow(at: point) else { return event }
-        guard let mode = target.interactionMode(atCanvasPoint: point) else { return event }
-
-        target.beginInteraction(mode: mode, eventLocationInWindow: event.locationInWindow)
-        activeInteraction = ActiveInteraction(window: target)
-        return nil
-    }
-
-    private func handleMouseDragged(_ event: NSEvent) -> NSEvent? {
-        guard let target = activeInteraction?.window else {
-            activeInteraction = nil
-            return event
-        }
-        target.updateInteraction(currentLocationInWindow: event.locationInWindow)
-        return nil
-    }
-
-    private func handleMouseUp(_ event: NSEvent) -> NSEvent? {
-        guard let target = activeInteraction?.window else {
-            activeInteraction = nil
-            return event
-        }
-        target.endInteraction()
-        activeInteraction = nil
-        return nil
-    }
-
-    private func topWindow(at point: CGPoint) -> ManagedWorkspaceWindowView? {
-        for view in subviews.reversed() {
-            guard let windowView = view as? ManagedWorkspaceWindowView else { continue }
-            guard !windowView.isHidden, windowView.alphaValue > 0 else { continue }
-            if windowView.frame.contains(point) {
-                return windowView
-            }
-        }
-        return nil
     }
 }
 
