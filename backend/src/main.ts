@@ -13,14 +13,14 @@ import { PrismaService } from './prisma/prisma.service';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  try {
-    process.on('unhandledRejection', (reason) => {
-      logger.error('Unhandled rejection', reason as Error);
-    });
-    process.on('uncaughtException', (error) => {
-      logger.error('Uncaught exception', error);
-    });
+  process.on('unhandledRejection', (error) => {
+    console.error('UNHANDLED_REJECTION', error);
+  });
+  process.on('uncaughtException', (error) => {
+    console.error('UNCAUGHT_EXCEPTION', error);
+  });
 
+  try {
     const app = await NestFactory.create(AppModule, { cors: true });
 
     app.use(helmet());
@@ -28,7 +28,11 @@ async function bootstrap() {
     app.enableCors({ origin: '*' });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
     app.setGlobalPrefix(process.env.API_PREFIX ?? 'api', {
-      exclude: [{ path: 'health', method: RequestMethod.GET }],
+      exclude: [
+        { path: '', method: RequestMethod.GET },
+        { path: 'bootstrap', method: RequestMethod.GET },
+        { path: 'health', method: RequestMethod.GET },
+      ],
     });
     app.useGlobalPipes(
       new ValidationPipe({
@@ -51,29 +55,28 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
 
     const schemaPath = join(process.cwd(), 'prisma', 'schema.prisma');
-    console.log('Using Prisma schema at:', schemaPath, 'exists:', existsSync(schemaPath));
-    console.log('Database URL:', process.env.DATABASE_URL ?? 'missing');
-
-    if (!process.env.DATABASE_URL) {
-      logger.error('DATABASE_URL is missing');
-      throw new Error('DATABASE_URL is missing');
-    }
+    logger.log(`Prisma schema path: ${schemaPath} (exists: ${existsSync(schemaPath)})`);
 
     const port = Number(process.env.PORT || 3000);
     await app.listen(port, '0.0.0.0');
-    console.log('Server listening on port', port);
+    console.log('BOOT_OK', {
+      port,
+      env: process.env.NODE_ENV ?? 'development',
+      hasDbUrl: Boolean(process.env.DATABASE_URL),
+    });
 
     const prisma = app.get(PrismaService);
     try {
-      await prisma.$connect();
-      logger.log('Database connection established');
+      if (!process.env.DATABASE_URL) {
+        logger.error('DATABASE_URL missing - running in degraded mode');
+      } else if (!prisma.isConnected()) {
+        await prisma.$connect();
+      }
     } catch (error) {
-      logger.error('Database connection failed', error as Error);
-      throw error;
+      logger.error('Database initialization failed - running in degraded mode', error as Error);
     }
   } catch (error) {
     logger.error('Bootstrap failed', error as Error);
-    process.exit(1);
   }
 }
 

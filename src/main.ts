@@ -4,6 +4,13 @@ import { RequestMethod } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  process.on('unhandledRejection', (error) => {
+    console.error('UNHANDLED_REJECTION', error);
+  });
+  process.on('uncaughtException', (error) => {
+    console.error('UNCAUGHT_EXCEPTION', error);
+  });
+
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1', {
     exclude: [
@@ -15,7 +22,11 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT || 3000);
   await app.listen(port, '0.0.0.0');
-  console.log(`PitchInsights backend listening on port ${port}`);
+  console.log('BOOT_OK', {
+    port,
+    env: process.env.NODE_ENV ?? 'development',
+    hasDbUrl: Boolean(process.env.DATABASE_URL),
+  });
 }
 
 bootstrap();

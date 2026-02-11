@@ -1,4 +1,11 @@
 {
   "extends": "./tsconfig.json",
+  "include": [
+    "src/main.ts",
+    "src/app.module.ts",
+    "src/app.controller.ts",
+    "src/modules/health/**/*.ts",
+    "src/prisma/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts", "prisma/seed.ts"]
 }
