@@ -24,6 +24,19 @@ final class AuthService {
         let body = try JSONEncoder().encode(request)
         let response: LoginResponse = try await client.send(.post("/auth/login", body: body))
         storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        if let user = response.user {
+            NotificationCenter.default.post(name: .authUserUpdated, object: user)
+        }
+    }
+
+    func register(email: String, password: String) async throws {
+        let request = RegisterRequest(email: email, password: password)
+        let body = try JSONEncoder().encode(request)
+        let response: RegisterResponse = try await client.send(.post("/auth/register", body: body))
+        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        if let user = response.user {
+            NotificationCenter.default.post(name: .authUserUpdated, object: user)
+        }
     }
 
     func refresh() async throws {
@@ -32,9 +45,15 @@ final class AuthService {
         let body = try JSONEncoder().encode(request)
         let response: RefreshResponse = try await client.send(.post("/auth/refresh", body: body))
         storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        if let user = response.user {
+            NotificationCenter.default.post(name: .authUserUpdated, object: user)
+        }
     }
 
-    func logout() {
+    func logout(using backend: BackendRepository? = nil) async {
+        if let backend, let refreshToken = refreshToken {
+            _ = try? await backend.logout(refreshToken: refreshToken)
+        }
         keychain.delete(accessKey)
         keychain.delete(refreshKey)
     }
@@ -47,4 +66,8 @@ final class AuthService {
 
 enum AuthError: Error {
     case missingRefreshToken
+}
+
+extension Notification.Name {
+    static let authUserUpdated = Notification.Name("auth.user.updated")
 }

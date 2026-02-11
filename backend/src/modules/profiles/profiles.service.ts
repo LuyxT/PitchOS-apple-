@@ -6,7 +6,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async list(currentUser: JwtPayload) {
     if (!this.canReadAllProfiles(currentUser.roles)) {
@@ -104,7 +104,7 @@ export class ProfilesService {
         });
       }
 
-      if (input.trainerLicenses || input.trainerEducation || input.trainerPhilosophy) {
+      if (input.trainerLicenses || input.trainerEducation || input.trainerPhilosophy || input.trainerGoals || input.trainerCareerHistory) {
         await tx.trainerProfile.upsert({
           where: { profileId: profile.id },
           create: {
@@ -112,13 +112,16 @@ export class ProfilesService {
             licenses: input.trainerLicenses ?? [],
             education: input.trainerEducation ?? [],
             philosophy: input.trainerPhilosophy,
-            goals: [],
+            goals: input.trainerGoals ?? [],
+            careerHistory: input.trainerCareerHistory,
             responsibilities: [],
           },
           update: {
             licenses: input.trainerLicenses,
             education: input.trainerEducation,
             philosophy: input.trainerPhilosophy,
+            goals: input.trainerGoals,
+            careerHistory: input.trainerCareerHistory,
           },
         });
       }
@@ -151,16 +154,17 @@ export class ProfilesService {
         });
       }
 
-      if (input.boardFunction) {
+      if (input.boardFunction || input.boardResponsibilities) {
         await tx.boardProfile.upsert({
           where: { profileId: profile.id },
           create: {
             profileId: profile.id,
             boardFunction: input.boardFunction,
-            responsibilities: [],
+            responsibilities: input.boardResponsibilities ?? [],
           },
           update: {
             boardFunction: input.boardFunction,
+            responsibilities: input.boardResponsibilities,
           },
         });
       }

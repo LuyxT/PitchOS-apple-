@@ -61,6 +61,14 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsArray()
+  trainerGoals?: string[];
+
+  @IsOptional()
+  @IsString()
+  trainerCareerHistory?: string;
+
+  @IsOptional()
+  @IsArray()
   physioQualifications?: string[];
 
   @IsOptional()
@@ -70,4 +78,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   boardFunction?: string;
+
+  @IsOptional()
+  @IsArray()
+  boardResponsibilities?: string[];
 }

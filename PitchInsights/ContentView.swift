@@ -3,8 +3,41 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var dataStore: AppDataStore
+    @EnvironmentObject private var session: AppSessionStore
 
     var body: some View {
+        Group {
+            switch session.phase {
+            case .checking:
+                sessionChecking
+            case .unauthenticated:
+                OnboardingFlowView(startAt: .welcome)
+            case .onboarding:
+                OnboardingFlowView(startAt: onboardingStartStep)
+            case .ready:
+                mainWorkspace
+            case .backendUnavailable:
+                sessionChecking
+            }
+        }
+    }
+
+    private var sessionChecking: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Session wird geladen...")
+                .font(.headline)
+            Text(BackendConfig.baseURLString)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.background.ignoresSafeArea())
+    }
+
+    private var mainWorkspace: some View {
         GeometryReader { proxy in
             ZStack {
                 background
@@ -76,6 +109,19 @@ struct ContentView: View {
             .ignoresSafeArea()
     }
 
+    private var onboardingStartStep: OnboardingFlowView.Step {
+        switch session.onboardingState?.lastStep {
+        case "club":
+            return .club
+        case "profile":
+            return .profile
+        case "confirm", "complete":
+            return .confirm
+        default:
+            return .role
+        }
+    }
+
     private func windowContent(for window: FloatingWindowState) -> AnyView {
         let view: AnyView
         switch window.kind {
@@ -100,4 +146,5 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AppState())
         .environmentObject(AppDataStore())
+    .environmentObject(AppSessionStore())
 }

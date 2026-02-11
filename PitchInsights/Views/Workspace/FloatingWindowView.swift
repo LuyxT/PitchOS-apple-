@@ -118,7 +118,7 @@ struct FloatingWindowView<Content: View>: View {
                     workspace: workspaceSize
                 )
             }
-            .onEnded { _ in
+            .onEnded { value in
                 let momentum = CGSize(
                     width: (value.predictedEndTranslation.width - value.translation.width) * 0.15,
                     height: (value.predictedEndTranslation.height - value.translation.height) * 0.15

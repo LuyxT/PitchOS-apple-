@@ -208,8 +208,8 @@ extension AppDataStore {
         }
     }
 
-    func logoutCurrentAccount() {
-        backend.logoutCurrentSession()
+    func logoutCurrentAccount() async {
+        await backend.logoutCurrentSession()
         messengerCurrentUser = nil
     }
 

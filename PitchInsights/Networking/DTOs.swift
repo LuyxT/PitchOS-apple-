@@ -140,6 +140,20 @@ struct ProfileAuditEntryDTO: Codable {
     let timestamp: Date
 }
 
+struct UpdateProfileRequest: Encodable {
+    let firstName: String?
+    let lastName: String?
+    let phone: String?
+    let trainerLicenses: [String]?
+    let trainerEducation: [String]?
+    let trainerPhilosophy: String?
+    let trainerGoals: [String]?
+    let trainerCareerHistory: String?
+    let physioQualifications: [String]?
+    let boardFunction: String?
+    let boardResponsibilities: [String]?
+}
+
 struct PlayerDTO: Decodable {
     let id: UUID?
     let name: String
@@ -436,11 +450,12 @@ struct ShareAnalysisClipResponse: Decodable {
 }
 
 struct AuthMeDTO: Decodable {
-    let userID: String
-    let displayName: String
-    let role: String
-    let clubID: String
-    let teamIDs: [String]
+    let id: String
+    let email: String
+    let organizationId: String?
+    let createdAt: Date?
+    let clubMemberships: [MembershipDTO]
+    let onboardingState: OnboardingStateDTO?
 }
 
 struct MessengerParticipantDTO: Codable {

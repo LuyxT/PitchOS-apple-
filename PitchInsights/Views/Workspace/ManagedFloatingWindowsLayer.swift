@@ -652,7 +652,7 @@ private final class ManagedWorkspaceWindowView: NSView {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.animator().setFrame(frame)
+            self.animator().frame = frame
         } completionHandler: { [weak self] in
             self?.layoutWindowSubviews()
         }

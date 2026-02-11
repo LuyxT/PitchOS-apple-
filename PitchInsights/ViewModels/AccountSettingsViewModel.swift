@@ -29,8 +29,8 @@ final class AccountSettingsViewModel: ObservableObject {
         }
     }
 
-    func logout(store: AppDataStore) {
-        service.logout(store: store)
+    func logout(store: AppDataStore) async {
+        await service.logout(store: store)
         statusMessage = "Abgemeldet."
         errorMessage = nil
     }

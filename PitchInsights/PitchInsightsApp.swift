@@ -10,6 +10,7 @@ struct PitchInsightsApp: App {
 
     @StateObject private var appState = AppState()
     @StateObject private var dataStore = AppDataStore()
+    @StateObject private var session = AppSessionStore()
     @State private var launchState: LaunchState = .checking
 
     var body: some Scene {
@@ -34,6 +35,7 @@ struct PitchInsightsApp: App {
                     ContentView()
                         .environmentObject(appState)
                         .environmentObject(dataStore)
+                        .environmentObject(session)
 
                 case .backendUnavailable:
                     VStack(spacing: 14) {
@@ -75,6 +77,7 @@ struct PitchInsightsApp: App {
             launchState = .backendUnavailable
             return
         }
+        await session.bootstrap(using: dataStore.backend)
         launchState = .ready
     }
 }

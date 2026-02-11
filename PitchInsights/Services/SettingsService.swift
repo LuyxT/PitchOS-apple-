@@ -63,7 +63,7 @@ final class SettingsService {
         try await store.leaveCurrentTeam()
     }
 
-    func logout(store: AppDataStore) {
-        store.logoutCurrentAccount()
+    func logout(store: AppDataStore) async {
+        await store.logoutCurrentAccount()
     }
 }

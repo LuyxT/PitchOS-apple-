@@ -18,6 +18,18 @@ enum RoleType {
   BOARD
 }
 
+enum MembershipRole {
+  TRAINER
+  CO_TRAINER
+  PHYSIO
+  VORSTAND
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING
+}
+
 enum PermissionType {
   TRAINING_CREATE
   TRAINING_EDIT
@@ -169,12 +181,22 @@ enum SyncState {
 model Organization {
   id            String          @id @default(uuid())
   name          String
+  nameNormalized String?
+  region        String?
+  city          String?
+  postalCode    String?
+  clubFingerprint String?
+  inviteCode    String?         @unique
+  verified      Boolean         @default(false)
+  createdByUserId String?
   logoFileId    String?
   colors        Json?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   teams         Team[]
   users         User[]
+  memberships   Membership[]
+  createdByUser User?           @relation("OrganizationCreatedBy", fields: [createdByUserId], references: [id])
   roles         Role[]
   invitations   Invitation[]
   seasons       Season[]
@@ -184,18 +206,22 @@ model Organization {
   teamQuota     TeamQuota?
 
   @@index([name])
+  @@index([nameNormalized, region])
 }
 
 model Team {
   id             String                  @id @default(uuid())
   organizationId String
   name           String
+  nameNormalized String?
+  league         String?
   shortName      String?
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
   organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   primaryUsers   User[]                  @relation("UserPrimaryTeam")
   memberships    TeamMembership[]
+  clubMemberships Membership[]
   players        Player[]
   calendarEvents CalendarEvent[]
   trainingPlans  TrainingPlan[]
@@ -207,7 +233,7 @@ model Team {
   cashGoals      CashGoal[]
 
   @@index([organizationId])
-  @@unique([organizationId, name])
+  @@unique([organizationId, nameNormalized])
 }
 
 model Role {
@@ -227,7 +253,7 @@ model Role {
 
 model User {
   id                 String               @id @default(uuid())
-  organizationId     String
+  organizationId     String?
   email              String               @unique
   passwordHash       String
   firstName          String
@@ -237,10 +263,13 @@ model User {
   primaryTeamId      String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
-  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization       Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdOrganizations Organization[]     @relation("OrganizationCreatedBy")
   primaryTeam        Team?                @relation("UserPrimaryTeam", fields: [primaryTeamId], references: [id])
   roles              UserRole[]
   memberships        TeamMembership[]
+  clubMemberships    Membership[]
+  onboardingState    OnboardingState?
   profile            Profile?
   refreshTokens      RefreshToken[]
   sentMessages       MessengerMessage[]   @relation("message_sender")
@@ -277,10 +306,40 @@ model TeamMembership {
   @@unique([teamId, userId])
 }
 
+model Membership {
+  id             String           @id @default(uuid())
+  userId         String
+  organizationId String
+  teamId         String?
+  role           MembershipRole
+  status         MembershipStatus @default(PENDING)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team           Team?            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([teamId])
+  @@unique([userId, organizationId, teamId, role])
+}
+
+model OnboardingState {
+  userId      String   @id
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  lastStep    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([completed])
+}
+
 model RefreshToken {
   id        String   @id @default(uuid())
   userId    String
-  tokenHash String
+  tokenHash String   @unique
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime @default(now())

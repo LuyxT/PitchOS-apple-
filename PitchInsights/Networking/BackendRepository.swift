@@ -13,7 +13,7 @@ struct BackendBootstrapResponse: Decodable {
 
 final class BackendRepository {
     private let client: APIClient
-    private let auth: AuthService
+    let auth: AuthService
 
     init(client: APIClient, auth: AuthService) {
         self.client = client
@@ -22,6 +22,11 @@ final class BackendRepository {
 
     func fetchProfile() async throws -> CoachProfileDTO {
         try await sendAuthorized(.get("/profile"))
+    }
+
+    func updateProfile(userId: String, request: UpdateProfileRequest) async throws -> PersonProfileDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.patch("/profiles/\(userId)", body: data))
     }
 
     func fetchPersonProfiles() async throws -> [PersonProfileDTO] {
@@ -50,6 +55,21 @@ final class BackendRepository {
 
     func fetchAuthMe() async throws -> AuthMeDTO {
         try await sendAuthorized(.get("/auth/me"))
+    }
+
+    func logout(refreshToken: String) async throws -> EmptyResponse {
+        let request = RefreshRequest(refreshToken: refreshToken)
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/auth/logout", body: data))
+    }
+
+    func resolveOnboarding(_ request: OnboardingResolveRequest) async throws -> OnboardingResolveResponse {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/onboarding/resolve", body: data))
+    }
+
+    func completeOnboarding() async throws -> EmptyResponse {
+        try await sendAuthorized(.post("/onboarding/complete"))
     }
 
     func fetchPlayers() async throws -> [PlayerDTO] {
@@ -859,8 +879,8 @@ final class BackendRepository {
         try await client.send(.get("/bootstrap"))
     }
 
-    func logoutCurrentSession() {
-        auth.logout()
+    func logoutCurrentSession() async {
+        await auth.logout(using: self)
     }
 
     private func sendAuthorized<T: Decodable>(_ endpoint: Endpoint) async throws -> T {

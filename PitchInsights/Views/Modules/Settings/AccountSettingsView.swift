@@ -46,7 +46,7 @@ struct AccountSettingsView: View {
 
             HStack(spacing: 10) {
                 Button("Abmelden") {
-                    viewModel.logout(store: dataStore)
+                    Task { await viewModel.logout(store: dataStore) }
                 }
                 .buttonStyle(SecondaryActionButtonStyle())
 

@@ -18,6 +18,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { WidgetsModule } from './modules/widgets/widgets.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { HealthModule } from './modules/health/health.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { HealthModule } from './modules/health/health.module';
     SettingsModule,
     WidgetsModule,
     AdminModule,
+    OnboardingModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -9,12 +9,16 @@ extension AppDataStore {
 
         do {
             let me = try await messengerSyncService.fetchAuthMe()
+            let primaryMembership = me.clubMemberships.first
+            let roleValue = primaryMembership?.role ?? "trainer"
+            let clubID = primaryMembership?.organizationId ?? "club.main"
+            let teamIDs = me.clubMemberships.compactMap { $0.teamId }
             messengerCurrentUser = MessengerCurrentUser(
-                userID: me.userID,
-                displayName: me.displayName,
-                role: parseMessengerRole(me.role),
-                clubID: me.clubID,
-                teamIDs: me.teamIDs
+                userID: me.id,
+                displayName: me.email,
+                role: parseMessengerRole(roleValue),
+                clubID: clubID,
+                teamIDs: teamIDs
             )
             if messengerUserDirectory.isEmpty {
                 buildMessengerDirectoryFromPlayers()

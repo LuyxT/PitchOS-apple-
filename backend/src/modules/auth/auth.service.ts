@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { JwtPayload } from './dto/jwt-payload.dto';
 import { compare, hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { RoleType } from '@prisma/client';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -18,13 +20,14 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async login(input: LoginDto): Promise<AuthResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { email: input.email.toLowerCase() },
       include: {
         organization: true,
+        clubMemberships: true,
         memberships: true,
         roles: { include: { role: true } },
       },
@@ -38,8 +41,40 @@ export class AuthService {
       throw new UnauthorizedException('User is inactive');
     }
 
-    const payload = this.toJwtPayload(user.id, user.organizationId, user.memberships.map((m) => m.teamId), user.roles.map((r) => r.role.type));
-    return this.issueTokens(user.id, payload);
+    const teamIds = user.clubMemberships
+      .map((m) => m.teamId)
+      .filter((id): id is string => !!id);
+    const payload = this.toJwtPayload(
+      user.id,
+      user.organizationId ?? null,
+      teamIds,
+      user.roles.map((r) => r.role.type),
+    );
+    return this.issueTokens(user.id, payload, user);
+  }
+
+  async register(input: RegisterDto): Promise<AuthResponseDto> {
+    const email = input.email.toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new BadRequestException('Unable to create account');
+    }
+
+    const passwordHash = await hash(input.password, 10);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        firstName: '',
+        lastName: '',
+        active: true,
+        onboardingState: { create: {} },
+      },
+    });
+
+    const payload = this.toJwtPayload(user.id, null, [], []);
+    return this.issueTokens(user.id, payload, user);
   }
 
   async refresh(refreshToken: string): Promise<AuthResponseDto> {
@@ -74,14 +109,30 @@ export class AuthService {
     return this.issueTokens(payload.sub, payload);
   }
 
-  async logout(userId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
+  async logout(userId: string, refreshToken?: string): Promise<void> {
+    if (!refreshToken) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return;
+    }
+
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
     });
+    for (const token of tokens) {
+      if (await compare(refreshToken, token.tokenHash)) {
+        await this.prisma.refreshToken.update({
+          where: { id: token.id },
+          data: { revokedAt: new Date() },
+        });
+        break;
+      }
+    }
   }
 
-  private async issueTokens(userId: string, payload: JwtPayload): Promise<AuthResponseDto> {
+  private async issueTokens(userId: string, payload: JwtPayload, user?: { id: string; email: string; organizationId?: string | null; createdAt: Date }): Promise<AuthResponseDto> {
     const accessExpiresIn = this.configService.getOrThrow<string>('JWT_ACCESS_EXPIRES_IN');
     const refreshExpiresIn = this.configService.getOrThrow<string>('JWT_REFRESH_EXPIRES_IN');
 
@@ -113,12 +164,20 @@ export class AuthService {
       refreshToken,
       expiresIn: accessExpiresIn,
       tokenType: 'Bearer',
+      user: user
+        ? {
+          id: user.id,
+          email: user.email,
+          organizationId: user.organizationId ?? null,
+          createdAt: user.createdAt,
+        }
+        : undefined,
     };
   }
 
   private toJwtPayload(
     sub: string,
-    orgId: string,
+    orgId: string | null,
     teamIds: string[],
     roles: RoleType[],
   ): JwtPayload {

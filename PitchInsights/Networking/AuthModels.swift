@@ -1,5 +1,12 @@
 import Foundation
 
+struct AuthUserDTO: Codable {
+    let id: String
+    let email: String
+    let organizationId: String?
+    let createdAt: Date?
+}
+
 struct AuthTokens: Codable {
     let accessToken: String
     let refreshToken: String
@@ -13,6 +20,13 @@ struct LoginRequest: Codable {
 struct LoginResponse: Codable {
     let accessToken: String
     let refreshToken: String
+    let user: AuthUserDTO?
+}
+
+struct RegisterResponse: Codable {
+    let accessToken: String
+    let refreshToken: String
+    let user: AuthUserDTO?
 }
 
 struct RefreshRequest: Codable {
@@ -22,4 +36,5 @@ struct RefreshRequest: Codable {
 struct RefreshResponse: Codable {
     let accessToken: String
     let refreshToken: String
+    let user: AuthUserDTO?
 }
