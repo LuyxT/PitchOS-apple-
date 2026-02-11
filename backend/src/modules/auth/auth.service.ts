@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -16,6 +17,8 @@ import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -54,27 +57,56 @@ export class AuthService {
   }
 
   async register(input: RegisterDto): Promise<AuthResponseDto> {
-    const email = input.email.toLowerCase();
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const email = input.email.toLowerCase().trim();
+    const inviteCode = input.inviteCode?.trim() || undefined;
+
+    this.logger.log({ event: 'auth.register.attempt', email, role: input.role, inviteCode: inviteCode ?? null });
+
+    try {
+      if (input.password !== input.passwordConfirmation) {
+        this.logger.warn({ event: 'auth.register.validation', email, reason: 'password_mismatch' });
+        throw new BadRequestException('Passwords do not match');
+      }
+
+      if (inviteCode) {
+        const organization = await this.prisma.organization.findFirst({
+          where: { inviteCode },
+        });
+        if (!organization) {
+          this.logger.warn({ event: 'auth.register.validation', email, reason: 'invalid_invite' });
+          throw new BadRequestException('Invite code not found');
+        }
+      }
+
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        this.logger.warn({ event: 'auth.register.validation', email, reason: 'email_in_use' });
+        throw new BadRequestException('Email already in use');
+      }
+
+      const passwordHash = await hash(input.password, 10);
+
+      const user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          role: input.role,
+          firstName: '',
+          lastName: '',
+          active: true,
+          onboardingState: { create: {} },
+        },
+      });
+
+      const payload = this.toJwtPayload(user.id, null, [], []);
+      return this.issueTokens(user.id, payload, user);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error({ event: 'auth.register.failure', email, reason: 'unexpected_error' }, error as Error);
       throw new BadRequestException('Unable to create account');
     }
-
-    const passwordHash = await hash(input.password, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        firstName: '',
-        lastName: '',
-        active: true,
-        onboardingState: { create: {} },
-      },
-    });
-
-    const payload = this.toJwtPayload(user.id, null, [], []);
-    return this.issueTokens(user.id, payload, user);
   }
 
   async refresh(refreshToken: string): Promise<AuthResponseDto> {

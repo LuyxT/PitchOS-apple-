@@ -343,13 +343,13 @@ struct SecuritySettingsState: Codable, Hashable {
                     deviceName: "MacBook Pro",
                     platformName: "macOS",
                     lastUsedAt: Date(),
-                    ipAddress: "127.0.0.1",
-                    location: "Lokal",
+                    ipAddress: "",
+                    location: "Unbekannt",
                     isCurrentDevice: true
                 )
             ],
             apiTokens: [],
-            privacyURL: "https://pitchinsights.local/privacy"
+            privacyURL: "https://pitchinsights.app/privacy"
         )
     }
 }

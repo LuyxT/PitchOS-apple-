@@ -17,6 +17,14 @@ struct LoginRequest: Codable {
     let password: String
 }
 
+struct RegisterRequest: Codable {
+    let email: String
+    let password: String
+    let passwordConfirmation: String
+    let role: String
+    let inviteCode: String?
+}
+
 struct LoginResponse: Codable {
     let accessToken: String
     let refreshToken: String

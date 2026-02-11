@@ -166,7 +166,7 @@ final class BackendRepository {
             throw NetworkError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.httpError(status: httpResponse.statusCode, data: Data())
+            throw NetworkError.httpError(status: httpResponse.statusCode, data: Data(), message: nil)
         }
     }
 
@@ -668,7 +668,7 @@ final class BackendRepository {
             throw NetworkError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.httpError(status: httpResponse.statusCode, data: Data())
+            throw NetworkError.httpError(status: httpResponse.statusCode, data: Data(), message: nil)
         }
         return httpResponse.value(forHTTPHeaderField: "ETag") ?? "part-\(partNumber)"
     }
@@ -914,9 +914,9 @@ final class BackendRepository {
     private func sendAuthorized<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
         do {
             return try await client.send(endpoint, token: auth.accessToken)
-        } catch NetworkError.httpError(let status, let data) where status == 401 {
+        } catch NetworkError.httpError(let status, let data, _) where status == 401 {
             guard auth.refreshToken != nil else {
-                throw NetworkError.httpError(status: status, data: data)
+                throw NetworkError.httpError(status: status, data: data, message: NetworkError.extractMessage(from: data))
             }
             try await auth.refresh()
             return try await client.send(endpoint, token: auth.accessToken)

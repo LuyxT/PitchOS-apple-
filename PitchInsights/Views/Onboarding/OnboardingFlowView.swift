@@ -28,6 +28,7 @@ struct OnboardingFlowView: View {
     @State private var authChoice: AuthChoice? = nil
     @State private var email = ""
     @State private var password = ""
+    @State private var passwordConfirmation = ""
 
     @State private var selectedRole: String = "trainer"
     @State private var region = ""
@@ -159,7 +160,13 @@ struct OnboardingFlowView: View {
                 Task { await submitAuth(isLogin: true) }
             }
         case .register:
-            RegisterView(email: $email, password: $password, isBusy: isBusy) {
+            RegisterView(
+                email: $email,
+                password: $password,
+                passwordConfirmation: $passwordConfirmation,
+                inviteCode: $inviteCode,
+                isBusy: isBusy
+            ) {
                 Task { await submitAuth(isLogin: false) }
             }
         case .role:
@@ -318,15 +325,22 @@ struct OnboardingFlowView: View {
             if isLogin {
                 try await dataStore.backend.auth.login(email: email, password: password)
             } else {
-                try await dataStore.backend.auth.register(email: email, password: password)
+                try await dataStore.backend.auth.register(
+                    email: email,
+                    password: password,
+                    passwordConfirmation: passwordConfirmation,
+                    role: selectedRole,
+                    inviteCode: inviteCode.isEmpty ? nil : inviteCode
+                )
             }
             let me = try await dataStore.backend.fetchAuthMe()
             session.applyAuthMe(me)
             session.phase = .onboarding
             goTo(.role, style: .cameraPush)
         } catch {
-            statusMessage = "Authentifizierung fehlgeschlagen."
-            connectionError = "Verbindung fehlgeschlagen. Bitte versuche es erneut."
+            let message = NetworkError.userMessage(from: error)
+            statusMessage = message
+            connectionError = message
             retryAction = isLogin ? .login : .register
             motion.triggerError()
         }

@@ -256,6 +256,7 @@ model User {
   organizationId     String?
   email              String               @unique
   passwordHash       String
+  role               String
   firstName          String
   lastName           String
   phone              String?

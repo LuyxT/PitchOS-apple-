@@ -29,8 +29,14 @@ final class AuthService {
         }
     }
 
-    func register(email: String, password: String) async throws {
-        let request = RegisterRequest(email: email, password: password)
+    func register(email: String, password: String, passwordConfirmation: String, role: String, inviteCode: String?) async throws {
+        let request = RegisterRequest(
+            email: email,
+            password: password,
+            passwordConfirmation: passwordConfirmation,
+            role: role,
+            inviteCode: inviteCode
+        )
         let body = try JSONEncoder().encode(request)
         let response: RegisterResponse = try await client.send(.post("/auth/register", body: body))
         storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))

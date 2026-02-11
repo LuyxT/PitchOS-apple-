@@ -1,10 +1,5 @@
 import Foundation
 
-struct RegisterRequest: Codable {
-    let email: String
-    let password: String
-}
-
 struct MembershipDTO: Codable {
     let id: String
     let organizationId: String
