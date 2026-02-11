@@ -4,7 +4,6 @@ buildCommand = "sh -lc 'cd backend && npm ci && npm run build'"
 
 [deploy]
 startCommand = "sh -lc 'cd backend && npm run start:prod'"
-healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
