@@ -27,7 +27,7 @@ struct ContentView: View {
             ProgressView()
             Text("Session wird geladen...")
                 .font(.headline)
-            Text(BackendConfig.baseURLString)
+            Text(AppConfiguration.API_BASE_URL)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)

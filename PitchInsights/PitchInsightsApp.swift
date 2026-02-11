@@ -23,7 +23,7 @@ struct PitchInsightsApp: App {
                         ProgressView()
                         Text("Backend wird geprüft …")
                             .font(.headline)
-                        Text(BackendConfig.baseURLString)
+                        Text(AppConfiguration.API_BASE_URL)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

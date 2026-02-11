@@ -13,7 +13,7 @@ final class APIClient {
     }
 
     func send<T: Decodable>(_ endpoint: Endpoint, token: String? = nil) async throws -> T {
-        let baseURL = BackendConfig.baseURL
+        let baseURL = AppConfiguration.baseURL
 
         let resolvedPath = normalizedPath(endpoint.path, baseURL: baseURL)
         var components = URLComponents(url: baseURL.appendingPathComponent(resolvedPath), resolvingAgainstBaseURL: false)

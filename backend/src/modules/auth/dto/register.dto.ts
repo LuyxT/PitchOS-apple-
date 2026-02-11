@@ -13,7 +13,7 @@ export class RegisterDto {
     passwordConfirmation!: string;
 
     @IsString()
-    @IsIn(['trainer', 'co_trainer', 'physio', 'vorstand', 'player'])
+    @IsIn(['trainer', 'vorstand'])
     role!: string;
 
     @IsOptional()

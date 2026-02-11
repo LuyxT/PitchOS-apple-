@@ -428,10 +428,7 @@ extension AppDataStore {
     }
 
     private func connectMessengerRealtime() async {
-        guard let baseURL = AppConfiguration.baseURL else {
-            messengerConnectionState = .failed("Backend-URL fehlt")
-            return
-        }
+        let baseURL = AppConfiguration.baseURL
         do {
             let token = try await messengerSyncService.fetchRealtimeToken()
             messengerRealtimeService.connect(baseURL: baseURL, token: token.token)

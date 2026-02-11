@@ -289,8 +289,8 @@ final class AppDataStore: ObservableObject {
     func checkBackendBootstrap() async -> Bool {
         print("[client] bootstrap start")
         do {
-            let response: BackendBootstrapResponse = try await withBootstrapTimeout(seconds: 10) { [self] in
-                try await self.backend.bootstrapCheck()
+            let response: BackendHealthResponse = try await withBootstrapTimeout(seconds: 10) { [self] in
+                try await self.backend.healthCheck()
             }
             let normalized = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if normalized == "ok" {

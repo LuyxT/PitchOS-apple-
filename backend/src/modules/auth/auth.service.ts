@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -81,7 +82,7 @@ export class AuthService {
       const existing = await this.prisma.user.findUnique({ where: { email } });
       if (existing) {
         this.logger.warn({ event: 'auth.register.validation', email, reason: 'email_in_use' });
-        throw new BadRequestException('Email already in use');
+        throw new ConflictException('Email already in use');
       }
 
       const passwordHash = await hash(input.password, 10);
