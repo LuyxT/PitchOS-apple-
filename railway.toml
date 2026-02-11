@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "sh -lc 'if [ -f backend/package.json ]; then cd backend; fi; npm ci && npm run build'"
 
 [deploy]
-startCommand = "sh -lc 'if [ -f backend/package.json ]; then ROOT=backend; else ROOT=.; fi; SCHEMA=\"$ROOT/prisma/schema.prisma\"; npx prisma generate --schema \"$SCHEMA\" && npx prisma migrate deploy --schema \"$SCHEMA\" && node \"$ROOT/dist/main.js\"'"
+startCommand = "sh -lc 'SCHEMA=$(find . -path "*/prisma/schema.prisma" -print -quit); if [ -z "$SCHEMA" ]; then echo "Prisma schema not found"; ls -la; exit 1; fi; ROOT=$(dirname "$SCHEMA")/..; npx prisma generate --schema "$SCHEMA" && npx prisma migrate deploy --schema "$SCHEMA" && node "$ROOT/dist/main.js"'"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
