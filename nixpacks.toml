@@ -2,10 +2,10 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["sh -lc 'if [ -f backend/package.json ]; then cd backend; fi; npm ci'"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["sh -lc 'if [ -f backend/package.json ]; then cd backend; fi; npm run build'"]
 
 [start]
-cmd = "sh -lc 'if [ -f backend/package.json ]; then cd backend; fi; npm run prisma:generate && npm run migrate:deploy && npm run start:prod'"
+cmd = "sh -lc 'if [ -f backend/package.json ]; then ROOT=backend; else ROOT=.; fi; SCHEMA="$ROOT/prisma/schema.prisma"; npx prisma generate --schema "$SCHEMA" && npx prisma migrate deploy --schema "$SCHEMA" && node "$ROOT/dist/main.js"'"
