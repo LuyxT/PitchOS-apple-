@@ -2,7 +2,7 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "sh -lc 'npm run prisma:generate && npm run migrate:deploy && node dist/main.js'"
+startCommand = "npm run start:prod"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

@@ -8,4 +8,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "sh -lc 'npm --prefix backend run prisma:generate && npm --prefix backend run migrate:deploy && npm --prefix backend run start:prod'"
+cmd = "sh -lc 'if [ -f backend/package.json ]; then cd backend; fi; npm run prisma:generate && npm run migrate:deploy && npm run start:prod'"
