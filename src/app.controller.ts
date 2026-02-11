@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpException,
   Param,
   Post,
@@ -15,6 +16,9 @@ type Json = Record<string, any>;
 
 @Controller()
 export class AppController {
+  private readonly authUsers: Json[] = [];
+  private readonly accessTokens = new Map<string, string>();
+  private readonly refreshTokens = new Map<string, string>();
   private readonly trainingPlans: Json[] = [];
   private readonly trainingPhasesByPlan = new Map<string, Json[]>();
   private readonly trainingExercisesByPlan = new Map<string, Json[]>();
@@ -285,6 +289,15 @@ export class AppController {
       apiTokens: [],
       privacyURL: 'https://pitchinsights.app/privacy'
     };
+
+    this.authUsers.push({
+      id: randomUUID(),
+      email: 'coach@pitchinsights.app',
+      password: 'pitchinsights',
+      organizationId: 'org-pitchinsights-fc',
+      createdAt: now.toISOString(),
+      role: 'trainer',
+    });
   }
 
   @Get('bootstrap')
@@ -306,6 +319,133 @@ export class AppController {
   @Get('health')
   health() {
     return { status: 'ok' };
+  }
+
+  @Post('auth/register')
+  register(@Body() body: Json) {
+    const email = String(body?.email ?? '').trim().toLowerCase();
+    const password = String(body?.password ?? '');
+    const passwordConfirmation = String(body?.passwordConfirmation ?? '');
+    const role = String(body?.role ?? 'trainer').trim().toLowerCase();
+
+    if (!email || !password) {
+      throw new HttpException('E-Mail und Passwort erforderlich', 400);
+    }
+    if (password != passwordConfirmation) {
+      throw new HttpException('Passwörter stimmen nicht überein', 400);
+    }
+    if (this.authUsers.some((item) => String(item.email).toLowerCase() == email)) {
+      throw new HttpException('E-Mail bereits registriert', 409);
+    }
+
+    const created = {
+      id: randomUUID(),
+      email,
+      password,
+      role,
+      organizationId: 'org-pitchinsights-fc',
+      createdAt: new Date().toISOString(),
+    };
+    this.authUsers.push(created);
+
+    const { accessToken, refreshToken } = this.issueTokens(created.id);
+    return {
+      accessToken,
+      refreshToken,
+      user: this.authUserDTO(created),
+    };
+  }
+
+  @Post('auth/login')
+  login(@Body() body: Json) {
+    const email = String(body?.email ?? '').trim().toLowerCase();
+    const password = String(body?.password ?? '');
+    const user = this.authUsers.find(
+      (item) => String(item.email).toLowerCase() == email && String(item.password) == password,
+    );
+
+    if (!user) {
+      throw new HttpException('Ungültige Anmeldedaten', 401);
+    }
+
+    const { accessToken, refreshToken } = this.issueTokens(String(user.id));
+    return {
+      accessToken,
+      refreshToken,
+      user: this.authUserDTO(user),
+    };
+  }
+
+  @Post('auth/refresh')
+  refresh(@Body() body: Json) {
+    const refreshToken = String(body?.refreshToken ?? '');
+    const userID = this.refreshTokens.get(refreshToken);
+
+    if (!refreshToken || !userID) {
+      throw new HttpException('Ungültiger Refresh-Token', 401);
+    }
+
+    this.refreshTokens.delete(refreshToken);
+    const { accessToken, refreshToken: rotatedRefreshToken } = this.issueTokens(userID);
+    const user = this.authUsers.find((item) => String(item.id) == userID);
+    if (!user) {
+      throw new HttpException('Benutzer nicht gefunden', 404);
+    }
+
+    return {
+      accessToken,
+      refreshToken: rotatedRefreshToken,
+      user: this.authUserDTO(user),
+    };
+  }
+
+  @Post('auth/logout')
+  logout(@Body() body: Json, @Headers('authorization') authorization?: string) {
+    const refreshToken = String(body?.refreshToken ?? '');
+    if (refreshToken) {
+      this.refreshTokens.delete(refreshToken);
+    }
+    const accessToken = this.extractBearerToken(authorization);
+    if (accessToken) {
+      this.accessTokens.delete(accessToken);
+    }
+    return {};
+  }
+
+  @Get('auth/me')
+  authMe(@Headers('authorization') authorization?: string) {
+    const accessToken = this.extractBearerToken(authorization);
+    if (!accessToken) {
+      throw new HttpException('Authorization erforderlich', 401);
+    }
+
+    const userID = this.accessTokens.get(accessToken);
+    if (!userID) {
+      throw new HttpException('Ungültiger Access-Token', 401);
+    }
+
+    const user = this.authUsers.find((item) => String(item.id) == userID);
+    if (!user) {
+      throw new HttpException('Benutzer nicht gefunden', 404);
+    }
+
+    return {
+      ...this.authUserDTO(user),
+      clubMemberships: [
+        {
+          id: `membership-${userID}`,
+          organizationId: String(user.organizationId ?? 'org-pitchinsights-fc'),
+          teamId: 'team-first',
+          role: String(user.role ?? 'trainer'),
+          status: 'active',
+        },
+      ],
+      onboardingState: {
+        completed: false,
+        completedAt: null,
+        lastStep: 'role',
+      },
+    };
   }
 
   @Get('profile')
@@ -1240,6 +1380,34 @@ export class AppController {
       lockedFieldKeys: Array.isArray(profile.lockedFieldKeys) ? profile.lockedFieldKeys : [],
       updatedAt: this.toISO(profile.updatedAt) ?? now,
       updatedBy: String(profile.updatedBy ?? 'system')
+    };
+  }
+
+  private issueTokens(userID: string): { accessToken: string; refreshToken: string } {
+    const accessToken = `pi_access_${randomUUID()}`;
+    const refreshToken = `pi_refresh_${randomUUID()}`;
+    this.accessTokens.set(accessToken, userID);
+    this.refreshTokens.set(refreshToken, userID);
+    return { accessToken, refreshToken };
+  }
+
+  private extractBearerToken(authorization?: string): string | null {
+    if (!authorization) {
+      return null;
+    }
+    const trimmed = authorization.trim();
+    if (!trimmed.startsWith('Bearer ')) {
+      return null;
+    }
+    return trimmed.slice('Bearer '.length).trim();
+  }
+
+  private authUserDTO(user: Json): Json {
+    return {
+      id: String(user.id ?? ''),
+      email: String(user.email ?? ''),
+      organizationId: user.organizationId ?? null,
+      createdAt: user.createdAt ?? null,
     };
   }
 }
