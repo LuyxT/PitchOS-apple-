@@ -6,12 +6,6 @@ import AppKit
 import UIKit
 #endif
 
-enum AppMotion {
-    static let hover = Animation.spring(response: 0.22, dampingFraction: 0.88, blendDuration: 0.02)
-    static let press = Animation.spring(response: 0.18, dampingFraction: 0.92, blendDuration: 0.01)
-    static let settle = Animation.spring(response: 0.32, dampingFraction: 0.86, blendDuration: 0.05)
-}
-
 enum HapticStyle {
     case light
     case soft
@@ -61,8 +55,8 @@ struct InteractiveSurfaceModifier: ViewModifier {
                 x: 0,
                 y: isHovering ? 6 : 0
             )
-            .animation(AppMotion.hover, value: isHovering)
-            .animation(AppMotion.press, value: isPressing)
+            .animation(AppMotion.hoverLift, value: isHovering)
+            .animation(AppMotion.pressDepth, value: isPressing)
             .onHover { hovering in
                 guard isEnabled else { return }
                 isHovering = hovering
@@ -71,9 +65,9 @@ struct InteractiveSurfaceModifier: ViewModifier {
     }
 
     private var pressGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .updating($isPressing) { _, state, _ in
-                state = true
+        LongPressGesture(minimumDuration: 0.01, maximumDistance: 10)
+            .updating($isPressing) { isPressed, state, _ in
+                state = isPressed
             }
             .onEnded { _ in
                 guard isEnabled, let feedback else { return }

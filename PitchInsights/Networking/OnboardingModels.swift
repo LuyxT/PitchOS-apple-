@@ -47,3 +47,50 @@ struct OnboardingResolveResponse: Codable {
     let candidates: [OnboardingCandidateDTO]?
     let message: String?
 }
+
+struct ClubSearchResultDTO: Codable {
+    let id: String
+    let name: String
+    let city: String?
+    let postalCode: String?
+    let region: String?
+}
+
+struct ClubCreateRequest: Codable {
+    let name: String
+    let region: String
+    let city: String?
+    let postalCode: String?
+}
+
+struct ClubDTO: Codable {
+    let id: String
+    let name: String
+    let region: String?
+    let city: String?
+    let postalCode: String?
+}
+
+struct ClubJoinRequest: Codable {
+    let clubId: String
+    let role: String
+    let teamId: String?
+}
+
+struct ClubJoinResponse: Codable {
+    let clubId: String
+    let teamId: String?
+    let membershipStatus: String?
+}
+
+struct TeamCreateRequest: Codable {
+    let clubId: String
+    let teamName: String
+    let league: String?
+}
+
+struct TeamDTO: Codable {
+    let id: String
+    let name: String
+    let organizationId: String?
+}

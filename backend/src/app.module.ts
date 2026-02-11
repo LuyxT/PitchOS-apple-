@@ -19,6 +19,8 @@ import { WidgetsModule } from './modules/widgets/widgets.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { HealthModule } from './modules/health/health.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+import { ClubsModule } from './modules/clubs/clubs.module';
+import { TeamsModule } from './modules/teams/teams.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     WidgetsModule,
     AdminModule,
     OnboardingModule,
+    ClubsModule,
+    TeamsModule,
   ],
 })
 export class AppModule { }

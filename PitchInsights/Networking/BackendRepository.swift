@@ -29,6 +29,11 @@ final class BackendRepository {
         return try await sendAuthorized(.patch("/profiles/\(userId)", body: data))
     }
 
+    func submitProfile(_ request: UpdateProfileRequest) async throws -> PersonProfileDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/profile", body: data))
+    }
+
     func fetchPersonProfiles() async throws -> [PersonProfileDTO] {
         try await sendAuthorized(.get("/profiles"))
     }
@@ -66,6 +71,29 @@ final class BackendRepository {
     func resolveOnboarding(_ request: OnboardingResolveRequest) async throws -> OnboardingResolveResponse {
         let data = try encode(request)
         return try await sendAuthorized(.post("/onboarding/resolve", body: data))
+    }
+
+    func searchClubs(query: String, region: String?) async throws -> [ClubSearchResultDTO] {
+        var items = [URLQueryItem(name: "query", value: query)]
+        if let region, !region.isEmpty {
+            items.append(URLQueryItem(name: "region", value: region))
+        }
+        return try await sendAuthorized(.get("/clubs/search", query: items))
+    }
+
+    func createClub(_ request: ClubCreateRequest) async throws -> ClubDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/clubs", body: data))
+    }
+
+    func joinClub(_ request: ClubJoinRequest) async throws -> ClubJoinResponse {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/clubs/join", body: data))
+    }
+
+    func createTeam(_ request: TeamCreateRequest) async throws -> TeamDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/teams", body: data))
     }
 
     func completeOnboarding() async throws -> EmptyResponse {

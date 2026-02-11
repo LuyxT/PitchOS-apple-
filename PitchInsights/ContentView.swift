@@ -112,11 +112,11 @@ struct ContentView: View {
     private var onboardingStartStep: OnboardingFlowView.Step {
         switch session.onboardingState?.lastStep {
         case "club":
-            return .club
+            return .profile
         case "profile":
             return .profile
-        case "confirm", "complete":
-            return .confirm
+        case "complete":
+            return .complete
         default:
             return .role
         }
@@ -146,5 +146,6 @@ struct ContentView: View {
     ContentView()
         .environmentObject(AppState())
         .environmentObject(AppDataStore())
-    .environmentObject(AppSessionStore())
+        .environmentObject(AppSessionStore())
+        .environmentObject(MotionEngine())
 }

@@ -21,13 +21,8 @@ struct PrimaryActionButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .stroke(AppTheme.primary.opacity(isEnabled ? 1 : 0.65), lineWidth: 1)
             )
-            .interactiveSurface(
-                hoverScale: 1.015,
-                pressScale: 0.985,
-                hoverShadowOpacity: 0.18,
-                feedback: .light,
-                isEnabled: isEnabled
-            )
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(AppMotion.press, value: configuration.isPressed)
             .opacity(1)
     }
 }
@@ -53,13 +48,8 @@ struct SecondaryActionButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .stroke(AppTheme.border.opacity(isEnabled ? 1 : 0.7), lineWidth: 1)
             )
-            .interactiveSurface(
-                hoverScale: 1.012,
-                pressScale: 0.988,
-                hoverShadowOpacity: 0.14,
-                feedback: .light,
-                isEnabled: isEnabled
-            )
+            .scaleEffect(configuration.isPressed ? 0.988 : 1)
+            .animation(AppMotion.press, value: configuration.isPressed)
             .opacity(1)
     }
 }

@@ -1,0 +1,63 @@
+import SwiftUI
+
+enum AuthChoice {
+    case login
+    case register
+}
+
+struct AuthChoiceView: View {
+    @EnvironmentObject private var motion: MotionEngine
+
+    let selected: AuthChoice?
+    let onSelect: (AuthChoice) -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Login oder Registrierung")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(AppTheme.textPrimary)
+
+            HStack(spacing: 14) {
+                choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
+                choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+            }
+        }
+    }
+
+    private func choiceCard(title: String, subtitle: String, value: AuthChoice) -> some View {
+        let isSelected = selected == value
+        let isDimmed = selected != nil && !isSelected
+        return Button {
+            motion.feedback(.light)
+            motion.triggerPulse()
+            withAnimation(AppMotion.transitionZoom) {
+                onSelect(value)
+            }
+        } label: {
+            VStack(spacing: 10) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            .frame(width: 180, height: 110)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.surfaceAlt.opacity(isSelected ? 0.9 : 0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? AppTheme.primary : AppTheme.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(OnboardingCardButtonStyle())
+        .depthStyle(.cardLift, isActive: isSelected, animation: AppMotion.hoverLift)
+        .hoverLift()
+        .scaleEffect(isSelected ? 1.04 : 1)
+        .opacity(isDimmed ? 0.6 : 1)
+        .offset(x: isDimmed ? -10 : 0)
+        .animation(AppMotion.transitionZoom, value: selected)
+    }
+}
