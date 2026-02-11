@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "npm ci && npm run build"
 
 [deploy]
-startCommand = "sh -lc 'npx prisma migrate deploy --schema backend/prisma/schema.prisma && npm run start:prod --prefix backend'"
+startCommand = "sh -lc 'npm --prefix backend run prisma:generate && npm --prefix backend run migrate:deploy && npm --prefix backend run start:prod'"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

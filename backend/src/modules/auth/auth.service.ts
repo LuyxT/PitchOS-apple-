@@ -13,7 +13,7 @@ import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from './dto/jwt-payload.dto';
 import { compare, hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import { RoleType } from '@prisma/client';
+import { MembershipRole, MembershipStatus, RoleType } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
@@ -61,6 +61,8 @@ export class AuthService {
     const email = input.email.toLowerCase().trim();
     const inviteCode = input.inviteCode?.trim() || undefined;
 
+    let organizationId: string | null = null;
+
     this.logger.log({ event: 'auth.register.attempt', email, role: input.role, inviteCode: inviteCode ?? null });
 
     try {
@@ -77,6 +79,7 @@ export class AuthService {
           this.logger.warn({ event: 'auth.register.validation', email, reason: 'invalid_invite' });
           throw new BadRequestException('Invite code not found');
         }
+        organizationId = organization.id;
       }
 
       const existing = await this.prisma.user.findUnique({ where: { email } });
@@ -95,9 +98,29 @@ export class AuthService {
           firstName: '',
           lastName: '',
           active: true,
+          organizationId: organizationId ?? undefined,
           onboardingState: { create: {} },
         },
       });
+
+      if (organizationId) {
+        try {
+          const membershipRole = this.mapMembershipRole(input.role);
+          const status = membershipRole === MembershipRole.VORSTAND
+            ? MembershipStatus.ACTIVE
+            : MembershipStatus.PENDING;
+          await this.prisma.membership.create({
+            data: {
+              userId: user.id,
+              organizationId,
+              role: membershipRole,
+              status,
+            },
+          });
+        } catch (error) {
+          this.logger.error({ event: 'auth.register.membership', email }, error as Error);
+        }
+      }
 
       const payload = this.toJwtPayload(user.id, null, [], []);
       return this.issueTokens(user.id, payload, user);
@@ -241,5 +264,15 @@ export class AuthService {
     }
     now.setDate(now.getDate() + 30);
     return now;
+  }
+
+  private mapMembershipRole(role: string): MembershipRole {
+    switch (role) {
+      case 'vorstand':
+        return MembershipRole.VORSTAND;
+      case 'trainer':
+      default:
+        return MembershipRole.TRAINER;
+    }
   }
 }

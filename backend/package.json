@@ -10,10 +10,11 @@
     "build": "nest build",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "npm run prisma:generate && npm run migrate:deploy && node dist/main",
     "lint": "eslint \"src/**/*.ts\"",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "migrate:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate deploy --schema=prisma/schema.prisma",
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "echo \"No tests yet\""
   },
@@ -63,6 +64,7 @@
     "typescript": "^5.5.4"
   },
   "prisma": {
+    "schema": "prisma/schema.prisma",
     "seed": "tsx prisma/seed.ts"
   }
 }
