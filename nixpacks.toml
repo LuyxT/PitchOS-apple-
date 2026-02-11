@@ -8,4 +8,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "sh -lc 'npx prisma migrate deploy && npm run start:prod'"
+cmd = "sh -lc 'npx prisma migrate deploy --schema backend/prisma/schema.prisma && npm run start:prod --prefix backend'"
