@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -26,8 +26,7 @@ async function bootstrap() {
     app.use(helmet());
     app.use(cookieParser());
     app.enableCors({ origin: '*' });
-    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-    app.setGlobalPrefix(process.env.API_PREFIX ?? 'api', {
+    app.setGlobalPrefix('api/v1', {
       exclude: [
         { path: '', method: RequestMethod.GET },
         { path: 'bootstrap', method: RequestMethod.GET },
