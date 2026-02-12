@@ -100,15 +100,7 @@ final class AuthService {
         }
 
         let rootObject = try parseJSONDictionary(from: data, fallbackText: responseText)
-
-        let object: [String: Any]
-        if let dataObject = rootObject["data"] as? [String: Any] {
-            object = dataObject
-        } else if let resultObject = rootObject["result"] as? [String: Any] {
-            object = resultObject
-        } else {
-            object = rootObject
-        }
+        let object = resolveAuthObject(from: rootObject)
 
         let token = (object["accessToken"] as? String)
             ?? (object["access_token"] as? String)
@@ -121,7 +113,7 @@ final class AuthService {
             ?? ""
 
         if token.isEmpty {
-            if let message = (object["message"] as? String) ?? (rootObject["message"] as? String),
+            if let message = extractServerMessage(from: object) ?? extractServerMessage(from: rootObject),
                !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 throw AuthError.serverMessage(message)
             }
@@ -149,6 +141,73 @@ final class AuthService {
         }
 
         throw AuthError.invalidAuthResponse
+    }
+
+    private func resolveAuthObject(from rootObject: [String: Any]) -> [String: Any] {
+        if hasAuthTokenFields(rootObject) {
+            return rootObject
+        }
+
+        var queue: [Any] = [rootObject]
+        var iterations = 0
+
+        while !queue.isEmpty && iterations < 24 {
+            iterations += 1
+            let current = queue.removeFirst()
+            guard let dict = asDictionary(current) else { continue }
+
+            if hasAuthTokenFields(dict) {
+                return dict
+            }
+
+            for key in ["data", "result", "payload", "response", "auth"] {
+                if let nested = dict[key] {
+                    queue.append(nested)
+                }
+            }
+        }
+
+        return rootObject
+    }
+
+    private func hasAuthTokenFields(_ object: [String: Any]) -> Bool {
+        object["accessToken"] is String
+            || object["access_token"] is String
+            || object["token"] is String
+            || object["jwt"] is String
+    }
+
+    private func asDictionary(_ value: Any) -> [String: Any]? {
+        if let dict = value as? [String: Any] {
+            return dict
+        }
+        if let text = value as? String,
+           let data = text.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json
+        }
+        return nil
+    }
+
+    private func extractServerMessage(from object: [String: Any]) -> String? {
+        if let message = object["message"] as? String, !message.isEmpty {
+            return message
+        }
+        if let messages = object["message"] as? [String], let first = messages.first, !first.isEmpty {
+            return first
+        }
+        if let error = object["error"] as? String, !error.isEmpty {
+            return error
+        }
+        if let error = object["error"] as? [String: Any] {
+            if let message = error["message"] as? String, !message.isEmpty {
+                return message
+            }
+            if let code = error["code"] as? String, !code.isEmpty {
+                return code
+            }
+        }
+        return nil
     }
 
     private func extractJSONObject(from text: String) -> String? {
