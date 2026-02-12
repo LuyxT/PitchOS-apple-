@@ -15,7 +15,7 @@ Production backend for PitchInsights using NestJS + Prisma + PostgreSQL.
 2. Install dependencies:
    - `npm ci`
 3. Apply migrations:
-   - `npm run db:migrate:deploy`
+   - `npm run prisma:migrate:deploy`
 4. Start dev server:
    - `npm run start:dev`
 
@@ -29,8 +29,8 @@ Production backend for PitchInsights using NestJS + Prisma + PostgreSQL.
 
 ## Required Env Vars
 - `DATABASE_URL`
-- `JWT_ACCESS_SECRET`
-- `JWT_REFRESH_SECRET`
+- `JWT_SECRET` (or `JWT_ACCESS_SECRET`)
+- `REFRESH_SECRET` (or `JWT_REFRESH_SECRET`)
 - `JWT_ACCESS_TTL` (default `15m`)
 - `JWT_REFRESH_TTL` (default `30d`)
 - `CORS_ORIGINS` (default `*`)

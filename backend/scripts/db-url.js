@@ -1,4 +1,5 @@
 const { URL } = require('node:url');
+require('dotenv').config();
 
 function firstNonEmpty(keys) {
   for (const key of keys) {

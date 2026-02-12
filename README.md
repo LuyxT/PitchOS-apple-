@@ -12,7 +12,7 @@ The backend is fully isolated in `backend/`.
 1. `cd backend`
 2. `cp .env.example .env`
 3. `npm ci`
-4. `npm run db:migrate:deploy`
+4. `npm run prisma:migrate:deploy`
 5. `npm run start:dev`
 
 ### Production Commands

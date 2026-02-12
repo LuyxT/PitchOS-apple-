@@ -86,6 +86,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const statusCode = exception.getStatus();
       const raw = exception.getResponse();
 
+      if (statusCode === HttpStatus.NOT_FOUND) {
+        return {
+          statusCode,
+          error: {
+            code: ERROR_CODES.notFound,
+            message: 'Route not found',
+          },
+        };
+      }
+
       if (typeof raw === 'string') {
         return {
           statusCode,

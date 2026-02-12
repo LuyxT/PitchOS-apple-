@@ -41,6 +41,14 @@ interface UserProfile {
   updatedAt: Date;
 }
 
+interface AuthTokens {
+  tokenType: 'Bearer';
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresIn: string;
+  refreshTokenExpiresIn: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -79,12 +87,10 @@ export class AuthService {
 
     const tokens = await this.issueTokens(user);
     const onboarding = resolveOnboardingStatus(user);
+    const authPayload = this.buildAuthPayload(user, tokens, onboarding);
 
     return {
-      user: this.toUserProfile(user),
-      tokens,
-      onboardingRequired: onboarding.onboardingRequired,
-      nextStep: onboarding.nextStep,
+      ...authPayload,
       inviteApplied: inviteResolution.inviteApplied,
       inviteCode: inviteResolution.inviteCode,
     };
@@ -116,12 +122,7 @@ export class AuthService {
     const tokens = await this.issueTokens(user);
     const onboarding = resolveOnboardingStatus(user);
 
-    return {
-      user: this.toUserProfile(user),
-      tokens,
-      onboardingRequired: onboarding.onboardingRequired,
-      nextStep: onboarding.nextStep,
-    };
+    return this.buildAuthPayload(user, tokens, onboarding);
   }
 
   async refresh(dto: RefreshDto): Promise<Record<string, unknown>> {
@@ -179,12 +180,7 @@ export class AuthService {
     const tokens = await this.issueTokens(user);
     const onboarding = resolveOnboardingStatus(user);
 
-    return {
-      user: this.toUserProfile(user),
-      tokens,
-      onboardingRequired: onboarding.onboardingRequired,
-      nextStep: onboarding.nextStep,
-    };
+    return this.buildAuthPayload(user, tokens, onboarding);
   }
 
   async logout(
@@ -241,7 +237,7 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(user: User): Promise<Record<string, string>> {
+  private async issueTokens(user: User): Promise<AuthTokens> {
     const env = getEnv();
 
     const accessPayload: AccessTokenPayload = {
@@ -285,6 +281,24 @@ export class AuthService {
       refreshToken,
       accessTokenExpiresIn: env.JWT_ACCESS_TTL,
       refreshTokenExpiresIn: env.JWT_REFRESH_TTL,
+    };
+  }
+
+  private buildAuthPayload(
+    user: User,
+    tokens: AuthTokens,
+    onboarding: { onboardingRequired: boolean; nextStep: string },
+  ) {
+    return {
+      user: this.toUserProfile(user),
+      token: tokens.accessToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.accessTokenExpiresIn,
+      refreshExpiresIn: tokens.refreshTokenExpiresIn,
+      tokens,
+      onboardingRequired: onboarding.onboardingRequired,
+      nextStep: onboarding.nextStep,
     };
   }
 

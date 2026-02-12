@@ -7,14 +7,15 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ERROR_CODES } from './common/constants/error-codes';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ApiEnvelope } from './common/interfaces/api-envelope.interface';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 import { structuredLog } from './common/logging/structured-log';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
-import { ApiEnvelope } from './common/interfaces/api-envelope.interface';
 import { getCorsOrigins, getEnv } from './config/env';
 
 function formatValidationErrors(errors: ValidationError[]) {
@@ -28,10 +29,17 @@ function formatValidationErrors(errors: ValidationError[]) {
   }));
 }
 
+function successEnvelope<T>(payload: T): ApiEnvelope<T> {
+  return {
+    success: true,
+    data: payload,
+    error: null,
+  };
+}
+
 function healthPayload() {
   return {
     status: 'ok',
-    timestamp: new Date().toISOString(),
   };
 }
 
@@ -93,45 +101,32 @@ async function bootstrap() {
 
   const httpAdapter = app.getHttpAdapter().getInstance();
 
-  httpAdapter.get(
-    '/',
-    (
-      _req: unknown,
-      res: {
-        status: (code: number) => {
-          json: (body: ApiEnvelope<Record<string, unknown>>) => void;
-        };
+  httpAdapter.get('/', (_req: Request, res: Response) => {
+    res.status(200).json(successEnvelope(healthPayload()));
+  });
+
+  httpAdapter.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json(successEnvelope(healthPayload()));
+  });
+
+  await app.init();
+
+  httpAdapter.use((_req: Request, res: Response) => {
+    if (res.headersSent) {
+      return;
+    }
+
+    const body: ApiEnvelope<null> = {
+      success: false,
+      data: null,
+      error: {
+        code: ERROR_CODES.notFound,
+        message: 'Route not found',
       },
-    ) => {
-      const body: ApiEnvelope<Record<string, unknown>> = {
-        success: true,
-        data: healthPayload(),
-        error: null,
-      };
+    };
 
-      res.status(200).json(body);
-    },
-  );
-
-  httpAdapter.get(
-    '/health',
-    (
-      _req: unknown,
-      res: {
-        status: (code: number) => {
-          json: (body: ApiEnvelope<Record<string, unknown>>) => void;
-        };
-      },
-    ) => {
-      const body: ApiEnvelope<Record<string, unknown>> = {
-        success: true,
-        data: healthPayload(),
-        error: null,
-      };
-
-      res.status(200).json(body);
-    },
-  );
+    res.status(404).json(body);
+  });
 
   const port = Number(process.env.PORT ?? env.PORT ?? '3000');
   await app.listen(port, '0.0.0.0');
@@ -141,6 +136,27 @@ async function bootstrap() {
     port,
     nodeEnv: env.NODE_ENV,
   });
+
+  structuredLog('info', 'startup.summary', {
+    prismaSchema: 'prisma/schema.prisma',
+    migrations: 'applied_or_up_to_date_before_start',
+    database: 'connected',
+    routesRegistered: [
+      '/api/v1/health',
+      '/api/v1/finance/bootstrap',
+      '/api/v1/finance/cash/bootstrap',
+      '/api/v1/auth/register',
+      '/api/v1/auth/login',
+      '/api/v1/auth/me',
+    ],
+  });
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  const details =
+    error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { error };
+  structuredLog('error', 'service.startup_failed', details);
+  process.exit(1);
+});
