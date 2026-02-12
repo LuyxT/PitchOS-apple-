@@ -23,16 +23,16 @@ final class AuthService {
     func login(email: String, password: String) async throws -> AuthUserDTO? {
         let request = LoginRequest(email: email, password: password)
         let body = try JSONEncoder().encode(request)
-        let response: LoginResponse = try await client.send(.post("/auth/login", body: body))
-        guard !response.accessToken.isEmpty else {
+        let payload = try await loadAuthPayload(endpoint: .post("/auth/login", body: body))
+        guard !payload.accessToken.isEmpty else {
             throw AuthError.invalidAuthResponse
         }
-        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
-        if let user = response.user {
+        let refresh = payload.refreshToken.isEmpty ? payload.accessToken : payload.refreshToken
+        storeTokens(AuthTokens(accessToken: payload.accessToken, refreshToken: refresh))
+        if let user = payload.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
-        return response.user
+        return payload.user
     }
 
     @discardableResult
@@ -45,16 +45,16 @@ final class AuthService {
             inviteCode: inviteCode
         )
         let body = try JSONEncoder().encode(request)
-        let response: RegisterResponse = try await client.send(.post("/auth/register", body: body))
-        guard !response.accessToken.isEmpty else {
+        let payload = try await loadAuthPayload(endpoint: .post("/auth/register", body: body))
+        guard !payload.accessToken.isEmpty else {
             throw AuthError.invalidAuthResponse
         }
-        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
-        if let user = response.user {
+        let refresh = payload.refreshToken.isEmpty ? payload.accessToken : payload.refreshToken
+        storeTokens(AuthTokens(accessToken: payload.accessToken, refreshToken: refresh))
+        if let user = payload.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
-        return response.user
+        return payload.user
     }
 
     @discardableResult
@@ -62,16 +62,16 @@ final class AuthService {
         guard let refreshToken else { throw AuthError.missingRefreshToken }
         let request = RefreshRequest(refreshToken: refreshToken)
         let body = try JSONEncoder().encode(request)
-        let response: RefreshResponse = try await client.send(.post("/auth/refresh", body: body))
-        guard !response.accessToken.isEmpty else {
+        let payload = try await loadAuthPayload(endpoint: .post("/auth/refresh", body: body))
+        guard !payload.accessToken.isEmpty else {
             throw AuthError.invalidAuthResponse
         }
-        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
-        if let user = response.user {
+        let refresh = payload.refreshToken.isEmpty ? payload.accessToken : payload.refreshToken
+        storeTokens(AuthTokens(accessToken: payload.accessToken, refreshToken: refresh))
+        if let user = payload.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
-        return response.user
+        return payload.user
     }
 
     func logout(using backend: BackendRepository? = nil) async {
@@ -91,6 +91,71 @@ final class AuthService {
         keychain.delete(accessKey)
         keychain.delete(refreshKey)
     }
+
+    private func loadAuthPayload(endpoint: Endpoint) async throws -> ParsedAuthPayload {
+        let (data, _) = try await client.sendRaw(endpoint)
+        guard
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            throw NetworkError.decodingFailed(underlying: AuthError.invalidAuthResponse)
+        }
+
+        let token = (object["accessToken"] as? String)
+            ?? (object["token"] as? String)
+            ?? ""
+        let refresh = (object["refreshToken"] as? String)
+            ?? (object["token"] as? String)
+            ?? ""
+
+        return ParsedAuthPayload(
+            accessToken: token,
+            refreshToken: refresh,
+            user: parseUser(from: object["user"])
+        )
+    }
+
+    private func parseUser(from rawUser: Any?) -> AuthUserDTO? {
+        guard let user = rawUser as? [String: Any] else { return nil }
+        guard
+            let id = user["id"] as? String,
+            let email = user["email"] as? String
+        else {
+            return nil
+        }
+
+        let role = user["role"] as? String
+        let directClub = user["clubId"] as? String
+        let org = user["organizationId"] as? String
+        let createdAtString = user["createdAt"] as? String
+        let createdAt = createdAtString.flatMap(Self.decodeDate)
+
+        return AuthUserDTO(
+            id: id,
+            email: email,
+            role: role,
+            clubId: directClub ?? org,
+            organizationId: org ?? directClub,
+            createdAt: createdAt
+        )
+    }
+
+    nonisolated private static func decodeDate(_ value: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: value) {
+            return date
+        }
+
+        let regular = ISO8601DateFormatter()
+        regular.formatOptions = [.withInternetDateTime]
+        return regular.date(from: value)
+    }
+}
+
+private struct ParsedAuthPayload {
+    let accessToken: String
+    let refreshToken: String
+    let user: AuthUserDTO?
 }
 
 enum AuthError: Error {

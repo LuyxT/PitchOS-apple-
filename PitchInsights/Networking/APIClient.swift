@@ -36,6 +36,26 @@ final class APIClient {
     }
 
     func send<T: Decodable>(_ endpoint: Endpoint, token: String? = nil) async throws -> T {
+        let (data, _) = try await sendRaw(endpoint, token: token)
+
+        if data.isEmpty {
+            if T.self == EmptyResponse.self {
+                return EmptyResponse() as! T
+            }
+            throw NetworkError.emptyResponseBody
+        }
+
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            if T.self == EmptyResponse.self {
+                return EmptyResponse() as! T
+            }
+            throw NetworkError.decodingFailed(underlying: error)
+        }
+    }
+
+    func sendRaw(_ endpoint: Endpoint, token: String? = nil) async throws -> (Data, HTTPURLResponse) {
         let baseURL = AppConfiguration.baseURL
 
         let resolvedPath = normalizedPath(endpoint.path, baseURL: baseURL)
@@ -68,21 +88,7 @@ final class APIClient {
             throw NetworkError.httpError(status: httpResponse.statusCode, data: data, message: message)
         }
 
-        if data.isEmpty {
-            if T.self == EmptyResponse.self {
-                return EmptyResponse() as! T
-            }
-            throw NetworkError.emptyResponseBody
-        }
-
-        do {
-            return try decoder.decode(T.self, from: data)
-        } catch {
-            if T.self == EmptyResponse.self {
-                return EmptyResponse() as! T
-            }
-            throw NetworkError.decodingFailed(underlying: error)
-        }
+        return (data, httpResponse)
     }
 
     private func normalizedPath(_ rawPath: String, baseURL: URL) -> String {
