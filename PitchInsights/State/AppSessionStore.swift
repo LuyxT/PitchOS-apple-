@@ -17,8 +17,20 @@ final class AppSessionStore: ObservableObject {
     @Published var activeContext: MembershipDTO?
 
     private let activeContextKey = "pitchinsights.activeMembershipId"
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        NotificationCenter.default.publisher(for: .authUserUpdated)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self, let user = notification.object as? AuthUserDTO else { return }
+                self.applyAuthenticatedUser(user)
+            }
+            .store(in: &cancellables)
+    }
 
     func bootstrap(using backend: BackendRepository) async {
+        phase = .checking
         do {
             guard backend.auth.accessToken != nil || backend.auth.refreshToken != nil else {
                 phase = .unauthenticated
@@ -26,7 +38,7 @@ final class AppSessionStore: ObservableObject {
             }
 
             if backend.auth.refreshToken != nil {
-                try? await backend.auth.refresh()
+                _ = try? await backend.auth.refresh()
             }
 
             let me = try await backend.fetchAuthMe()
@@ -37,8 +49,21 @@ final class AppSessionStore: ObservableObject {
                 phase = .ready
             }
         } catch {
+            backend.auth.clearTokens()
             phase = .unauthenticated
         }
+    }
+
+    func applyAuthenticatedUser(_ user: AuthUserDTO) {
+        authUser = user
+        onboardingState = OnboardingStateDTO(
+            completed: user.clubId != nil,
+            completedAt: nil,
+            lastStep: user.clubId == nil ? "club" : "complete"
+        )
+        memberships = []
+        activeContext = nil
+        phase = user.clubId == nil ? .onboarding : .ready
     }
 
     func applyAuthMe(_ me: AuthMeDTO) {

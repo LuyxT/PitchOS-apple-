@@ -19,7 +19,8 @@ final class AuthService {
         keychain.get(refreshKey)
     }
 
-    func login(email: String, password: String) async throws {
+    @discardableResult
+    func login(email: String, password: String) async throws -> AuthUserDTO? {
         let request = LoginRequest(email: email, password: password)
         let body = try JSONEncoder().encode(request)
         let response: LoginResponse = try await client.send(.post("/auth/login", body: body))
@@ -31,9 +32,11 @@ final class AuthService {
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
+        return response.user
     }
 
-    func register(email: String, password: String, passwordConfirmation: String, role: String, inviteCode: String?) async throws {
+    @discardableResult
+    func register(email: String, password: String, passwordConfirmation: String, role: String, inviteCode: String?) async throws -> AuthUserDTO? {
         let request = RegisterRequest(
             email: email,
             password: password,
@@ -51,9 +54,11 @@ final class AuthService {
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
+        return response.user
     }
 
-    func refresh() async throws {
+    @discardableResult
+    func refresh() async throws -> AuthUserDTO? {
         guard let refreshToken else { throw AuthError.missingRefreshToken }
         let request = RefreshRequest(refreshToken: refreshToken)
         let body = try JSONEncoder().encode(request)
@@ -66,6 +71,7 @@ final class AuthService {
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
+        return response.user
     }
 
     func logout(using backend: BackendRepository? = nil) async {
@@ -79,6 +85,11 @@ final class AuthService {
     private func storeTokens(_ tokens: AuthTokens) {
         keychain.set(tokens.accessToken, forKey: accessKey)
         keychain.set(tokens.refreshToken, forKey: refreshKey)
+    }
+
+    func clearTokens() {
+        keychain.delete(accessKey)
+        keychain.delete(refreshKey)
     }
 }
 

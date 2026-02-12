@@ -16,6 +16,19 @@ struct OnboardingFlowView: View {
         case club
         case profile
         case complete
+
+        var sortOrder: Int {
+            switch self {
+            case .welcome: return 0
+            case .authChoice: return 1
+            case .login: return 2
+            case .register: return 3
+            case .role: return 4
+            case .club: return 5
+            case .profile: return 6
+            case .complete: return 7
+            }
+        }
     }
 
     @EnvironmentObject private var session: AppSessionStore
@@ -322,10 +335,11 @@ struct OnboardingFlowView: View {
         defer { isBusy = false }
 
         do {
+            let authenticatedUser: AuthUserDTO?
             if isLogin {
-                try await dataStore.backend.auth.login(email: email, password: password)
+                authenticatedUser = try await dataStore.backend.auth.login(email: email, password: password)
             } else {
-                try await dataStore.backend.auth.register(
+                authenticatedUser = try await dataStore.backend.auth.register(
                     email: email,
                     password: password,
                     passwordConfirmation: passwordConfirmation,
@@ -333,11 +347,20 @@ struct OnboardingFlowView: View {
                     inviteCode: inviteCode.isEmpty ? nil : inviteCode
                 )
             }
+
+            if let authenticatedUser {
+                session.applyAuthenticatedUser(authenticatedUser)
+            }
+
+            clearDraft()
+            if session.phase == .onboarding {
+                goTo(.club, style: .cameraPush)
+            }
+
             let me = try await dataStore.backend.fetchAuthMe()
             session.applyAuthMe(me)
             if me.clubId == nil {
                 session.phase = .onboarding
-                goTo(.club, style: .cameraPush)
             } else {
                 session.phase = .ready
                 clearDraft()
@@ -487,7 +510,10 @@ struct OnboardingFlowView: View {
             return
         }
 
-        step = Step(rawValue: draft.step) ?? step
+        let loadedStep = Step(rawValue: draft.step) ?? step
+        if loadedStep.sortOrder >= step.sortOrder {
+            step = loadedStep
+        }
         email = draft.email
         selectedRole = draft.selectedRole
         region = draft.region
