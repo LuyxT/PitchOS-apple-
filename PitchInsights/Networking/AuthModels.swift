@@ -73,11 +73,19 @@ struct LoginResponse: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        success = try container.decodeIfPresent(Bool.self, forKey: .success)
-        token = try container.decodeIfPresent(String.self, forKey: .token)
-        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
-        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
-        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+        if let boolSuccess = try? container.decodeIfPresent(Bool.self, forKey: .success) {
+            success = boolSuccess
+        } else if let stringSuccess = try? container.decodeIfPresent(String.self, forKey: .success) {
+            success = stringSuccess.lowercased() == "true"
+        } else {
+            success = nil
+        }
+        token = try? container.decodeIfPresent(String.self, forKey: .token)
+        let decodedAccess = try? container.decodeIfPresent(String.self, forKey: .accessToken)
+        let decodedRefresh = try? container.decodeIfPresent(String.self, forKey: .refreshToken)
+        accessToken = decodedAccess ?? token ?? ""
+        refreshToken = decodedRefresh ?? token ?? ""
+        user = try? container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -98,11 +106,19 @@ struct RegisterResponse: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        success = try container.decodeIfPresent(Bool.self, forKey: .success)
-        token = try container.decodeIfPresent(String.self, forKey: .token)
-        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
-        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
-        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+        if let boolSuccess = try? container.decodeIfPresent(Bool.self, forKey: .success) {
+            success = boolSuccess
+        } else if let stringSuccess = try? container.decodeIfPresent(String.self, forKey: .success) {
+            success = stringSuccess.lowercased() == "true"
+        } else {
+            success = nil
+        }
+        token = try? container.decodeIfPresent(String.self, forKey: .token)
+        let decodedAccess = try? container.decodeIfPresent(String.self, forKey: .accessToken)
+        let decodedRefresh = try? container.decodeIfPresent(String.self, forKey: .refreshToken)
+        accessToken = decodedAccess ?? token ?? ""
+        refreshToken = decodedRefresh ?? token ?? ""
+        user = try? container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -127,11 +143,19 @@ struct RefreshResponse: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        success = try container.decodeIfPresent(Bool.self, forKey: .success)
-        token = try container.decodeIfPresent(String.self, forKey: .token)
-        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
-        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
-        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+        if let boolSuccess = try? container.decodeIfPresent(Bool.self, forKey: .success) {
+            success = boolSuccess
+        } else if let stringSuccess = try? container.decodeIfPresent(String.self, forKey: .success) {
+            success = stringSuccess.lowercased() == "true"
+        } else {
+            success = nil
+        }
+        token = try? container.decodeIfPresent(String.self, forKey: .token)
+        let decodedAccess = try? container.decodeIfPresent(String.self, forKey: .accessToken)
+        let decodedRefresh = try? container.decodeIfPresent(String.self, forKey: .refreshToken)
+        accessToken = decodedAccess ?? token ?? ""
+        refreshToken = decodedRefresh ?? token ?? ""
+        user = try? container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
     }
 
     enum CodingKeys: String, CodingKey {

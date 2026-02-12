@@ -331,6 +331,8 @@ struct OnboardingFlowView: View {
 
     private func submitAuth(isLogin: Bool) async {
         statusMessage = ""
+        connectionError = nil
+        retryAction = nil
         isBusy = true
         defer { isBusy = false }
 
@@ -357,13 +359,22 @@ struct OnboardingFlowView: View {
                 goTo(.club, style: .cameraPush)
             }
 
-            let me = try await dataStore.backend.fetchAuthMe()
-            session.applyAuthMe(me)
-            if me.clubId == nil {
-                session.phase = .onboarding
-            } else {
-                session.phase = .ready
-                clearDraft()
+            do {
+                let me = try await dataStore.backend.fetchAuthMe()
+                session.applyAuthMe(me)
+                if me.clubId == nil {
+                    session.phase = .onboarding
+                } else {
+                    session.phase = .ready
+                    clearDraft()
+                }
+            } catch {
+                if session.authUser?.clubId == nil {
+                    session.phase = .onboarding
+                } else if session.authUser != nil {
+                    session.phase = .ready
+                    clearDraft()
+                }
             }
         } catch {
             let message = NetworkError.userMessage(from: error)
