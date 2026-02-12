@@ -94,24 +94,70 @@ final class AuthService {
 
     private func loadAuthPayload(endpoint: Endpoint) async throws -> ParsedAuthPayload {
         let (data, _) = try await client.sendRaw(endpoint)
-        guard
-            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            throw NetworkError.decodingFailed(underlying: AuthError.invalidAuthResponse)
+        let responseText = String(data: data, encoding: .utf8) ?? ""
+        if !responseText.isEmpty {
+            print("[Auth] payload: \(responseText)")
+        }
+
+        let rootObject = try parseJSONDictionary(from: data, fallbackText: responseText)
+
+        let object: [String: Any]
+        if let dataObject = rootObject["data"] as? [String: Any] {
+            object = dataObject
+        } else if let resultObject = rootObject["result"] as? [String: Any] {
+            object = resultObject
+        } else {
+            object = rootObject
         }
 
         let token = (object["accessToken"] as? String)
+            ?? (object["access_token"] as? String)
             ?? (object["token"] as? String)
+            ?? (object["jwt"] as? String)
             ?? ""
         let refresh = (object["refreshToken"] as? String)
+            ?? (object["refresh_token"] as? String)
             ?? (object["token"] as? String)
             ?? ""
+
+        if token.isEmpty {
+            if let message = (object["message"] as? String) ?? (rootObject["message"] as? String),
+               !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw AuthError.serverMessage(message)
+            }
+            throw AuthError.invalidAuthResponse
+        }
+
+        let userObject = object["user"] ?? object["account"] ?? rootObject["user"] ?? rootObject["account"]
 
         return ParsedAuthPayload(
             accessToken: token,
             refreshToken: refresh,
-            user: parseUser(from: object["user"])
+            user: parseUser(from: userObject)
         )
+    }
+
+    private func parseJSONDictionary(from data: Data, fallbackText: String) throws -> [String: Any] {
+        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object
+        }
+
+        if let extracted = extractJSONObject(from: fallbackText),
+           let extractedData = extracted.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: extractedData) as? [String: Any] {
+            return object
+        }
+
+        throw AuthError.invalidAuthResponse
+    }
+
+    private func extractJSONObject(from text: String) -> String? {
+        guard let start = text.firstIndex(of: "{"),
+              let end = text.lastIndex(of: "}") else {
+            return nil
+        }
+        guard start <= end else { return nil }
+        return String(text[start...end])
     }
 
     private func parseUser(from rawUser: Any?) -> AuthUserDTO? {
@@ -161,6 +207,20 @@ private struct ParsedAuthPayload {
 enum AuthError: Error {
     case missingRefreshToken
     case invalidAuthResponse
+    case serverMessage(String)
+}
+
+extension AuthError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .missingRefreshToken:
+            return "Refresh-Token fehlt."
+        case .invalidAuthResponse:
+            return "Server-Antwort konnte nicht verarbeitet werden."
+        case .serverMessage(let message):
+            return message
+        }
+    }
 }
 
 extension Notification.Name {
