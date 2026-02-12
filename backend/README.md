@@ -36,6 +36,10 @@ Production backend for PitchInsights using NestJS + Prisma + PostgreSQL.
 - `CORS_ORIGINS` (default `*`)
 - `PORT` (Railway sets this automatically)
 
+If Railway does not expose `DATABASE_URL` directly, startup also supports:
+- `DATABASE_PRIVATE_URL` or `DATABASE_PUBLIC_URL`
+- `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+
 ## API Base
 - Versioned base: `/api/v1`
 - Health:
