@@ -21,6 +21,12 @@ The backend is fully isolated in `backend/`.
 
 `start:prod` applies Prisma migrations and then starts the server on `process.env.PORT`.
 
+### Railway (Repo Root)
+Railway builds from repository root.
+- Root build command: `npm run build` (delegates to `backend/`)
+- Root start command: `npm run start` (delegates to `backend/`)
+- No manual root-directory override is required.
+
 ### Health URLs
 - `GET /`
 - `GET /health`
