@@ -132,7 +132,7 @@ struct ClubTeamSetupView: View {
                 onSearch()
             }
             .buttonStyle(OnboardingPrimaryButtonStyle())
-            .disabled(region.isEmpty || clubName.isEmpty || (requiresTeam && teamName.isEmpty))
+            .disabled(region.isEmpty || city.isEmpty || clubName.isEmpty || (requiresTeam && teamName.isEmpty))
         }
         .frame(maxWidth: 460)
     }

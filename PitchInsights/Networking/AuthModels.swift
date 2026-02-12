@@ -5,6 +5,7 @@ struct AuthUserDTO: Codable {
     let email: String
     let role: String?
     let clubId: String?
+    let teamId: String?
     let organizationId: String?
     let createdAt: Date?
 
@@ -13,6 +14,7 @@ struct AuthUserDTO: Codable {
         case email
         case role
         case clubId
+        case teamId
         case organizationId
         case createdAt
     }
@@ -22,6 +24,7 @@ struct AuthUserDTO: Codable {
         email: String,
         role: String?,
         clubId: String?,
+        teamId: String?,
         organizationId: String?,
         createdAt: Date?
     ) {
@@ -29,6 +32,7 @@ struct AuthUserDTO: Codable {
         self.email = email
         self.role = role
         self.clubId = clubId
+        self.teamId = teamId
         self.organizationId = organizationId
         self.createdAt = createdAt
     }
@@ -40,6 +44,7 @@ struct AuthUserDTO: Codable {
         role = try? container.decodeIfPresent(String.self, forKey: .role)
         let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
         let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)
+        teamId = try? container.decodeIfPresent(String.self, forKey: .teamId)
         clubId = directClub ?? org ?? nil
         organizationId = org ?? directClub ?? nil
         createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
@@ -56,12 +61,19 @@ struct LoginRequest: Codable {
     let password: String
 }
 
-struct RegisterRequest: Codable {
+struct RegisterRequest: Encodable {
     let email: String
     let password: String
     let passwordConfirmation: String
     let role: String
     let inviteCode: String?
+
+    enum CodingKeys: String, CodingKey {
+        case email
+        case password
+        case role
+        case inviteCode
+    }
 }
 
 struct LoginResponse: Codable {

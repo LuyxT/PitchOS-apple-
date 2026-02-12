@@ -3,6 +3,18 @@ import Foundation
 @MainActor
 extension AppDataStore {
     func bootstrapMessenger() async {
+        guard AppConfiguration.messagingEnabled else {
+            messengerConnectionState = .disconnected
+            messengerChats = []
+            messengerArchivedChats = []
+            messengerMessagesByChat = [:]
+            messengerSearchResults = []
+            messengerChatNextCursor = nil
+            messengerMessageNextCursorByChat = [:]
+            messengerRealtimeService.disconnect()
+            return
+        }
+
         messengerOutboxItems = (try? messengerOutboxStore.loadItems()) ?? []
         messengerOutboxCount = messengerOutboxItems.count
         startMessengerOutboxRetryLoop()
@@ -32,6 +44,7 @@ extension AppDataStore {
     }
 
     func reconnectMessengerRealtimeIfNeeded() async {
+        guard AppConfiguration.messagingEnabled else { return }
         if case .connected = messengerConnectionState {
             return
         }
@@ -428,6 +441,12 @@ extension AppDataStore {
     }
 
     private func connectMessengerRealtime() async {
+        guard AppConfiguration.messagingEnabled else {
+            messengerRealtimeService.disconnect()
+            messengerConnectionState = .disconnected
+            return
+        }
+
         let baseURL = AppConfiguration.baseURL
         do {
             let token = try await messengerSyncService.fetchRealtimeToken()

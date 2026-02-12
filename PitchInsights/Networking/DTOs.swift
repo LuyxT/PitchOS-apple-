@@ -454,34 +454,79 @@ struct AuthMeDTO: Decodable {
     let email: String
     let role: String?
     let clubId: String?
+    let teamId: String?
     let organizationId: String?
     let createdAt: Date?
     let clubMemberships: [MembershipDTO]
     let onboardingState: OnboardingStateDTO?
+    let onboardingRequired: Bool
+    let nextStep: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case email
         case role
         case clubId
+        case teamId
         case organizationId
         case createdAt
         case clubMemberships
         case onboardingState
+        case onboardingRequired
+        case nextStep
+        case user
+    }
+
+    private struct NestedUser: Decodable {
+        let id: String
+        let email: String
+        let role: String?
+        let clubId: String?
+        let teamId: String?
+        let organizationId: String?
+        let createdAt: Date?
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        email = try container.decode(String.self, forKey: .email)
-        role = try? container.decodeIfPresent(String.self, forKey: .role)
-        let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
-        let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)
-        clubId = directClub ?? org ?? nil
-        organizationId = org ?? directClub ?? nil
-        createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
+        if let nestedUser = try? container.decode(NestedUser.self, forKey: .user) {
+            id = nestedUser.id
+            email = nestedUser.email
+            role = nestedUser.role
+            let directClub = nestedUser.clubId
+            let org = nestedUser.organizationId
+            clubId = directClub ?? org ?? nil
+            organizationId = org ?? directClub ?? nil
+            teamId = nestedUser.teamId
+            createdAt = nestedUser.createdAt
+        } else {
+            id = try container.decode(String.self, forKey: .id)
+            email = try container.decode(String.self, forKey: .email)
+            role = try? container.decodeIfPresent(String.self, forKey: .role)
+            let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
+            let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)
+            clubId = directClub ?? org ?? nil
+            organizationId = org ?? directClub ?? nil
+            teamId = try? container.decodeIfPresent(String.self, forKey: .teamId)
+            createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
+        }
         clubMemberships = try container.decodeIfPresent([MembershipDTO].self, forKey: .clubMemberships) ?? []
-        onboardingState = try container.decodeIfPresent(OnboardingStateDTO.self, forKey: .onboardingState)
+        let state = try container.decodeIfPresent(OnboardingStateDTO.self, forKey: .onboardingState)
+        let requiredFlag = try container.decodeIfPresent(Bool.self, forKey: .onboardingRequired)
+        let decodedNextStep = try container.decodeIfPresent(String.self, forKey: .nextStep)
+        if let state {
+            onboardingState = state
+            onboardingRequired = requiredFlag ?? !state.completed
+            nextStep = decodedNextStep ?? state.lastStep
+        } else {
+            onboardingState = OnboardingStateDTO(
+                completed: !(requiredFlag ?? (teamId != nil)),
+                completedAt: nil,
+                lastStep: decodedNextStep
+            )
+            onboardingRequired = requiredFlag ?? onboardingState?.completed == false
+            nextStep = decodedNextStep ?? onboardingState?.lastStep
+        }
     }
 }
 

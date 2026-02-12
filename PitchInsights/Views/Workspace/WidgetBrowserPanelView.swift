@@ -7,10 +7,10 @@ struct WidgetBrowserPanelView: View {
 
     private var filteredModules: [Module] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return Module.allCases
+            return AppConfiguration.enabledModules
         }
         let token = query.lowercased()
-        return Module.allCases.filter { module in
+        return AppConfiguration.enabledModules.filter { module in
             module.title.lowercased().contains(token)
         }
     }

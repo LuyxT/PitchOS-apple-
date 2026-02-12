@@ -11,6 +11,30 @@ struct BackendBootstrapResponse: Decodable {
     var time: String
 }
 
+private struct FinanceBootstrapCompatEntryDTO: Decodable {
+    let id: String
+    let clubId: String?
+    let amount: Double
+    let date: Date
+    let type: String
+    let title: String
+    let createdAt: Date?
+    let updatedAt: Date?
+}
+
+private struct FinanceBootstrapCompatDTO: Decodable {
+    let clubId: String?
+    let entries: [FinanceBootstrapCompatEntryDTO]
+}
+
+private struct CreateFinanceEntryCompatRequest: Encodable {
+    let clubId: String?
+    let amount: Double
+    let type: String
+    let title: String
+    let date: Date
+}
+
 final class BackendRepository {
     private let client: APIClient
     let auth: AuthService
@@ -69,45 +93,47 @@ final class BackendRepository {
     }
 
     func resolveOnboarding(_ request: OnboardingResolveRequest) async throws -> OnboardingResolveResponse {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/onboarding/resolve", body: data))
+        _ = request
+        throw unsupportedFeature("Onboarding resolve is not available on this backend.")
     }
 
     func searchClubs(query: String, region: String?) async throws -> [ClubSearchResultDTO] {
-        var items = [URLQueryItem(name: "query", value: query)]
-        if let region, !region.isEmpty {
-            items.append(URLQueryItem(name: "region", value: region))
-        }
-        return try await sendAuthorized(.get("/clubs/search", query: items))
+        _ = (query, region)
+        throw unsupportedFeature("Club search is not available on this backend.")
     }
 
     func createClub(_ request: ClubCreateRequest) async throws -> ClubDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/clubs", body: data))
+        _ = request
+        throw unsupportedFeature("Club creation outside onboarding is not available on this backend.")
     }
 
     func joinClub(_ request: ClubJoinRequest) async throws -> ClubJoinResponse {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/clubs/join", body: data))
+        _ = request
+        throw unsupportedFeature("Club join is not available on this backend.")
     }
 
     func createTeam(_ request: TeamCreateRequest) async throws -> TeamDTO {
         let data = try encode(request)
-        return try await sendAuthorized(.post("/teams", body: data))
+        return try await sendAuthorized(.post("/team", body: data))
     }
 
     func createOnboardingClub(_ request: ClubCreateRequest) async throws -> OnboardingClubActionResponse {
         let data = try encode(request)
-        return try await sendAuthorized(.post("/onboarding/create-club", body: data))
+        return try await sendAuthorized(.post("/onboarding/club", body: data))
+    }
+
+    func createOnboardingTeam(_ request: TeamCreateRequest) async throws -> TeamDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/onboarding/team", body: data))
     }
 
     func joinOnboardingClub(inviteCode: String) async throws -> OnboardingClubActionResponse {
-        let data = try encode(OnboardingJoinClubRequest(inviteCode: inviteCode))
-        return try await sendAuthorized(.post("/onboarding/join-club", body: data))
+        _ = inviteCode
+        throw unsupportedFeature("Invite code linking is handled during registration.")
     }
 
     func completeOnboarding() async throws -> EmptyResponse {
-        try await sendAuthorized(.post("/onboarding/complete"))
+        EmptyResponse()
     }
 
     func fetchPlayers() async throws -> [PlayerDTO] {
@@ -474,7 +500,7 @@ final class BackendRepository {
     }
 
     func fetchMessengerRealtimeToken() async throws -> MessengerRealtimeTokenResponse {
-        try await sendAuthorized(.get("/messages/realtime/token"))
+        throw unsupportedFeature("Realtime messaging is not available on this backend.")
     }
 
     func fetchFeedback() async throws -> [FeedbackEntryDTO] {
@@ -482,11 +508,53 @@ final class BackendRepository {
     }
 
     func fetchTransactions() async throws -> [TransactionEntryDTO] {
-        try await sendAuthorized(.get("/finance/transactions"))
+        let entries: [FinanceBootstrapCompatEntryDTO] = try await sendAuthorized(.get("/finance/entries"))
+        return entries.map { entry in
+            TransactionEntryDTO(
+                title: entry.title,
+                amount: entry.amount,
+                date: entry.date,
+                type: entry.type.uppercased() == "INCOME" ? "income" : "expense"
+            )
+        }
     }
 
     func fetchCashBootstrap() async throws -> CashBootstrapDTO {
-        try await sendAuthorized(.get("/finance/cash/bootstrap"))
+        do {
+            return try await sendAuthorized(.get("/finance/cash/bootstrap"))
+        } catch NetworkError.decodingFailed {
+            let compat: FinanceBootstrapCompatDTO = try await sendAuthorized(.get("/finance/cash/bootstrap"))
+            let incomeCategoryID = "finance-income-default"
+            let expenseCategoryID = "finance-expense-default"
+            let categories = [
+                CashCategoryDTO(id: incomeCategoryID, name: "Einnahmen", colorHex: "#16A34A", isDefault: true),
+                CashCategoryDTO(id: expenseCategoryID, name: "Ausgaben", colorHex: "#DC2626", isDefault: true)
+            ]
+            let transactions = compat.entries.map { entry in
+                let isIncome = entry.type.uppercased() == "INCOME"
+                return CashTransactionDTO(
+                    id: entry.id,
+                    amount: entry.amount,
+                    date: entry.date,
+                    categoryID: isIncome ? incomeCategoryID : expenseCategoryID,
+                    description: entry.title,
+                    type: isIncome ? CashTransactionKind.income.rawValue : CashTransactionKind.expense.rawValue,
+                    playerID: nil,
+                    responsibleTrainerID: nil,
+                    comment: "",
+                    paymentStatus: CashPaymentStatus.paid.rawValue,
+                    contextLabel: nil,
+                    createdAt: entry.date,
+                    updatedAt: entry.date
+                )
+            }
+            return CashBootstrapDTO(
+                categories: categories,
+                transactions: transactions,
+                contributions: [],
+                goals: []
+            )
+        }
     }
 
     func fetchCashTransactions(
@@ -500,76 +568,57 @@ final class BackendRepository {
         type: CashTransactionKind?,
         query: String?
     ) async throws -> CashTransactionsPageDTO {
-        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: "\(limit)")]
-        if let cursor, !cursor.isEmpty {
-            items.append(URLQueryItem(name: "cursor", value: cursor))
+        _ = (cursor, limit, from, to, categoryID, playerID, status, type, query)
+        let entries: [FinanceBootstrapCompatEntryDTO] = try await sendAuthorized(.get("/finance/entries"))
+        let mapped = entries.map { entry in
+            mapFinanceEntryToCashTransaction(entry)
         }
-        let iso = ISO8601DateFormatter()
-        if let from {
-            items.append(URLQueryItem(name: "from", value: iso.string(from: from)))
-        }
-        if let to {
-            items.append(URLQueryItem(name: "to", value: iso.string(from: to)))
-        }
-        if let categoryID {
-            items.append(URLQueryItem(name: "categoryId", value: categoryID.uuidString))
-        }
-        if let playerID {
-            items.append(URLQueryItem(name: "playerId", value: playerID.uuidString))
-        }
-        if let status {
-            items.append(URLQueryItem(name: "status", value: status.rawValue))
-        }
-        if let type {
-            items.append(URLQueryItem(name: "type", value: type.rawValue))
-        }
-        if let query, !query.isEmpty {
-            items.append(URLQueryItem(name: "q", value: query))
-        }
-        return try await sendAuthorized(.get("/finance/cash/transactions", query: items))
+        return CashTransactionsPageDTO(items: mapped, nextCursor: nil)
     }
 
     func createCashTransaction(_ request: UpsertCashTransactionRequest) async throws -> CashTransactionDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/finance/cash/transactions", body: data))
+        let payload = CreateFinanceEntryCompatRequest(
+            clubId: nil,
+            amount: request.amount,
+            type: request.type.uppercased() == "INCOME" ? "INCOME" : "EXPENSE",
+            title: request.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Eintrag" : request.description,
+            date: request.date
+        )
+        let data = try encode(payload)
+        let entry: FinanceBootstrapCompatEntryDTO = try await sendAuthorized(.post("/finance/entry", body: data))
+        return mapFinanceEntryToCashTransaction(entry, fallbackCategoryID: request.categoryID)
     }
 
     func updateCashTransaction(transactionID: String, request: UpsertCashTransactionRequest) async throws -> CashTransactionDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.put("/finance/cash/transactions/\(transactionID)", body: data))
+        throw unsupportedFeature("Cash transaction updates are not available on this backend.")
     }
 
     func deleteCashTransaction(transactionID: String) async throws -> EmptyResponse {
-        try await sendAuthorized(.delete("/finance/cash/transactions/\(transactionID)"))
+        throw unsupportedFeature("Cash transaction deletion is not available on this backend.")
     }
 
     func createCashContribution(request: UpsertMonthlyContributionRequest) async throws -> MonthlyContributionDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/finance/cash/contributions", body: data))
+        throw unsupportedFeature("Monthly contributions are not available on this backend.")
     }
 
     func upsertCashContribution(contributionID: String, request: UpsertMonthlyContributionRequest) async throws -> MonthlyContributionDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.put("/finance/cash/contributions/\(contributionID)", body: data))
+        throw unsupportedFeature("Monthly contributions are not available on this backend.")
     }
 
     func sendCashPaymentReminder(request: SendCashReminderRequest) async throws -> EmptyResponse {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/finance/cash/contributions/reminders", body: data))
+        throw unsupportedFeature("Payment reminders are not available on this backend.")
     }
 
     func createCashGoal(request: UpsertCashGoalRequest) async throws -> CashGoalDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.post("/finance/cash/goals", body: data))
+        throw unsupportedFeature("Cash goals are not available on this backend.")
     }
 
     func updateCashGoal(goalID: String, request: UpsertCashGoalRequest) async throws -> CashGoalDTO {
-        let data = try encode(request)
-        return try await sendAuthorized(.put("/finance/cash/goals/\(goalID)", body: data))
+        throw unsupportedFeature("Cash goals are not available on this backend.")
     }
 
     func deleteCashGoal(goalID: String) async throws -> EmptyResponse {
-        try await sendAuthorized(.delete("/finance/cash/goals/\(goalID)"))
+        throw unsupportedFeature("Cash goals are not available on this backend.")
     }
 
     func fetchFiles() async throws -> [FileItemDTO] {
@@ -926,10 +975,16 @@ final class BackendRepository {
             return try await client.send(endpoint, token: auth.accessToken)
         } catch NetworkError.httpError(let status, let data, _) where status == 401 {
             guard auth.refreshToken != nil else {
+                auth.clearTokens(notify: true)
                 throw NetworkError.httpError(status: status, data: data, message: NetworkError.extractMessage(from: data))
             }
-            try await auth.refresh()
-            return try await client.send(endpoint, token: auth.accessToken)
+            do {
+                try await auth.refresh()
+                return try await client.send(endpoint, token: auth.accessToken)
+            } catch {
+                auth.clearTokens(notify: true)
+                throw error
+            }
         }
     }
 
@@ -937,5 +992,35 @@ final class BackendRepository {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(value)
+    }
+
+    private func unsupportedFeature(_ message: String) -> NetworkError {
+        NetworkError.httpError(status: 501, data: Data(), message: message)
+    }
+
+    private func mapFinanceEntryToCashTransaction(
+        _ entry: FinanceBootstrapCompatEntryDTO,
+        fallbackCategoryID: String? = nil
+    ) -> CashTransactionDTO {
+        let isIncome = entry.type.uppercased() == "INCOME"
+        let categoryID = fallbackCategoryID ?? (isIncome ? "finance-income-default" : "finance-expense-default")
+        let created = entry.createdAt ?? entry.date
+        let updated = entry.updatedAt ?? entry.date
+
+        return CashTransactionDTO(
+            id: entry.id,
+            amount: entry.amount,
+            date: entry.date,
+            categoryID: categoryID,
+            description: entry.title,
+            type: isIncome ? CashTransactionKind.income.rawValue : CashTransactionKind.expense.rawValue,
+            playerID: nil,
+            responsibleTrainerID: nil,
+            comment: "",
+            paymentStatus: CashPaymentStatus.paid.rawValue,
+            contextLabel: nil,
+            createdAt: created,
+            updatedAt: updated
+        )
     }
 }

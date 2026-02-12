@@ -110,7 +110,10 @@ struct ContentView: View {
     }
 
     private var onboardingStartStep: OnboardingFlowView.Step {
-        if session.authUser?.clubId == nil {
+        if let onboardingState = session.onboardingState, onboardingState.completed == false {
+            return .club
+        }
+        if session.authUser?.clubId == nil || session.authUser?.teamId == nil {
             return .club
         }
         return .complete

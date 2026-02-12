@@ -337,6 +337,14 @@ struct OnboardingFlowView: View {
         defer { isBusy = false }
 
         do {
+            if !isLogin, password != passwordConfirmation {
+                throw NSError(
+                    domain: "Onboarding",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Passwortbestatigung stimmt nicht uberein."]
+                )
+            }
+
             let authenticatedUser: AuthUserDTO?
             if isLogin {
                 authenticatedUser = try await dataStore.backend.auth.login(email: email, password: password)
@@ -354,27 +362,14 @@ struct OnboardingFlowView: View {
                 session.applyAuthenticatedUser(authenticatedUser)
             }
 
-            clearDraft()
-            if session.phase == .onboarding {
+            let me = try await dataStore.backend.fetchAuthMe()
+            session.applyAuthMe(me)
+            if me.onboardingRequired {
+                session.phase = .onboarding
                 goTo(.club, style: .cameraPush)
-            }
-
-            do {
-                let me = try await dataStore.backend.fetchAuthMe()
-                session.applyAuthMe(me)
-                if me.clubId == nil {
-                    session.phase = .onboarding
-                } else {
-                    session.phase = .ready
-                    clearDraft()
-                }
-            } catch {
-                if session.authUser?.clubId == nil {
-                    session.phase = .onboarding
-                } else if session.authUser != nil {
-                    session.phase = .ready
-                    clearDraft()
-                }
+            } else {
+                session.phase = .ready
+                clearDraft()
             }
         } catch {
             let message = NetworkError.userMessage(from: error)
@@ -396,43 +391,84 @@ struct OnboardingFlowView: View {
 
     private func submitClubSelection(selectedClubId: String?) async {
         statusMessage = ""
+        connectionError = nil
+        retryAction = nil
         isSearching = true
         defer { isSearching = false }
 
         do {
-            if !inviteCode.isEmpty {
-                _ = try await dataStore.backend.joinOnboardingClub(inviteCode: inviteCode)
-            } else {
-                let normalizedName = selectedClubId ?? clubName
-                if normalizedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    throw NSError(domain: "Onboarding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Vereinsname fehlt"])
+            var me = try await dataStore.backend.fetchAuthMe()
+            var resolvedClubId = me.clubId
+
+            if resolvedClubId == nil {
+                let normalizedName = (selectedClubId ?? clubName).trimmingCharacters(in: .whitespacesAndNewlines)
+                if normalizedName.isEmpty {
+                    throw NSError(
+                        domain: "Onboarding",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Vereinsname fehlt"]
+                    )
                 }
                 if region.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    throw NSError(domain: "Onboarding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Region fehlt"])
+                    throw NSError(
+                        domain: "Onboarding",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Region fehlt"]
+                    )
+                }
+                if city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw NSError(
+                        domain: "Onboarding",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Stadt fehlt"]
+                    )
                 }
                 _ = try await dataStore.backend.createOnboardingClub(
                     ClubCreateRequest(
                         name: normalizedName,
                         region: region,
-                        city: city.isEmpty ? nil : city,
-                        postalCode: postalCode.isEmpty ? nil : postalCode
+                        city: city
                     )
                 )
+                me = try await dataStore.backend.fetchAuthMe()
+                resolvedClubId = me.clubId
             }
 
-            let me = try await dataStore.backend.fetchAuthMe()
+            if selectedRole != "vorstand" {
+                let resolvedTeamName = teamName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if resolvedTeamName.isEmpty {
+                    throw NSError(
+                        domain: "Onboarding",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Teamname fehlt"]
+                    )
+                }
+
+                _ = try await dataStore.backend.createOnboardingTeam(
+                    TeamCreateRequest(
+                        clubId: resolvedClubId,
+                        name: resolvedTeamName,
+                        ageGroup: "Senior",
+                        league: league.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Offen" : league
+                    )
+                )
+                me = try await dataStore.backend.fetchAuthMe()
+            }
+
             session.applyAuthMe(me)
-            if me.clubId != nil {
-                statusMessage = "Verein verbunden."
+            if me.onboardingRequired {
+                session.phase = .onboarding
+                statusMessage = "Onboarding unvollstandig. Bitte Teamdaten prufen."
+                goTo(.club, style: .sceneReveal)
+            } else {
+                statusMessage = "Onboarding abgeschlossen."
                 clearDraft()
                 session.phase = .ready
-            } else {
-                session.phase = .onboarding
-                goTo(.club, style: .sceneReveal)
             }
         } catch {
-            statusMessage = "Club konnte nicht aufgelost werden."
-            connectionError = "Club konnte nicht verbunden werden."
+            let message = NetworkError.userMessage(from: error)
+            statusMessage = message
+            connectionError = message
             retryAction = .clubSubmit
             motion.triggerError()
         }

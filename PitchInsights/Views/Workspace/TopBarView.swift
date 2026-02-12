@@ -10,7 +10,7 @@ struct TopBarView: View {
     private var moduleResults: [Module] {
         let token = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !token.isEmpty else { return [] }
-        return Module.allCases.filter { module in
+        return AppConfiguration.enabledModules.filter { module in
             module.title.lowercased().contains(token)
         }
     }
@@ -104,7 +104,7 @@ struct TopBarView: View {
 
     private var appMenu: some View {
         Menu {
-            ForEach(Module.allCases) { module in
+            ForEach(AppConfiguration.enabledModules) { module in
                 Button(module.title) {
                     appState.openFloatingWindow(module)
                 }

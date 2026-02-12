@@ -67,6 +67,7 @@ final class MessengerWorkspaceViewModel: ObservableObject {
     }
 
     func scheduleRealtimeReconnect(store: AppDataStore) {
+        guard AppConfiguration.messagingEnabled else { return }
         reconnectTask?.cancel()
         reconnectTask = Task { [weak self] in
             guard let self else { return }

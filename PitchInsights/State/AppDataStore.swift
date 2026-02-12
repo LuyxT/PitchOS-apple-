@@ -298,14 +298,12 @@ final class AppDataStore: ObservableObject {
                 return true
             }
             print("[client] bootstrap failed: invalid status \(response.status)")
-            return true
+            backendConnectionState = .failed("Backend nicht erreichbar")
+            return false
         } catch {
             print("[client] bootstrap failed: \(error.localizedDescription)")
-            if isConnectivityFailure(error) {
-                backendConnectionState = .failed("Backend nicht erreichbar")
-                return false
-            }
-            return true
+            backendConnectionState = .failed("Backend nicht erreichbar")
+            return false
         }
     }
 

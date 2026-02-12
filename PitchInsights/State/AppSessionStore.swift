@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 final class AppSessionStore: ObservableObject {
     enum Phase {
         case checking
@@ -27,6 +28,13 @@ final class AppSessionStore: ObservableObject {
                 self.applyAuthenticatedUser(user)
             }
             .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .authSessionInvalidated)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.clearSession()
+            }
+            .store(in: &cancellables)
     }
 
     func bootstrap(using backend: BackendRepository) async {
@@ -43,27 +51,28 @@ final class AppSessionStore: ObservableObject {
 
             let me = try await backend.fetchAuthMe()
             applyAuthMe(me)
-            if me.clubId == nil {
+            if me.onboardingRequired {
                 phase = .onboarding
             } else {
                 phase = .ready
             }
         } catch {
-            backend.auth.clearTokens()
+            backend.auth.clearTokens(notify: true)
             phase = .unauthenticated
         }
     }
 
     func applyAuthenticatedUser(_ user: AuthUserDTO) {
         authUser = user
+        let completed = user.clubId != nil && user.teamId != nil
         onboardingState = OnboardingStateDTO(
-            completed: user.clubId != nil,
+            completed: completed,
             completedAt: nil,
-            lastStep: user.clubId == nil ? "club" : "complete"
+            lastStep: completed ? "DONE" : "TEAM_SETUP"
         )
         memberships = []
         activeContext = nil
-        phase = user.clubId == nil ? .onboarding : .ready
+        phase = completed ? .ready : .onboarding
     }
 
     func applyAuthMe(_ me: AuthMeDTO) {
@@ -72,12 +81,18 @@ final class AppSessionStore: ObservableObject {
             email: me.email,
             role: me.role,
             clubId: me.clubId,
+            teamId: me.teamId,
             organizationId: me.organizationId,
             createdAt: me.createdAt
         )
-        onboardingState = me.onboardingState
+        onboardingState = me.onboardingState ?? OnboardingStateDTO(
+            completed: !me.onboardingRequired,
+            completedAt: nil,
+            lastStep: me.nextStep
+        )
         memberships = me.clubMemberships
         resolveActiveContext(from: me.clubMemberships)
+        phase = me.onboardingRequired ? .onboarding : .ready
     }
 
     func setActiveContext(_ membership: MembershipDTO) {

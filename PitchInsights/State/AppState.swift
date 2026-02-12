@@ -15,9 +15,10 @@ struct FloatingWindowState: Identifiable, Equatable {
     var zIndex: Double
 }
 
+@MainActor
 final class AppState: ObservableObject {
-    @Published var activeModule: Module = .trainerProfil
-    @Published var dockModules: [Module] = Module.allCases
+    @Published var activeModule: Module = AppConfiguration.enabledModules.first ?? .kader
+    @Published var dockModules: [Module] = AppConfiguration.enabledModules
     @Published var desktopItems: [DesktopItem] = []
     @Published var isWidgetBrowserVisible = false
     @Published var floatingWindows: [FloatingWindowState] = []
@@ -27,15 +28,18 @@ final class AppState: ObservableObject {
     private var nextZIndex: Double = 1
 
     init() {
-        activeModule = .trainerProfil
+        activeModule = AppConfiguration.enabledModules.first ?? .kader
+        dockModules = AppConfiguration.enabledModules
         desktopItems = []
     }
 
     func setActive(_ module: Module) {
+        guard AppConfiguration.enabledModules.contains(module) else { return }
         activeModule = module
     }
 
     func addToDesktop(_ module: Module) {
+        guard AppConfiguration.enabledModules.contains(module) else { return }
         guard !desktopItems.contains(where: { $0.module == module }) else { return }
         var item = DesktopItem.module(module)
         item.position = nextAvailableDesktopPosition(for: item, preferred: defaultDesktopPosition(for: desktopItems.count))
@@ -47,6 +51,7 @@ final class AppState: ObservableObject {
     }
 
     func toggleDesktopPresence(for module: Module) {
+        guard AppConfiguration.enabledModules.contains(module) else { return }
         if let index = desktopItems.firstIndex(where: { $0.module == module }) {
             desktopItems.remove(at: index)
         } else {
@@ -55,6 +60,7 @@ final class AppState: ObservableObject {
     }
 
     func addWidgetToDesktop(_ module: Module, size: DesktopWidgetSize, preferredPosition: CGPoint? = nil) {
+        guard AppConfiguration.enabledModules.contains(module) else { return }
         var item = DesktopItem.widget(module, size: size)
         let preferred = preferredPosition ?? CGPoint(
             x: max(160, workspaceBounds.width * 0.32),
@@ -142,6 +148,7 @@ final class AppState: ObservableObject {
     }
 
     func openFloatingWindow(_ module: Module) {
+        guard AppConfiguration.enabledModules.contains(module) else { return }
         if let index = floatingWindows.firstIndex(where: {
             if case .module(let existing) = $0.kind {
                 return existing == module

@@ -2,8 +2,9 @@ import Foundation
 
 final class APIClient {
     private let session: URLSession
-    private let decoder: JSONDecoder
     private let apiPrefix = "/api/v1"
+    private let requestTimeout: TimeInterval = 10
+    private let accessTokenKey = "pitchinsights.accessToken"
     private static let iso8601: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
@@ -17,22 +18,6 @@ final class APIClient {
 
     init(session: URLSession = .shared) {
         self.session = session
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let container = try decoder.singleValueContainer()
-            let value = try container.decode(String.self)
-            if let date = APIClient.iso8601WithFractional.date(from: value) {
-                return date
-            }
-            if let date = APIClient.iso8601.date(from: value) {
-                return date
-            }
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Unsupported date format: \(value)"
-            )
-        }
-        self.decoder = decoder
     }
 
     func send<T: Decodable>(_ endpoint: Endpoint, token: String? = nil) async throws -> T {
@@ -45,8 +30,12 @@ final class APIClient {
             throw NetworkError.emptyResponseBody
         }
 
+        if let value: T = try? await decodeEnvelopePayload(T.self, from: data) {
+            return value
+        }
+
         do {
-            return try decoder.decode(T.self, from: data)
+            return try await decode(T.self, from: data)
         } catch {
             if T.self == EmptyResponse.self {
                 return EmptyResponse() as! T
@@ -70,25 +59,47 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = endpoint.body
+        request.timeoutInterval = requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         endpoint.headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-        if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let effectiveToken = token ?? KeychainStore.shared.get(accessTokenKey)
+        if let effectiveToken, !effectiveToken.isEmpty {
+            request.setValue("Bearer \(effectiveToken)", forHTTPHeaderField: "Authorization")
         }
 
         NetworkDebugLogger.logRequest(request)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await withTimeout(seconds: requestTimeout) { [session] in
+            try await session.data(for: request)
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidResponse
         }
         NetworkDebugLogger.logResponse(httpResponse, data: data)
         guard (200...299).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 404 {
+                print("[Network][warn] 404: \(request.httpMethod ?? "GET") \(url.absoluteString)")
+            }
             let message = NetworkError.extractMessage(from: data)
             throw NetworkError.httpError(status: httpResponse.statusCode, data: data, message: message)
         }
 
         return (data, httpResponse)
+    }
+
+    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw URLError(.timedOut)
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
     }
 
     private func normalizedPath(_ rawPath: String, baseURL: URL) -> String {
@@ -100,6 +111,45 @@ final class APIClient {
             return path
         }
         return "\(apiPrefix)\(path)"
+    }
+
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data) async throws -> T {
+        try APIClient.makeDecoder().decode(type, from: data)
+    }
+
+    private func decodeEnvelopePayload<T: Decodable>(_ type: T.Type, from data: Data) async throws -> T {
+        let envelope = try await decode(APIEnvelope<T>.self, from: data)
+        if envelope.success {
+            if let payload = envelope.data {
+                return payload
+            }
+            if T.self == EmptyResponse.self {
+                return EmptyResponse() as! T
+            }
+            throw NetworkError.emptyResponseBody
+        }
+
+        let message = envelope.error?.message ?? "Unbekannter Serverfehler."
+        throw NetworkError.httpError(status: 400, data: data, message: message)
+    }
+
+    private static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            if let date = iso8601WithFractional.date(from: value) {
+                return date
+            }
+            if let date = iso8601.date(from: value) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported date format: \(value)"
+            )
+        }
+        return decoder
     }
 }
 
@@ -120,6 +170,9 @@ enum NetworkError: LocalizedError {
         case .invalidResponse:
             return "Ungültige Server-Antwort."
         case .httpError(let status, _, let message):
+            if status >= 500 {
+                return "Der Server ist aktuell nicht erreichbar. Bitte versuche es später erneut."
+            }
             if let message, !message.isEmpty {
                 return "Serverfehler (\(status)): \(message)"
             }
@@ -134,6 +187,13 @@ enum NetworkError: LocalizedError {
     static func extractMessage(from data: Data) -> String? {
         guard !data.isEmpty else { return nil }
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let success = json["success"] as? Bool,
+               success == false,
+               let error = json["error"] as? [String: Any],
+               let message = error["message"] as? String,
+               !message.isEmpty {
+                return message
+            }
             if let message = json["message"] as? String {
                 return message
             }
@@ -142,6 +202,11 @@ enum NetworkError: LocalizedError {
             }
             if let error = json["error"] as? String {
                 return error
+            }
+            if let error = json["error"] as? [String: Any],
+               let message = error["message"] as? String,
+               !message.isEmpty {
+                return message
             }
         }
         return String(data: data, encoding: .utf8)
@@ -178,4 +243,15 @@ enum NetworkDebugLogger {
         print("[Network] <- \(status) \(url)")
         print("[Network] Response: \(body)")
     }
+}
+
+private struct APIEnvelope<Payload: Decodable>: Decodable {
+    let success: Bool
+    let data: Payload?
+    let error: APIEnvelopeError?
+}
+
+private struct APIEnvelopeError: Decodable {
+    let code: String?
+    let message: String?
 }

@@ -46,14 +46,42 @@ struct OnboardingResolveResponse: Codable {
 struct OnboardingClubDTO: Codable {
     let id: String
     let name: String
+    let city: String?
     let region: String?
     let league: String?
     let inviteCode: String?
 }
 
-struct OnboardingClubActionResponse: Codable {
+struct OnboardingClubActionResponse: Decodable {
     let success: Bool
+    let message: String?
+    let onboardingRequired: Bool?
+    let nextStep: String?
     let club: OnboardingClubDTO
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case club
+        case clubExists
+        case message
+        case onboardingRequired
+        case nextStep
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let explicit = try container.decodeIfPresent(Bool.self, forKey: .success) {
+            success = explicit
+        } else if let exists = try container.decodeIfPresent(Bool.self, forKey: .clubExists) {
+            success = exists
+        } else {
+            success = true
+        }
+        message = try? container.decodeIfPresent(String.self, forKey: .message)
+        onboardingRequired = try? container.decodeIfPresent(Bool.self, forKey: .onboardingRequired)
+        nextStep = try? container.decodeIfPresent(String.self, forKey: .nextStep)
+        club = try container.decode(OnboardingClubDTO.self, forKey: .club)
+    }
 }
 
 struct OnboardingJoinClubRequest: Codable {
@@ -71,8 +99,7 @@ struct ClubSearchResultDTO: Codable {
 struct ClubCreateRequest: Codable {
     let name: String
     let region: String
-    let city: String?
-    let postalCode: String?
+    let city: String
 }
 
 struct ClubDTO: Codable {
@@ -96,13 +123,16 @@ struct ClubJoinResponse: Codable {
 }
 
 struct TeamCreateRequest: Codable {
-    let clubId: String
-    let teamName: String
-    let league: String?
+    let clubId: String?
+    let name: String
+    let ageGroup: String
+    let league: String
 }
 
 struct TeamDTO: Codable {
     let id: String
     let name: String
-    let organizationId: String?
+    let clubId: String?
+    let ageGroup: String?
+    let league: String?
 }

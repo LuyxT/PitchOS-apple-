@@ -37,11 +37,12 @@ final class AuthService {
 
     @discardableResult
     func register(email: String, password: String, passwordConfirmation: String, role: String, inviteCode: String?) async throws -> AuthUserDTO? {
+        let normalizedRole = mapRoleForBackend(role)
         let request = RegisterRequest(
             email: email,
             password: password,
             passwordConfirmation: passwordConfirmation,
-            role: role,
+            role: normalizedRole,
             inviteCode: inviteCode
         )
         let body = try JSONEncoder().encode(request)
@@ -78,8 +79,7 @@ final class AuthService {
         if let backend, let refreshToken = refreshToken {
             _ = try? await backend.logout(refreshToken: refreshToken)
         }
-        keychain.delete(accessKey)
-        keychain.delete(refreshKey)
+        clearTokens(notify: true)
     }
 
     private func storeTokens(_ tokens: AuthTokens) {
@@ -87,9 +87,12 @@ final class AuthService {
         keychain.set(tokens.refreshToken, forKey: refreshKey)
     }
 
-    func clearTokens() {
+    func clearTokens(notify: Bool = false) {
         keychain.delete(accessKey)
         keychain.delete(refreshKey)
+        if notify {
+            NotificationCenter.default.post(name: .authSessionInvalidated, object: nil)
+        }
     }
 
     private func loadAuthPayload(endpoint: Endpoint) async throws -> ParsedAuthPayload {
@@ -230,6 +233,7 @@ final class AuthService {
 
         let role = user["role"] as? String
         let directClub = user["clubId"] as? String
+        let team = user["teamId"] as? String
         let org = user["organizationId"] as? String
         let createdAtString = user["createdAt"] as? String
         let createdAt = createdAtString.flatMap(Self.decodeDate)
@@ -239,9 +243,23 @@ final class AuthService {
             email: email,
             role: role,
             clubId: directClub ?? org,
+            teamId: team,
             organizationId: org ?? directClub,
             createdAt: createdAt
         )
+    }
+
+    private func mapRoleForBackend(_ rawRole: String) -> String {
+        switch rawRole.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "trainer":
+            return "TRAINER"
+        case "vorstand", "board":
+            return "BOARD"
+        case "staff", "physio", "spieler", "player":
+            return "STAFF"
+        default:
+            return "TRAINER"
+        }
     }
 
     nonisolated private static func decodeDate(_ value: String) -> Date? {
@@ -284,4 +302,5 @@ extension AuthError: LocalizedError {
 
 extension Notification.Name {
     static let authUserUpdated = Notification.Name("auth.user.updated")
+    static let authSessionInvalidated = Notification.Name("auth.session.invalidated")
 }
