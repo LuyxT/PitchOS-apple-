@@ -23,7 +23,11 @@ final class AuthService {
         let request = LoginRequest(email: email, password: password)
         let body = try JSONEncoder().encode(request)
         let response: LoginResponse = try await client.send(.post("/auth/login", body: body))
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        guard !response.accessToken.isEmpty else {
+            throw AuthError.invalidAuthResponse
+        }
+        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
+        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
@@ -39,7 +43,11 @@ final class AuthService {
         )
         let body = try JSONEncoder().encode(request)
         let response: RegisterResponse = try await client.send(.post("/auth/register", body: body))
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        guard !response.accessToken.isEmpty else {
+            throw AuthError.invalidAuthResponse
+        }
+        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
+        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
@@ -50,7 +58,11 @@ final class AuthService {
         let request = RefreshRequest(refreshToken: refreshToken)
         let body = try JSONEncoder().encode(request)
         let response: RefreshResponse = try await client.send(.post("/auth/refresh", body: body))
-        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: response.refreshToken))
+        guard !response.accessToken.isEmpty else {
+            throw AuthError.invalidAuthResponse
+        }
+        let refresh = response.refreshToken.isEmpty ? response.accessToken : response.refreshToken
+        storeTokens(AuthTokens(accessToken: response.accessToken, refreshToken: refresh))
         if let user = response.user {
             NotificationCenter.default.post(name: .authUserUpdated, object: user)
         }
@@ -72,6 +84,7 @@ final class AuthService {
 
 enum AuthError: Error {
     case missingRefreshToken
+    case invalidAuthResponse
 }
 
 extension Notification.Name {

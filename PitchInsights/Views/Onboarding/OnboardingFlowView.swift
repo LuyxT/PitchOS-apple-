@@ -335,8 +335,13 @@ struct OnboardingFlowView: View {
             }
             let me = try await dataStore.backend.fetchAuthMe()
             session.applyAuthMe(me)
-            session.phase = .onboarding
-            goTo(.role, style: .cameraPush)
+            if me.clubId == nil {
+                session.phase = .onboarding
+                goTo(.club, style: .cameraPush)
+            } else {
+                session.phase = .ready
+                clearDraft()
+            }
         } catch {
             let message = NetworkError.userMessage(from: error)
             statusMessage = message
@@ -348,45 +353,11 @@ struct OnboardingFlowView: View {
 
     private func scheduleClubLookup() {
         lookupTask?.cancel()
-        lookupTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            guard !Task.isCancelled else { return }
-            if clubName.count >= 2 && region.count >= 2 {
-                await searchClubsPreview()
-            }
-        }
+        candidates = []
     }
 
     private func searchClubsPreview() async {
-        statusMessage = ""
-        isSearching = true
-        defer { isSearching = false }
-
-        do {
-            let results = try await dataStore.backend.searchClubs(query: clubName, region: region)
-            candidates = results.map {
-                OnboardingCandidateDTO(
-                    clubId: $0.id,
-                    clubName: $0.name,
-                    city: $0.city,
-                    postalCode: $0.postalCode,
-                    region: $0.region
-                )
-            }
-            if candidates.isEmpty {
-                statusMessage = "Kein Treffer. Neuer Verein wird erstellt."
-            } else {
-                statusMessage = "Dieser Verein existiert bereits — du wirst zugeordnet."
-                if candidates.count == 1 {
-                    motion.triggerSuccess()
-                }
-            }
-        } catch {
-            statusMessage = "Vereinssuche fehlgeschlagen."
-            connectionError = "Verein konnte nicht geladen werden."
-            retryAction = .clubSubmit
-            motion.triggerError()
-        }
+        candidates = []
     }
 
     private func submitClubSelection(selectedClubId: String?) async {
@@ -396,71 +367,35 @@ struct OnboardingFlowView: View {
 
         do {
             if !inviteCode.isEmpty {
-                let request = OnboardingResolveRequest(
-                    role: selectedRole,
-                    region: region,
-                    clubName: clubName,
-                    postalCode: postalCode.isEmpty ? nil : postalCode,
-                    city: city.isEmpty ? nil : city,
-                    teamName: teamName.isEmpty ? nil : teamName,
-                    league: league.isEmpty ? nil : league,
-                    inviteCode: inviteCode,
-                    clubId: nil
-                )
-                _ = try await dataStore.backend.resolveOnboarding(request)
-
-                let me = try await dataStore.backend.fetchAuthMe()
-                session.applyAuthMe(me)
-                session.phase = .onboarding
-                goTo(.profile, style: .sceneReveal)
-                return
-            }
-
-            let requiresTeam = selectedRole != "vorstand"
-            let clubId: String
-
-            if let selectedClubId {
-                clubId = selectedClubId
+                _ = try await dataStore.backend.joinOnboardingClub(inviteCode: inviteCode)
             } else {
-                let results = try await dataStore.backend.searchClubs(query: clubName, region: region)
-                if let first = results.first {
-                    clubId = first.id
-                } else {
-                    let created = try await dataStore.backend.createClub(
-                        ClubCreateRequest(
-                            name: clubName,
-                            region: region,
-                            city: city.isEmpty ? nil : city,
-                            postalCode: postalCode.isEmpty ? nil : postalCode
-                        )
-                    )
-                    clubId = created.id
+                let normalizedName = selectedClubId ?? clubName
+                if normalizedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw NSError(domain: "Onboarding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Vereinsname fehlt"])
                 }
-            }
-
-            var teamId: String? = nil
-            if requiresTeam {
-                let team = try await dataStore.backend.createTeam(
-                    TeamCreateRequest(clubId: clubId, teamName: teamName, league: league.isEmpty ? nil : league)
+                if region.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw NSError(domain: "Onboarding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Region fehlt"])
+                }
+                _ = try await dataStore.backend.createOnboardingClub(
+                    ClubCreateRequest(
+                        name: normalizedName,
+                        region: region,
+                        city: city.isEmpty ? nil : city,
+                        postalCode: postalCode.isEmpty ? nil : postalCode
+                    )
                 )
-                teamId = team.id
-            }
-
-            let joinResponse = try await dataStore.backend.joinClub(
-                ClubJoinRequest(clubId: clubId, role: selectedRole, teamId: teamId)
-            )
-
-            if joinResponse.membershipStatus == "pending" {
-                statusMessage = "Dieser Verein existiert bereits — du wirst zugeordnet."
-                motion.triggerSuccess()
-            } else {
-                statusMessage = "Verein verbunden."
             }
 
             let me = try await dataStore.backend.fetchAuthMe()
             session.applyAuthMe(me)
-            session.phase = .onboarding
-            goTo(.profile, style: .sceneReveal)
+            if me.clubId != nil {
+                statusMessage = "Verein verbunden."
+                clearDraft()
+                session.phase = .ready
+            } else {
+                session.phase = .onboarding
+                goTo(.club, style: .sceneReveal)
+            }
         } catch {
             statusMessage = "Club konnte nicht aufgelost werden."
             connectionError = "Club konnte nicht verbunden werden."

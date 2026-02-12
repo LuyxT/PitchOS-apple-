@@ -452,10 +452,37 @@ struct ShareAnalysisClipResponse: Decodable {
 struct AuthMeDTO: Decodable {
     let id: String
     let email: String
+    let role: String?
+    let clubId: String?
     let organizationId: String?
     let createdAt: Date?
     let clubMemberships: [MembershipDTO]
     let onboardingState: OnboardingStateDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case email
+        case role
+        case clubId
+        case organizationId
+        case createdAt
+        case clubMemberships
+        case onboardingState
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        email = try container.decode(String.self, forKey: .email)
+        role = try? container.decodeIfPresent(String.self, forKey: .role)
+        let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
+        let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)
+        clubId = directClub ?? org ?? nil
+        organizationId = org ?? directClub ?? nil
+        createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
+        clubMemberships = try container.decodeIfPresent([MembershipDTO].self, forKey: .clubMemberships) ?? []
+        onboardingState = try container.decodeIfPresent(OnboardingStateDTO.self, forKey: .onboardingState)
+    }
 }
 
 struct MessengerParticipantDTO: Codable {

@@ -110,16 +110,10 @@ struct ContentView: View {
     }
 
     private var onboardingStartStep: OnboardingFlowView.Step {
-        switch session.onboardingState?.lastStep {
-        case "club":
-            return .profile
-        case "profile":
-            return .profile
-        case "complete":
-            return .complete
-        default:
-            return .role
+        if session.authUser?.clubId == nil {
+            return .club
         }
+        return .complete
     }
 
     private func windowContent(for window: FloatingWindowState) -> AnyView {

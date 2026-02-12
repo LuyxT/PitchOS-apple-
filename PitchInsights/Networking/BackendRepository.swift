@@ -96,6 +96,16 @@ final class BackendRepository {
         return try await sendAuthorized(.post("/teams", body: data))
     }
 
+    func createOnboardingClub(_ request: ClubCreateRequest) async throws -> OnboardingClubActionResponse {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/onboarding/create-club", body: data))
+    }
+
+    func joinOnboardingClub(inviteCode: String) async throws -> OnboardingClubActionResponse {
+        let data = try encode(OnboardingJoinClubRequest(inviteCode: inviteCode))
+        return try await sendAuthorized(.post("/onboarding/join-club", body: data))
+    }
+
     func completeOnboarding() async throws -> EmptyResponse {
         try await sendAuthorized(.post("/onboarding/complete"))
     }

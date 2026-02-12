@@ -3,8 +3,47 @@ import Foundation
 struct AuthUserDTO: Codable {
     let id: String
     let email: String
+    let role: String?
+    let clubId: String?
     let organizationId: String?
     let createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case email
+        case role
+        case clubId
+        case organizationId
+        case createdAt
+    }
+
+    init(
+        id: String,
+        email: String,
+        role: String?,
+        clubId: String?,
+        organizationId: String?,
+        createdAt: Date?
+    ) {
+        self.id = id
+        self.email = email
+        self.role = role
+        self.clubId = clubId
+        self.organizationId = organizationId
+        self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        email = try container.decode(String.self, forKey: .email)
+        role = try? container.decodeIfPresent(String.self, forKey: .role)
+        let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
+        let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)
+        clubId = directClub ?? org ?? nil
+        organizationId = org ?? directClub ?? nil
+        createdAt = try? container.decodeIfPresent(Date.self, forKey: .createdAt)
+    }
 }
 
 struct AuthTokens: Codable {
@@ -26,15 +65,53 @@ struct RegisterRequest: Codable {
 }
 
 struct LoginResponse: Codable {
+    let success: Bool?
+    let token: String?
     let accessToken: String
     let refreshToken: String
     let user: AuthUserDTO?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
+        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case token
+        case accessToken
+        case refreshToken
+        case user
+    }
 }
 
 struct RegisterResponse: Codable {
+    let success: Bool?
+    let token: String?
     let accessToken: String
     let refreshToken: String
     let user: AuthUserDTO?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
+        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case token
+        case accessToken
+        case refreshToken
+        case user
+    }
 }
 
 struct RefreshRequest: Codable {
@@ -42,7 +119,26 @@ struct RefreshRequest: Codable {
 }
 
 struct RefreshResponse: Codable {
+    let success: Bool?
+    let token: String?
     let accessToken: String
     let refreshToken: String
     let user: AuthUserDTO?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decodeIfPresent(Bool.self, forKey: .success)
+        token = try container.decodeIfPresent(String.self, forKey: .token)
+        accessToken = try container.decodeIfPresent(String.self, forKey: .accessToken) ?? token ?? ""
+        refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken) ?? token ?? ""
+        user = try container.decodeIfPresent(AuthUserDTO.self, forKey: .user)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case token
+        case accessToken
+        case refreshToken
+        case user
+    }
 }

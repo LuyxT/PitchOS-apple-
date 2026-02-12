@@ -19,6 +19,7 @@ export class AppController {
   private readonly authUsers: Json[] = [];
   private readonly accessTokens = new Map<string, string>();
   private readonly refreshTokens = new Map<string, string>();
+  private readonly onboardingClubs: Json[] = [];
   private readonly trainingPlans: Json[] = [];
   private readonly trainingPhasesByPlan = new Map<string, Json[]>();
   private readonly trainingExercisesByPlan = new Map<string, Json[]>();
@@ -294,9 +295,18 @@ export class AppController {
       id: randomUUID(),
       email: 'coach@pitchinsights.app',
       password: 'pitchinsights',
-      organizationId: 'org-pitchinsights-fc',
-      createdAt: now.toISOString(),
       role: 'trainer',
+      clubId: null,
+      organizationId: null,
+      createdAt: now.toISOString(),
+    });
+    this.onboardingClubs.push({
+      id: 'club-pitchinsights-fc',
+      name: 'PitchInsights FC',
+      region: 'DE',
+      league: 'Landesliga',
+      inviteCode: 'PITCH-TEAM',
+      createdAt: now.toISOString(),
     });
   }
 
@@ -326,10 +336,14 @@ export class AppController {
     const email = String(body?.email ?? '').trim().toLowerCase();
     const password = String(body?.password ?? '');
     const passwordConfirmation = String(body?.passwordConfirmation ?? '');
-    const role = String(body?.role ?? 'trainer').trim().toLowerCase();
+    const role = String(body?.role ?? '').trim().toLowerCase();
+    const inviteCode = String(body?.inviteCode ?? '').trim();
 
     if (!email || !password) {
       throw new HttpException('E-Mail und Passwort erforderlich', 400);
+    }
+    if (!role) {
+      throw new HttpException('Rolle ist erforderlich', 400);
     }
     if (password != passwordConfirmation) {
       throw new HttpException('Passwörter stimmen nicht überein', 400);
@@ -338,18 +352,32 @@ export class AppController {
       throw new HttpException('E-Mail bereits registriert', 409);
     }
 
+    let clubID: string | null = null;
+    if (inviteCode.length > 0) {
+      const club = this.onboardingClubs.find(
+        (item) => String(item.inviteCode).toLowerCase() == inviteCode.toLowerCase(),
+      );
+      if (!club) {
+        throw new HttpException('Einladungscode ungültig', 400);
+      }
+      clubID = String(club.id);
+    }
+
     const created = {
       id: randomUUID(),
       email,
       password,
       role,
-      organizationId: 'org-pitchinsights-fc',
+      clubId: clubID,
+      organizationId: clubID,
       createdAt: new Date().toISOString(),
     };
     this.authUsers.push(created);
 
     const { accessToken, refreshToken } = this.issueTokens(created.id);
     return {
+      success: true,
+      token: accessToken,
       accessToken,
       refreshToken,
       user: this.authUserDTO(created),
@@ -370,6 +398,8 @@ export class AppController {
 
     const { accessToken, refreshToken } = this.issueTokens(String(user.id));
     return {
+      success: true,
+      token: accessToken,
       accessToken,
       refreshToken,
       user: this.authUserDTO(user),
@@ -393,6 +423,8 @@ export class AppController {
     }
 
     return {
+      success: true,
+      token: accessToken,
       accessToken,
       refreshToken: rotatedRefreshToken,
       user: this.authUserDTO(user),
@@ -409,42 +441,100 @@ export class AppController {
     if (accessToken) {
       this.accessTokens.delete(accessToken);
     }
-    return {};
+    return { success: true };
   }
 
   @Get('auth/me')
   authMe(@Headers('authorization') authorization?: string) {
-    const accessToken = this.extractBearerToken(authorization);
-    if (!accessToken) {
-      throw new HttpException('Authorization erforderlich', 401);
-    }
-
-    const userID = this.accessTokens.get(accessToken);
-    if (!userID) {
-      throw new HttpException('Ungültiger Access-Token', 401);
-    }
-
-    const user = this.authUsers.find((item) => String(item.id) == userID);
-    if (!user) {
-      throw new HttpException('Benutzer nicht gefunden', 404);
-    }
+    const user = this.requireAuthorizedUser(authorization);
+    const clubID = user.clubId == null ? null : String(user.clubId);
 
     return {
       ...this.authUserDTO(user),
-      clubMemberships: [
-        {
-          id: `membership-${userID}`,
-          organizationId: String(user.organizationId ?? 'org-pitchinsights-fc'),
-          teamId: 'team-first',
-          role: String(user.role ?? 'trainer'),
-          status: 'active',
-        },
-      ],
+      clubMemberships: clubID == null
+        ? []
+        : [
+          {
+            id: `membership-${String(user.id)}`,
+            organizationId: clubID,
+            teamId: 'team-first',
+            role: String(user.role ?? 'trainer'),
+            status: 'active',
+          },
+        ],
       onboardingState: {
-        completed: false,
-        completedAt: null,
-        lastStep: 'role',
+        completed: clubID != null,
+        completedAt: clubID == null ? null : new Date().toISOString(),
+        lastStep: clubID == null ? 'club' : 'complete',
       },
+    };
+  }
+
+  @Post('onboarding/create-club')
+  createClub(@Body() body: Json, @Headers('authorization') authorization?: string) {
+    const user = this.requireAuthorizedUser(authorization);
+    const name = String(body?.name ?? '').trim();
+    const region = String(body?.region ?? '').trim();
+    const league = String(body?.league ?? '').trim();
+
+    if (!name) {
+      throw new HttpException('Vereinsname ist erforderlich', 400);
+    }
+    if (!region) {
+      throw new HttpException('Region ist erforderlich', 400);
+    }
+
+    const club = {
+      id: randomUUID(),
+      name,
+      region,
+      league: league.length === 0 ? null : league,
+      inviteCode: this.generateInviteCode(),
+      createdAt: new Date().toISOString(),
+    };
+    this.onboardingClubs.push(club);
+
+    user.clubId = club.id;
+    user.organizationId = club.id;
+
+    return {
+      success: true,
+      club: this.onboardingClubDTO(club),
+    };
+  }
+
+  @Post('onboarding/join-club')
+  joinClub(@Body() body: Json, @Headers('authorization') authorization?: string) {
+    const user = this.requireAuthorizedUser(authorization);
+    const inviteCode = String(body?.inviteCode ?? '').trim();
+    if (inviteCode.length === 0) {
+      throw new HttpException('Einladungscode ist erforderlich', 400);
+    }
+
+    const club = this.onboardingClubs.find(
+      (item) => String(item.inviteCode).toLowerCase() == inviteCode.toLowerCase(),
+    );
+    if (!club) {
+      throw new HttpException('Einladungscode ungültig', 400);
+    }
+
+    user.clubId = club.id;
+    user.organizationId = club.id;
+
+    return {
+      success: true,
+      club: this.onboardingClubDTO(club),
+    };
+  }
+
+  @Post('debug/reset-onboarding')
+  resetOnboarding(@Headers('authorization') authorization?: string) {
+    const user = this.requireAuthorizedUser(authorization);
+    user.clubId = null;
+    user.organizationId = null;
+    return {
+      success: true,
+      user: this.authUserDTO(user),
     };
   }
 
@@ -1406,8 +1496,40 @@ export class AppController {
     return {
       id: String(user.id ?? ''),
       email: String(user.email ?? ''),
-      organizationId: user.organizationId ?? null,
+      role: user.role == null ? null : String(user.role),
+      clubId: user.clubId == null ? null : String(user.clubId),
+      organizationId: user.organizationId ?? user.clubId ?? null,
       createdAt: user.createdAt ?? null,
+    };
+  }
+
+  private requireAuthorizedUser(authorization?: string): Json {
+    const accessToken = this.extractBearerToken(authorization);
+    if (!accessToken) {
+      throw new HttpException('Authorization erforderlich', 401);
+    }
+    const userID = this.accessTokens.get(accessToken);
+    if (!userID) {
+      throw new HttpException('Ungültiger Access-Token', 401);
+    }
+    const user = this.authUsers.find((item) => String(item.id) == userID);
+    if (!user) {
+      throw new HttpException('Benutzer nicht gefunden', 404);
+    }
+    return user;
+  }
+
+  private generateInviteCode(): string {
+    return `PITCH-${randomUUID().split('-')[0].toUpperCase()}`;
+  }
+
+  private onboardingClubDTO(club: Json): Json {
+    return {
+      id: String(club.id ?? ''),
+      name: String(club.name ?? ''),
+      region: club.region == null ? null : String(club.region),
+      league: club.league == null ? null : String(club.league),
+      inviteCode: club.inviteCode == null ? null : String(club.inviteCode),
     };
   }
 }

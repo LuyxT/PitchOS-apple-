@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Combine
 
 final class AppSessionStore: ObservableObject {
     enum Phase {
@@ -21,13 +20,21 @@ final class AppSessionStore: ObservableObject {
 
     func bootstrap(using backend: BackendRepository) async {
         do {
-            if backend.auth.refreshToken != nil {
-                try await backend.auth.refresh()
-                let me = try await backend.fetchAuthMe()
-                applyAuthMe(me)
-                phase = (me.onboardingState?.completed ?? false) ? .ready : .onboarding
-            } else {
+            guard backend.auth.accessToken != nil || backend.auth.refreshToken != nil else {
                 phase = .unauthenticated
+                return
+            }
+
+            if backend.auth.refreshToken != nil {
+                try? await backend.auth.refresh()
+            }
+
+            let me = try await backend.fetchAuthMe()
+            applyAuthMe(me)
+            if me.clubId == nil {
+                phase = .onboarding
+            } else {
+                phase = .ready
             }
         } catch {
             phase = .unauthenticated
@@ -35,7 +42,14 @@ final class AppSessionStore: ObservableObject {
     }
 
     func applyAuthMe(_ me: AuthMeDTO) {
-        authUser = AuthUserDTO(id: me.id, email: me.email, organizationId: me.organizationId, createdAt: me.createdAt)
+        authUser = AuthUserDTO(
+            id: me.id,
+            email: me.email,
+            role: me.role,
+            clubId: me.clubId,
+            organizationId: me.organizationId,
+            createdAt: me.createdAt
+        )
         onboardingState = me.onboardingState
         memberships = me.clubMemberships
         resolveActiveContext(from: me.clubMemberships)

@@ -43,6 +43,23 @@ struct OnboardingResolveResponse: Codable {
     let message: String?
 }
 
+struct OnboardingClubDTO: Codable {
+    let id: String
+    let name: String
+    let region: String?
+    let league: String?
+    let inviteCode: String?
+}
+
+struct OnboardingClubActionResponse: Codable {
+    let success: Bool
+    let club: OnboardingClubDTO
+}
+
+struct OnboardingJoinClubRequest: Codable {
+    let inviteCode: String
+}
+
 struct ClubSearchResultDTO: Codable {
     let id: String
     let name: String
