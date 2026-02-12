@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  OWNER
+  ADMIN
+  COACH
+  ASSISTANT_COACH
+  PLAYER
+  PHYSIO
+  STAFF
+  BOARD
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING
+  INACTIVE
+}
+
+enum JoinCodeType {
+  PLAYER
+  STAFF
+}
+
+enum EventType {
+  TRAINING
+  MATCH
+  PRIVATE
+  OTHER
+}
+
+enum EventVisibility {
+  TEAM_VISIBLE
+  PRIVATE
+}
+
+enum FileType {
+  VIDEO
+  CLIP
+  TACTICBOARD
+  TRAININGPLAN
+  IMAGE
+  DOCUMENT
+  EXPORT
+  ANALYSIS_EXPORT
+  OTHER
+}
+
+enum UploadStatus {
+  REGISTERED
+  COMPLETED
+  FAILED
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  CLIP_REFERENCE
+}
+
+enum FinanceTransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentStatus {
+  PAID
+  OPEN
+  OVERDUE
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  displayName    String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  profile        Profile?
+  setting        UserSetting?
+  memberships    Membership[]
+  refreshTokens  RefreshToken[]
+  createdClubs   Club[]       @relation("ClubCreator")
+  createdTeams   Team[]       @relation("TeamCreator")
+  createdJoinCodes JoinCode[] @relation("JoinCodeCreator")
+
+  calendarEvents CalendarEvent[] @relation("CalendarCreatedBy")
+  trainingPlans  TrainingPlan[]  @relation("TrainingCreatedBy")
+  tacticBoards   TacticBoard[]   @relation("TacticsCreatedBy")
+  analysisSessions AnalysisSession[] @relation("AnalysisCreatedBy")
+  messages       Message[]        @relation("MessageSender")
+  files          FileMetadata[]   @relation("FileOwner")
+  financeTransactions FinanceTransaction[] @relation("FinanceResponsible")
+}
+
+model RefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  replacedBy  String?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Club {
+  id              String         @id @default(cuid())
+  name            String
+  normalizedName  String
+  region          String
+  city            String
+  normalizedCity  String
+  inviteCode      String         @unique
+  createdByUserId String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  createdBy       User           @relation("ClubCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  teams           Team[]
+  memberships     Membership[]
+  calendarEvents  CalendarEvent[]
+  trainingPlans   TrainingPlan[]
+  tacticBoards    TacticBoard[]
+  analysisSessions AnalysisSession[]
+  conversations   Conversation[]
+  files           FileMetadata[]
+  financeTransactions FinanceTransaction[]
+  financeRecurring FinanceRecurring[]
+  auditLogs       AuditLog[]
+
+  @@index([normalizedName, region, normalizedCity])
+}
+
+model Team {
+  id              String         @id @default(cuid())
+  clubId          String
+  name            String
+  season          String?
+  quotaBytes      BigInt
+  createdByUserId String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  club            Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  createdBy       User           @relation("TeamCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships     Membership[]
+  joinCodes       JoinCode[]
+  players         RosterPlayer[]
+  calendarEvents  CalendarEvent[]
+  trainingPlans   TrainingPlan[]
+  tacticBoards    TacticBoard[]
+  analysisSessions AnalysisSession[]
+  conversations   Conversation[]
+  files           FileMetadata[]
+  financeTransactions FinanceTransaction[]
+  financeRecurring FinanceRecurring[]
+  auditLogs       AuditLog[]
+
+  @@unique([clubId, name])
+  @@index([clubId])
+}
+
+model Membership {
+  id        String           @id @default(cuid())
+  userId    String
+  clubId    String
+  teamId    String?
+  role      RoleType
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team      Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([clubId])
+  @@index([teamId])
+  @@unique([userId, clubId, teamId, role])
+}
+
+model JoinCode {
+  id              String      @id @default(cuid())
+  teamId          String
+  type            JoinCodeType
+  codeHash        String
+  codePreview     String
+  isActive        Boolean     @default(true)
+  expiresAt       DateTime?
+  createdByUserId String
+  createdAt       DateTime    @default(now())
+  rotatedAt       DateTime?
+
+  team            Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy       User        @relation("JoinCodeCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([teamId, type, isActive])
+}
+
+model Profile {
+  id          String    @id @default(cuid())
+  userId       String   @unique
+  roleData     Json
+  notes        String?
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RosterPlayer {
+  id              String   @id @default(cuid())
+  teamId           String
+  linkedUserId     String?
+  firstName        String
+  lastName         String
+  primaryPosition  String
+  altPositions     Json
+  age              Int?
+  heightCm         Int?
+  weightKg         Int?
+  strongFoot       String?
+  fitnessStatus    String
+  availabilityNote String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+model CalendarEvent {
+  id            String         @id @default(cuid())
+  clubId        String
+  teamId        String?
+  createdByUserId String
+  title         String
+  type          EventType
+  visibility    EventVisibility
+  audience      Json
+  startAt       DateTime
+  endAt         DateTime
+  trainingPlanId String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team          Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy     User           @relation("CalendarCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  trainingPlan  TrainingPlan?  @relation("EventTrainingPlan", fields: [trainingPlanId], references: [id], onDelete: SetNull)
+
+  @@index([clubId, teamId, startAt])
+}
+
+model TrainingPlan {
+  id            String      @id @default(cuid())
+  clubId        String
+  teamId        String?
+  createdByUserId String
+  title         String
+  mainGoal      String
+  secondaryGoals Json
+  sections      Json
+  equipment     Json
+  groups        Json
+  sessionBrief  Json
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  club          Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team          Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy     User        @relation("TrainingCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  events        CalendarEvent[] @relation("EventTrainingPlan")
+
+  @@index([clubId, teamId])
+}
+
+model TacticBoard {
+  id             String    @id @default(cuid())
+  clubId         String
+  teamId         String?
+  createdByUserId String
+  name           String
+  formation      Json
+  bench          Json
+  opponent       Json
+  layers         Json
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  club           Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy      User      @relation("TacticsCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([clubId, teamId])
+}
+
+model AnalysisSession {
+  id             String    @id @default(cuid())
+  clubId         String
+  teamId         String?
+  createdByUserId String
+  sourceFileId   String
+  title          String
+  markers        Json
+  clips          Json
+  drawings       Json
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  club           Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy      User      @relation("AnalysisCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([clubId, teamId])
+}
+
+model Conversation {
+  id             String          @id @default(cuid())
+  clubId         String
+  teamId         String?
+  type           ConversationType
+  title          String
+  createdByUserId String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  members        ConversationMember[]
+  messages       Message[]
+
+  @@index([clubId, teamId])
+}
+
+model ConversationMember {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  role           RoleType
+  muted          Boolean  @default(false)
+  canWrite       Boolean  @default(true)
+  joinedAt       DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  senderId       String
+  type           MessageType
+  text           String?
+  attachmentFileId String?
+  clipReference  Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+}
+
+model FileMetadata {
+  id             String      @id @default(cuid())
+  clubId         String
+  teamId         String
+  ownerUserId    String
+  folderPath     String
+  name           String
+  originalName   String
+  type           FileType
+  mimeType       String
+  sizeBytes      BigInt
+  moduleHint     String?
+  tags           Json
+  visibility     String
+  uploadStatus   UploadStatus
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  club           Club        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  owner          User        @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+
+  @@index([clubId, teamId, deletedAt])
+}
+
+model FinanceTransaction {
+  id             String                 @id @default(cuid())
+  clubId         String
+  teamId         String
+  type           FinanceTransactionType
+  amount         Decimal                @db.Decimal(12, 2)
+  category       String
+  description    String?
+  playerId       String?
+  responsibleUserId String?
+  paymentStatus  PaymentStatus          @default(PAID)
+  dueAt          DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  club           Club                   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  responsibleUser User?                 @relation("FinanceResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([clubId, teamId, createdAt])
+}
+
+model FinanceRecurring {
+  id             String    @id @default(cuid())
+  clubId         String
+  teamId         String
+  name           String
+  amount         Decimal   @db.Decimal(12, 2)
+  interval       String
+  nextDueAt      DateTime
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  club           Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team           Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, teamId, nextDueAt])
+}
+
+model UserSetting {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  payload    Json
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  clubId      String?
+  teamId      String?
+  actorUserId String
+  action      String
+  targetType  String
+  targetId    String
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  club        Club?    @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([clubId, teamId, createdAt])
+}

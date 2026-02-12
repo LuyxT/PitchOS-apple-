@@ -1,7 +1,12 @@
 import Foundation
 
 enum AppConfiguration {
-    static let API_BASE_URL = "https://web-production-97b2a.up.railway.app"
+    static let API_BASE_URL: String = {
+        if let override = ProcessInfo.processInfo.environment["API_BASE_URL"], !override.isEmpty {
+            return override
+        }
+        return "https://web-production-97b2a.up.railway.app"
+    }()
     static let baseURL = URL(string: API_BASE_URL)!
 
     static var networkLoggingEnabled: Bool {

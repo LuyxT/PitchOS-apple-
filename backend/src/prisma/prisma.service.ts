@@ -1,32 +1,26 @@
-import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { structuredLog } from '../common/logging/structured-log';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
-  private connected = false;
-
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   async onModuleInit(): Promise<void> {
-    if (!process.env.DATABASE_URL) {
-      console.error('PRISMA_CONNECT_SKIPPED', 'DATABASE_URL is missing');
-      return;
-    }
-
     try {
       await this.$connect();
-      this.connected = true;
-      console.log('PRISMA_CONNECT_OK');
+      structuredLog('info', 'database.connected');
     } catch (error) {
-      console.error('PRISMA_CONNECT_FAILED', error);
+      structuredLog('error', 'database.connection_failed', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+      throw error;
     }
   }
 
-  async enableShutdownHooks(app: INestApplication): Promise<void> {
-    process.once('beforeExit', async () => {
-      await app.close();
-    });
-  }
-
-  isConnected(): boolean {
-    return this.connected;
+  async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
+    structuredLog('info', 'database.disconnected');
   }
 }

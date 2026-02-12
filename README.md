@@ -1,36 +1,38 @@
-# PitchInsights Backend
+# PitchInsights
 
-Production-ready NestJS backend configured for Railway deployment.
+This repository contains:
+- iOS client app in `PitchInsights/`
+- production backend in `backend/`
+- archived legacy backend code in `backend_old/`
 
-## Stack
-- Node.js 20
-- NestJS (Express)
-- TypeScript
-- Prisma (PostgreSQL configuration)
+## Backend (Railway-ready)
+The backend is fully isolated in `backend/`.
 
-## Start Flow
-1. Install dependencies:
-   - `npm ci`
-2. Build:
-   - `npm run build`
-3. Start:
-   - `npm run start`
+### Quick Start
+1. `cd backend`
+2. `cp .env.example .env`
+3. `npm ci`
+4. `npm run db:migrate:deploy`
+5. `npm run start:dev`
 
-The server binds to `process.env.PORT` and falls back to `3000`.
+### Production Commands
+- Build: `npm run build`
+- Start: `npm run start:prod`
 
-## Healthcheck
-- Endpoint: `GET /health`
-- Response: `{"status":"ok"}`
-- HTTP status: `200`
+`start:prod` applies Prisma migrations and then starts the server on `process.env.PORT`.
 
-This endpoint is excluded from API prefixing and is intended for Railway health checks.
+### Health URLs
+- `GET /`
+- `GET /health`
+- `GET /api/v1/health`
 
-## API Base
-- Versioned base path: `/api/v1`
-- Health endpoint remains at `/health`.
+All return JSON.
 
-## Railway Notes
-- Repo root contains `package.json`, `tsconfig.json`, `nest-cli.json`, and `Dockerfile`.
-- Build output target is `dist/main.js`.
-- Docker image uses a multi-stage Node 20 build.
-- Runtime command is `npm run start`.
+### API Contract
+Every response uses the same envelope:
+- Success: `{ "success": true, "data": ..., "error": null }`
+- Error: `{ "success": false, "data": null, "error": { "code": "...", "message": "...", "details": ... } }`
+
+### Smoke Test
+Run with backend started:
+- `cd backend && npm run smoke`

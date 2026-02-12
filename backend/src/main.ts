@@ -1,82 +1,146 @@
+import 'dotenv/config';
 import 'reflect-metadata';
-import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  ValidationError,
+  ValidationPipe,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
-import { existsSync } from 'fs';
-import { join } from 'path';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
-import { PrismaService } from './prisma/prisma.service';
+import { ERROR_CODES } from './common/constants/error-codes';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
+import { structuredLog } from './common/logging/structured-log';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
+import { ApiEnvelope } from './common/interfaces/api-envelope.interface';
+import { getCorsOrigins, getEnv } from './config/env';
+
+function formatValidationErrors(errors: ValidationError[]) {
+  return errors.map((error) => ({
+    field: error.property,
+    constraints: error.constraints ?? {},
+    children: error.children?.map((child) => ({
+      field: child.property,
+      constraints: child.constraints ?? {},
+    })),
+  }));
+}
+
+function healthPayload() {
+  return {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  };
+}
 
 async function bootstrap() {
+  const env = getEnv();
   const logger = new Logger('Bootstrap');
-  process.on('unhandledRejection', (error) => {
-    console.error('UNHANDLED_REJECTION', error);
+
+  process.on('unhandledRejection', (reason) => {
+    structuredLog('error', 'process.unhandled_rejection', {
+      reason: reason instanceof Error ? reason.message : reason,
+    });
   });
+
   process.on('uncaughtException', (error) => {
-    console.error('UNCAUGHT_EXCEPTION', error);
+    structuredLog('error', 'process.uncaught_exception', {
+      message: error.message,
+      stack: error.stack,
+    });
   });
 
-  try {
-    const app = await NestFactory.create(AppModule, { cors: true });
+  structuredLog('info', 'service.starting', {
+    nodeEnv: env.NODE_ENV,
+  });
 
-    app.use(helmet());
-    app.use(cookieParser());
-    app.enableCors({ origin: '*' });
-    app.setGlobalPrefix('api/v1', {
-      exclude: [
-        { path: '', method: RequestMethod.GET },
-        { path: 'bootstrap', method: RequestMethod.GET },
-        { path: 'health', method: RequestMethod.GET },
-      ],
-    });
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        forbidNonWhitelisted: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    );
-    app.useGlobalFilters(new HttpExceptionFilter());
-    app.useGlobalInterceptors(new RequestIdInterceptor());
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
 
-    const config = new DocumentBuilder()
-      .setTitle('PitchInsights API')
-      .setDescription('PitchInsights backend API')
-      .setVersion('1.0.0')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('docs', app, document);
+  app.use(requestIdMiddleware);
+  app.use(helmet());
 
-    const schemaPath = join(process.cwd(), 'prisma', 'schema.prisma');
-    logger.log(`Prisma schema path: ${schemaPath} (exists: ${existsSync(schemaPath)})`);
+  app.enableCors({
+    origin: getCorsOrigins(),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['x-request-id'],
+  });
 
-    const port = Number(process.env.PORT || 3000);
-    await app.listen(port, '0.0.0.0');
-    console.log('BOOT_OK', {
-      port,
-      env: process.env.NODE_ENV ?? 'development',
-      hasDbUrl: Boolean(process.env.DATABASE_URL),
-    });
+  app.setGlobalPrefix('api/v1');
 
-    const prisma = app.get(PrismaService);
-    try {
-      if (!process.env.DATABASE_URL) {
-        logger.error('DATABASE_URL missing - running in degraded mode');
-      } else if (!prisma.isConnected()) {
-        await prisma.$connect();
-      }
-    } catch (error) {
-      logger.error('Database initialization failed - running in degraded mode', error as Error);
-    }
-  } catch (error) {
-    logger.error('Bootstrap failed', error as Error);
-  }
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (validationErrors: ValidationError[]) =>
+        new BadRequestException({
+          code: ERROR_CODES.validation,
+          message: 'Validation failed.',
+          details: formatValidationErrors(validationErrors),
+        }),
+    }),
+  );
+
+  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor());
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  const httpAdapter = app.getHttpAdapter().getInstance();
+
+  httpAdapter.get(
+    '/',
+    (
+      _req: unknown,
+      res: {
+        status: (code: number) => {
+          json: (body: ApiEnvelope<Record<string, unknown>>) => void;
+        };
+      },
+    ) => {
+      const body: ApiEnvelope<Record<string, unknown>> = {
+        success: true,
+        data: healthPayload(),
+        error: null,
+      };
+
+      res.status(200).json(body);
+    },
+  );
+
+  httpAdapter.get(
+    '/health',
+    (
+      _req: unknown,
+      res: {
+        status: (code: number) => {
+          json: (body: ApiEnvelope<Record<string, unknown>>) => void;
+        };
+      },
+    ) => {
+      const body: ApiEnvelope<Record<string, unknown>> = {
+        success: true,
+        data: healthPayload(),
+        error: null,
+      };
+
+      res.status(200).json(body);
+    },
+  );
+
+  const port = Number(process.env.PORT ?? env.PORT ?? '3000');
+  await app.listen(port, '0.0.0.0');
+
+  logger.log(`Listening on port ${port}`);
+  structuredLog('info', 'service.started', {
+    port,
+    nodeEnv: env.NODE_ENV,
+  });
 }
 
 bootstrap();
