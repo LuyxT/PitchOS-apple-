@@ -7,14 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────────
-
-enum UserRole {
-  trainer
-  player
-  board
-}
-
 // ─── User ────────────────────────────────────────────────
 
 model User {
@@ -23,7 +15,7 @@ model User {
   passwordHash        String
   firstName           String?
   lastName            String?
-  role                UserRole
+  role                String
   clubId              String?  @db.Uuid
   teamId              String?  @db.Uuid
   onboardingCompleted Boolean  @default(false)

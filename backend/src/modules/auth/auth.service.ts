@@ -1,4 +1,3 @@
-import type { UserRole } from '@prisma/client';
 import { getPrisma } from '../../lib/prisma';
 import { hashPassword, verifyPassword } from '../../lib/password';
 import {
@@ -35,7 +34,7 @@ function sanitizeUser(user: {
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: UserRole;
+  role: string;
   clubId: string | null;
   teamId: string | null;
   onboardingCompleted: boolean;
@@ -59,7 +58,7 @@ function computeOnboardingRequired(user: { clubId: string | null; teamId: string
   return !user.onboardingCompleted || !user.clubId || !user.teamId;
 }
 
-async function issueTokenPair(userId: string, email: string, role: UserRole, config: TokenConfig) {
+async function issueTokenPair(userId: string, email: string, role: string, config: TokenConfig) {
   const prisma = getPrisma();
 
   // Create access token

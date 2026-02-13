@@ -4,7 +4,7 @@ import crypto from 'crypto';
 export interface AccessTokenPayload {
   userId: string;
   email: string;
-  role: 'trainer' | 'player' | 'board';
+  role: string;
 }
 
 export function signAccessToken(
