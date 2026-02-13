@@ -27,6 +27,9 @@ process.on('unhandledRejection', (reason) => {
 async function ensureSchemaColumns(): Promise<void> {
   const prisma = getPrisma();
 
+  // First: ensure the UserRole enum has the correct values
+  await ensureUserRoleEnum(prisma);
+
   const result = await prisma.$queryRaw<Array<{ column_name: string }>>`
     SELECT column_name FROM information_schema.columns
     WHERE table_name = 'User' AND column_name = 'onboardingCompleted'
@@ -84,6 +87,47 @@ async function ensureSchemaColumns(): Promise<void> {
   }
 
   logger.info('Schema fix complete — missing columns and tables added');
+}
+
+async function ensureUserRoleEnum(prisma: ReturnType<typeof getPrisma>): Promise<void> {
+  const expectedValues = ['trainer', 'player', 'board'];
+
+  // Check if the enum type exists and has the expected values
+  const enumValues = await prisma.$queryRaw<Array<{ enumlabel: string }>>`
+    SELECT enumlabel FROM pg_enum
+    WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'UserRole')
+    ORDER BY enumsortorder
+  `;
+
+  const currentValues = enumValues.map((v) => v.enumlabel);
+
+  if (
+    currentValues.length === expectedValues.length &&
+    expectedValues.every((v) => currentValues.includes(v))
+  ) {
+    logger.info('Schema check: UserRole enum is correct');
+    return;
+  }
+
+  logger.warn('Schema check: UserRole enum is missing or has wrong values', {
+    current: currentValues,
+    expected: expectedValues,
+  });
+
+  // Recreate the enum: convert column to TEXT, drop enum, recreate, convert back
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT`);
+    await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "UserRole"`);
+    await prisma.$executeRawUnsafe(`CREATE TYPE "UserRole" AS ENUM ('trainer', 'player', 'board')`);
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole"`
+    );
+    logger.info('Schema fix: UserRole enum recreated successfully');
+  } catch (err) {
+    logger.error('Schema fix: UserRole enum repair failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // ── Bootstrap ──────────────────────────────────────────────
