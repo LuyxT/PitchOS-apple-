@@ -28,7 +28,13 @@ async function ensureSchemaColumns(): Promise<void> {
   const prisma = getPrisma();
 
   // First: ensure the UserRole enum has the correct values
-  await ensureUserRoleEnum(prisma);
+  try {
+    await ensureUserRoleEnum(prisma);
+  } catch (err) {
+    logger.error('UserRole enum check failed (continuing with schema repair)', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   // Always run all statements — they use IF NOT EXISTS so are safe to repeat
   const statements = [
@@ -62,6 +68,9 @@ async function ensureSchemaColumns(): Promise<void> {
       CONSTRAINT "Training_pkey" PRIMARY KEY ("id")
     )`,
     `CREATE INDEX IF NOT EXISTS "Training_teamId_idx" ON "Training"("teamId")`,
+    // Foreign keys (safe to re-add — will fail silently if they exist)
+    `ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+    `ALTER TABLE "Training" ADD CONSTRAINT "Training_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
   ];
 
   for (const sql of statements) {
