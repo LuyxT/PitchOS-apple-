@@ -73,14 +73,21 @@ async function issueTokenPair(userId: string, email: string, role: string, confi
   const refreshTtlMs = parseDurationMs(config.refreshTtl);
   const expiresAt = new Date(Date.now() + refreshTtlMs);
 
-  const refreshTokenRecord = await prisma.refreshToken.create({
-    data: {
-      id: tokenId,
-      token: signRefreshToken({ userId, tokenId }, config.refreshSecret, config.refreshTtl),
-      userId,
-      expiresAt,
-    },
-  });
+  let refreshTokenRecord;
+  try {
+    refreshTokenRecord = await prisma.refreshToken.create({
+      data: {
+        id: tokenId,
+        token: signRefreshToken({ userId, tokenId }, config.refreshSecret, config.refreshTtl),
+        userId,
+        expiresAt,
+      },
+    });
+  } catch (err) {
+    // Include the data in the error for debugging
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`RefreshToken create failed [userId=${userId}, tokenId=${tokenId}]: ${msg}`);
+  }
 
   return {
     accessToken,
