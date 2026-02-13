@@ -44,21 +44,24 @@ export function createApp(env: AppEnv) {
     next();
   });
 
-  // ── Routes ────────────────────────────────────────────────
-  const secret = env.JWT_ACCESS_SECRET;
-
-  // Health — must be first, no auth
+  // ── Root-level routes (no prefix) ─────────────────────────
+  // Health + bootstrap — must be first, no auth, no /api/v1 prefix
   app.use(healthRoutes());
 
-  // API routes
-  app.use('/auth', authRoutes(secret));
-  app.use('/users', usersRoutes(secret));
-  app.use('/clubs', clubsRoutes(secret));
-  app.use('/teams', teamsRoutes(secret));
-  app.use('/players', playersRoutes(secret));
-  app.use('/trainings', trainingsRoutes(secret));
-  app.use('/finances', financesRoutes(secret));
-  app.use('/files', filesRoutes(secret));
+  // ── API routes under /api/v1 ──────────────────────────────
+  const secret = env.JWT_ACCESS_SECRET;
+  const api = express.Router();
+
+  api.use('/auth', authRoutes(secret));
+  api.use('/users', usersRoutes(secret));
+  api.use('/clubs', clubsRoutes(secret));
+  api.use('/teams', teamsRoutes(secret));
+  api.use('/players', playersRoutes(secret));
+  api.use('/trainings', trainingsRoutes(secret));
+  api.use('/finances', financesRoutes(secret));
+  api.use('/files', filesRoutes(secret));
+
+  app.use('/api/v1', api);
 
   // ── Fallback ──────────────────────────────────────────────
   app.use(notFoundHandler);

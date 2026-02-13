@@ -6,6 +6,7 @@ export function healthRoutes(): Router {
   const router = Router();
 
   router.get('/health', asyncHandler(ctrl.healthCheck));
+  router.get('/bootstrap', asyncHandler(ctrl.bootstrapCheck));
   router.get('/', asyncHandler(ctrl.healthCheck));
 
   return router;

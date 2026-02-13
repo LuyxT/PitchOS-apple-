@@ -21,3 +21,22 @@ export async function healthCheck(_req: Request, res: Response) {
     },
   });
 }
+
+export async function bootstrapCheck(_req: Request, res: Response) {
+  let dbStatus = 'ok';
+
+  try {
+    await getPrisma().$queryRaw`SELECT 1`;
+  } catch {
+    dbStatus = 'unreachable';
+  }
+
+  const httpStatus = dbStatus === 'ok' ? 200 : 503;
+
+  res.status(httpStatus).json({
+    status: dbStatus === 'ok' ? 'ok' : 'degraded',
+    service: 'pitchinsights-backend',
+    version: '2.0.0',
+    time: new Date().toISOString(),
+  });
+}
