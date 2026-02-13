@@ -100,29 +100,36 @@ async function ensureUserRoleEnum(prisma: ReturnType<typeof getPrisma>): Promise
   `;
 
   const currentValues = enumValues.map((v) => v.enumlabel);
-
-  if (
+  const enumOK =
     currentValues.length === expectedValues.length &&
-    expectedValues.every((v) => currentValues.includes(v))
-  ) {
+    expectedValues.every((v) => currentValues.includes(v));
+
+  if (enumOK) {
     logger.info('Schema check: UserRole enum is correct');
-    return;
+  } else {
+    logger.warn('Schema check: UserRole enum is missing or has wrong values', {
+      current: currentValues,
+      expected: expectedValues,
+    });
   }
 
-  logger.warn('Schema check: UserRole enum is missing or has wrong values', {
-    current: currentValues,
-    expected: expectedValues,
-  });
-
-  // Recreate the enum: convert column to TEXT, drop enum, recreate, convert back
+  // Always normalize existing data and ensure enum is correct
   try {
+    // Convert to TEXT so we can fix values
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT`);
+    // Normalize values to lowercase
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = LOWER("role")`);
+    // Map any legacy values
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'player' WHERE "role" IN ('staff', 'spieler')`);
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'trainer' WHERE "role" NOT IN ('trainer', 'player', 'board')`);
+    // Drop and recreate enum
     await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "UserRole"`);
     await prisma.$executeRawUnsafe(`CREATE TYPE "UserRole" AS ENUM ('trainer', 'player', 'board')`);
+    // Convert column back to enum
     await prisma.$executeRawUnsafe(
       `ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole"`
     );
-    logger.info('Schema fix: UserRole enum recreated successfully');
+    logger.info('Schema fix: UserRole enum and data normalized');
   } catch (err) {
     logger.error('Schema fix: UserRole enum repair failed', {
       error: err instanceof Error ? err.message : String(err),
