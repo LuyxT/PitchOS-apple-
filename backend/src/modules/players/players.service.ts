@@ -73,6 +73,7 @@ export async function createPlayer(input: CreatePlayerInput, userId: string) {
 
   const player = await prisma.player.create({
     data: {
+      ...(input.id ? { id: input.id } : {}),
       name: input.name,
       number: input.number ?? 0,
       position: input.position,
