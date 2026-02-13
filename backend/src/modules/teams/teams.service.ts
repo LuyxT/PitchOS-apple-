@@ -56,7 +56,7 @@ export async function getTeamById(teamId: string) {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     include: {
-      players: { select: { id: true, name: true, position: true, age: true } },
+      players: { select: { id: true, name: true, position: true, number: true } },
       club: { select: { id: true, name: true } },
     },
   });

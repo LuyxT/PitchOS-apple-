@@ -67,6 +67,10 @@ async function main() {
   execSQL(`UPDATE "User" SET "role" = 'trainer' WHERE "role" NOT IN ('trainer', 'player', 'board');`, 'Fix unknown roles');
   execSQL('DROP TYPE IF EXISTS "UserRole";', 'Drop UserRole enum');
 
+  // Pre-step: make Player.teamId nullable and drop old age column
+  execSQL('ALTER TABLE "Player" ALTER COLUMN "teamId" DROP NOT NULL;', 'Player.teamId → nullable');
+  execSQL('ALTER TABLE "Player" DROP COLUMN IF EXISTS "age";', 'Drop Player.age column');
+
   // Main step: sync schema with prisma db push
   console.log('[migrate] Running prisma db push...');
   try {

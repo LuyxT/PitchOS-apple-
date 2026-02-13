@@ -6,7 +6,7 @@ export async function createPlayerController(req: Request, res: Response) {
   if (!req.auth?.userId) {
     throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
   }
-  const player = await playersService.createPlayer(req.body);
+  const player = await playersService.createPlayer(req.body, req.auth.userId);
   res.status(201).json(player);
 }
 
