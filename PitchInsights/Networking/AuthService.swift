@@ -252,13 +252,13 @@ final class AuthService {
     private func mapRoleForBackend(_ rawRole: String) -> String {
         switch rawRole.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "trainer":
-            return "TRAINER"
+            return "trainer"
         case "vorstand", "board":
-            return "BOARD"
+            return "board"
         case "staff", "physio", "spieler", "player":
-            return "STAFF"
+            return "player"
         default:
-            return "TRAINER"
+            return "trainer"
         }
     }
 

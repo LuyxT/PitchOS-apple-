@@ -973,10 +973,10 @@ final class BackendRepository {
     private func sendAuthorized<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
         do {
             return try await client.send(endpoint, token: auth.accessToken)
-        } catch NetworkError.httpError(let status, let data, _) where status == 401 {
+        } catch NetworkError.unauthorized(let data, _) {
             guard auth.refreshToken != nil else {
                 auth.clearTokens(notify: true)
-                throw NetworkError.httpError(status: status, data: data, message: NetworkError.extractMessage(from: data))
+                throw NetworkError.unauthorized(data: data, message: NetworkError.extractMessage(from: data))
             }
             do {
                 try await auth.refresh()

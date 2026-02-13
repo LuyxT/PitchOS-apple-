@@ -281,30 +281,56 @@ final class AppDataStore: ObservableObject {
             syncLegacyCoachProfileFromProfiles()
             backendConnectionState = .live
         } catch {
-            clearSeededDataForBackendOnlyMode()
-            backendConnectionState = .failed(error.localizedDescription)
+            if let networkErr = error as? NetworkError, networkErr.isUnauthorized {
+                print("[client] refreshFromBackend: unauthorized — session invalid")
+                backendConnectionState = .failed("Sitzung abgelaufen. Bitte erneut anmelden.")
+            } else if isConnectivityFailure(error) {
+                print("[client] refreshFromBackend: connectivity failure")
+                backendConnectionState = .failed("Keine Verbindung zum Server.")
+            } else {
+                print("[client] refreshFromBackend: \(error.localizedDescription)")
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
     func checkBackendBootstrap() async -> Bool {
-        print("[client] bootstrap start")
-        do {
-            let response: BackendHealthResponse = try await withBootstrapTimeout(seconds: 10) { [self] in
-                try await self.backend.healthCheck()
-            }
-            let normalized = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if normalized == "ok" {
-                print("[client] bootstrap success")
+        print("[client] bootstrap start — URL: \(AppConfiguration.API_BASE_URL)")
+
+        let maxAttempts = 2
+        for attempt in 1...maxAttempts {
+            do {
+                let response: BackendHealthResponse = try await withBootstrapTimeout(seconds: 10) { [self] in
+                    try await self.backend.healthCheck()
+                }
+                let normalized = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if normalized == "ok" {
+                    print("[client] bootstrap success")
+                    return true
+                }
+                // Backend responded but status is not "ok" — still reachable (degraded)
+                print("[client] bootstrap: status=\(response.status), treating as reachable (degraded)")
                 return true
+            } catch {
+                print("[client] bootstrap attempt \(attempt)/\(maxAttempts) failed: \(error.localizedDescription)")
+
+                // Non-connectivity error means the backend IS reachable — do not block the app
+                if !isConnectivityFailure(error) {
+                    print("[client] bootstrap: non-connectivity error — backend is reachable")
+                    return true
+                }
+
+                // Wait before retrying connectivity failures
+                if attempt < maxAttempts {
+                    print("[client] bootstrap: retrying in 1.5s...")
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                }
             }
-            print("[client] bootstrap failed: invalid status \(response.status)")
-            backendConnectionState = .failed("Backend nicht erreichbar")
-            return false
-        } catch {
-            print("[client] bootstrap failed: \(error.localizedDescription)")
-            backendConnectionState = .failed("Backend nicht erreichbar")
-            return false
         }
+
+        print("[client] bootstrap exhausted retries — backend unreachable")
+        backendConnectionState = .failed("Backend nicht erreichbar")
+        return false
     }
 
     private func withBootstrapTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
@@ -323,18 +349,7 @@ final class AppDataStore: ObservableObject {
     }
 
     private func isConnectivityFailure(_ error: Error) -> Bool {
-        if let timeout = error as? BootstrapCheckError, timeout == .timeout {
-            return true
-        }
-        if let urlError = error as? URLError {
-            switch urlError.code {
-            case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .timedOut:
-                return true
-            default:
-                return false
-            }
-        }
-        return false
+        NetworkError.isConnectivity(error)
     }
 
     func refreshCalendar() async {

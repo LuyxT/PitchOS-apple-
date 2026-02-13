@@ -77,10 +77,13 @@ final class APIClient {
         }
         NetworkDebugLogger.logResponse(httpResponse, data: data)
         guard (200...299).contains(httpResponse.statusCode) else {
+            let message = NetworkError.extractMessage(from: data)
+            if httpResponse.statusCode == 401 {
+                throw NetworkError.unauthorized(data: data, message: message)
+            }
             if httpResponse.statusCode == 404 {
                 print("[Network][warn] 404: \(request.httpMethod ?? "GET") \(url.absoluteString)")
             }
-            let message = NetworkError.extractMessage(from: data)
             throw NetworkError.httpError(status: httpResponse.statusCode, data: data, message: message)
         }
 
@@ -157,9 +160,34 @@ enum NetworkError: LocalizedError {
     case invalidBaseURL
     case invalidURL
     case invalidResponse
+    case unauthorized(data: Data, message: String?)
     case httpError(status: Int, data: Data, message: String?)
     case emptyResponseBody
     case decodingFailed(underlying: Error)
+
+    var isUnauthorized: Bool {
+        if case .unauthorized = self { return true }
+        return false
+    }
+
+    /// Returns true when the given error indicates a connectivity problem
+    /// (device offline, DNS failure, timeout, etc.) rather than an HTTP-level error.
+    static func isConnectivity(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost,
+                 .cannotConnectToHost, .cannotFindHost, .timedOut,
+                 .dnsLookupFailed, .secureConnectionFailed:
+                return true
+            default:
+                return false
+            }
+        }
+        if let bootstrap = error as? BootstrapCheckError, bootstrap == .timeout {
+            return true
+        }
+        return false
+    }
 
     var errorDescription: String? {
         switch self {
@@ -169,6 +197,11 @@ enum NetworkError: LocalizedError {
             return "API-Anfrage konnte nicht erstellt werden."
         case .invalidResponse:
             return "Ungültige Server-Antwort."
+        case .unauthorized(_, let message):
+            if let message, !message.isEmpty {
+                return "Nicht autorisiert: \(message)"
+            }
+            return "Nicht autorisiert. Bitte erneut anmelden."
         case .httpError(let status, _, let message):
             if status >= 500 {
                 return "Der Server ist aktuell nicht erreichbar. Bitte versuche es später erneut."
@@ -217,6 +250,9 @@ enum NetworkError: LocalizedError {
             return networkError.errorDescription ?? "Unbekannter Netzwerkfehler."
         }
         if let urlError = error as? URLError {
+            if isConnectivity(urlError) {
+                return "Keine Verbindung zum Server. Bitte prüfe deine Internetverbindung."
+            }
             return urlError.localizedDescription
         }
         return error.localizedDescription

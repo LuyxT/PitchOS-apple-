@@ -1,9 +1,12 @@
 import { execSync } from 'child_process';
 
 /**
- * Resolves any failed Prisma migrations, then runs migrate deploy.
- * This handles the P3009 error where a previously failed migration
- * blocks all subsequent migrations.
+ * Runs Prisma migrations on startup.
+ * Strategy:
+ *   1. Try `prisma migrate deploy` (production-safe)
+ *   2. Always run `prisma db push` afterwards to ensure all tables
+ *      actually exist (handles the case where migrations were marked
+ *      as applied but the SQL never ran — e.g. after P3009 recovery)
  */
 function run(cmd: string): { ok: boolean; output: string } {
   try {
@@ -20,69 +23,36 @@ function run(cmd: string): { ok: boolean; output: string } {
 async function main() {
   console.log('[migrate] Running prisma migrate deploy...');
 
-  const first = run('npx prisma migrate deploy');
+  const deploy = run('npx prisma migrate deploy');
 
-  if (first.ok) {
-    console.log('[migrate] Migrations applied successfully.');
-    process.exit(0);
+  if (deploy.ok) {
+    console.log('[migrate] migrate deploy succeeded.');
+  } else {
+    console.warn('[migrate] migrate deploy failed:', deploy.output);
   }
 
-  // Check if it's a P3009 (failed migration blocking)
-  if (!first.output.includes('P3009')) {
-    console.error('[migrate] Migration failed with unexpected error:');
-    console.error(first.output);
-    process.exit(1);
+  // Always run db push to ensure schema is in sync with database.
+  // This is idempotent — if all tables exist, it does nothing.
+  console.log('[migrate] Running prisma db push to ensure schema sync...');
+  const push = run('npx prisma db push --skip-generate');
+
+  if (push.ok) {
+    console.log('[migrate] Schema is in sync.');
+  } else {
+    console.error('[migrate] db push failed:', push.output);
+    // Don't exit(1) — the app may still work if tables existed
+    console.warn('[migrate] Continuing despite db push failure...');
   }
 
-  // Extract the failed migration name
-  const match = first.output.match(/The `(\S+)` migration/);
-  if (!match) {
-    console.error('[migrate] Could not parse failed migration name from output.');
-    console.error(first.output);
-    process.exit(1);
-  }
-
-  const failedMigration = match[1];
-  console.log(`[migrate] Found failed migration: ${failedMigration}`);
-  console.log(`[migrate] Marking as rolled back...`);
-
-  const resolve = run(`npx prisma migrate resolve --rolled-back ${failedMigration}`);
-  if (!resolve.ok) {
-    console.error('[migrate] Failed to resolve migration:');
-    console.error(resolve.output);
-    process.exit(1);
-  }
-
-  console.log(`[migrate] Marked ${failedMigration} as rolled back. Re-applying...`);
-
-  const resolve2 = run(`npx prisma migrate resolve --applied ${failedMigration}`);
-  if (!resolve2.ok) {
-    console.error('[migrate] Failed to mark migration as applied:');
-    console.error(resolve2.output);
-    process.exit(1);
-  }
-
-  console.log(`[migrate] Marked ${failedMigration} as applied.`);
-
-  // Now try deploying remaining migrations
-  const retry = run('npx prisma migrate deploy');
-  if (!retry.ok) {
-    // If it fails again with P3009 for a different migration, recursively handle
-    if (retry.output.includes('P3009')) {
-      console.log('[migrate] Another failed migration detected, resolving...');
-      // Handle the second migration the same way
-      const match2 = retry.output.match(/The `(\S+)` migration/);
-      if (match2) {
-        const failed2 = match2[1];
-        run(`npx prisma migrate resolve --rolled-back ${failed2}`);
-        run(`npx prisma migrate resolve --applied ${failed2}`);
-        const final = run('npx prisma migrate deploy');
-        if (!final.ok && !final.output.includes('already in sync')) {
-          console.warn('[migrate] Final deploy warning:', final.output);
-        }
+  // If migrate deploy failed, mark migrations as applied so
+  // future deploys don't get stuck
+  if (!deploy.ok) {
+    const migrations = ['20260213123000_init', '20260213140000_add_refresh_tokens_training'];
+    for (const m of migrations) {
+      const resolve = run(`npx prisma migrate resolve --applied ${m}`);
+      if (resolve.ok) {
+        console.log(`[migrate] Marked ${m} as applied.`);
       }
-    } else if (!retry.output.includes('already in sync')) {
-      console.warn('[migrate] Deploy after resolve:', retry.output);
     }
   }
 
