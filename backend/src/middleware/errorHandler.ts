@@ -60,20 +60,26 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     return;
   }
 
-  // Unknown error — log and return generic 500
+  // Unknown error — log and return details for debugging
+  const errName = err instanceof Error ? err.name : 'UnknownError';
+  const errMessage = err instanceof Error ? err.message : 'Unknown error';
+  const errCode = (err as Record<string, unknown>).code as string | undefined;
+
   logger.error('Unhandled application error', {
     requestId: req.requestId,
     method: req.method,
     url: req.originalUrl,
-    name: err instanceof Error ? err.name : 'UnknownError',
-    message: err instanceof Error ? err.message : 'Unknown error',
+    name: errName,
+    message: errMessage,
+    prismaCode: errCode,
     stack: err instanceof Error ? err.stack : undefined,
   });
 
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'An unexpected error occurred',
+      message: errMessage,
+      detail: errCode ?? null,
     },
   });
 };
