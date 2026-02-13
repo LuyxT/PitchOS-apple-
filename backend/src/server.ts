@@ -22,116 +22,29 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-// ── Schema repair ──────────────────────────────────────────
+// ── Data normalization ──────────────────────────────────────
 
-async function ensureSchemaColumns(): Promise<void> {
+async function normalizeUserRoles(): Promise<void> {
   const prisma = getPrisma();
 
-  // First: ensure the UserRole enum has the correct values
   try {
-    await ensureUserRoleEnum(prisma);
-  } catch (err) {
-    logger.error('UserRole enum check failed (continuing with schema repair)', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  // Always run all statements — they use IF NOT EXISTS so are safe to repeat
-  const statements = [
-    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT`,
-    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastName" TEXT`,
-    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
-    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false`,
-    `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
-    `ALTER TABLE "Team" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
-    `ALTER TABLE "Player" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
-    // Drop and recreate RefreshToken to fix any schema mismatch (tokens are ephemeral)
-    `DROP TABLE IF EXISTS "RefreshToken"`,
-    `CREATE TABLE "RefreshToken" (
-      "id" UUID NOT NULL,
-      "token" TEXT NOT NULL,
-      "userId" UUID NOT NULL,
-      "expiresAt" TIMESTAMP(3) NOT NULL,
-      "revokedAt" TIMESTAMP(3),
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
-    )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS "RefreshToken_token_key" ON "RefreshToken"("token")`,
-    `CREATE INDEX IF NOT EXISTS "RefreshToken_userId_idx" ON "RefreshToken"("userId")`,
-    `CREATE INDEX IF NOT EXISTS "RefreshToken_token_idx" ON "RefreshToken"("token")`,
-    `CREATE TABLE IF NOT EXISTS "Training" (
-      "id" UUID NOT NULL,
-      "title" TEXT NOT NULL,
-      "description" TEXT,
-      "date" TIMESTAMP(3) NOT NULL,
-      "teamId" UUID NOT NULL,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT "Training_pkey" PRIMARY KEY ("id")
-    )`,
-    `CREATE INDEX IF NOT EXISTS "Training_teamId_idx" ON "Training"("teamId")`,
-    // Foreign keys (safe to re-add — will fail silently if they exist)
-    `ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
-    `ALTER TABLE "Training" ADD CONSTRAINT "Training_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
-  ];
-
-  for (const sql of statements) {
-    try {
-      await prisma.$executeRawUnsafe(sql);
-    } catch (err) {
-      logger.warn('Schema fix SQL warning', {
-        sql: sql.slice(0, 100),
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  logger.info('Schema check complete — all columns and tables ensured');
-}
-
-async function ensureUserRoleEnum(prisma: ReturnType<typeof getPrisma>): Promise<void> {
-  const expectedValues = ['trainer', 'player', 'board'];
-
-  // Check if the enum type exists and has the expected values
-  const enumValues = await prisma.$queryRaw<Array<{ enumlabel: string }>>`
-    SELECT enumlabel FROM pg_enum
-    WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'UserRole')
-    ORDER BY enumsortorder
-  `;
-
-  const currentValues = enumValues.map((v) => v.enumlabel);
-  const enumOK =
-    currentValues.length === expectedValues.length &&
-    expectedValues.every((v) => currentValues.includes(v));
-
-  if (enumOK) {
-    logger.info('Schema check: UserRole enum is correct');
-  } else {
-    logger.warn('Schema check: UserRole enum is missing or has wrong values', {
-      current: currentValues,
-      expected: expectedValues,
-    });
-  }
-
-  // Always normalize existing data and ensure enum is correct
-  try {
-    // Convert to TEXT so we can fix values
+    // Convert role column to TEXT temporarily so we can fix values
     await prisma.$executeRawUnsafe(`ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT`);
     // Normalize values to lowercase
     await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = LOWER("role")`);
     // Map any legacy values
     await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'player' WHERE "role" IN ('staff', 'spieler')`);
     await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'trainer' WHERE "role" NOT IN ('trainer', 'player', 'board')`);
-    // Drop and recreate enum
+    // Recreate enum (db push may have created it, but drop/recreate is safe)
     await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "UserRole"`);
     await prisma.$executeRawUnsafe(`CREATE TYPE "UserRole" AS ENUM ('trainer', 'player', 'board')`);
     // Convert column back to enum
     await prisma.$executeRawUnsafe(
       `ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole"`
     );
-    logger.info('Schema fix: UserRole enum and data normalized');
+    logger.info('Data normalization: UserRole values normalized');
   } catch (err) {
-    logger.error('Schema fix: UserRole enum repair failed', {
+    logger.error('Data normalization: UserRole fix failed', {
       error: err instanceof Error ? err.message : String(err),
     });
   }
@@ -155,14 +68,13 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // 2b. Ensure schema columns exist (handles botched migrations)
+  // 2b. Normalize user role data (handles legacy uppercase values)
   try {
-    await ensureSchemaColumns();
+    await normalizeUserRoles();
   } catch (error) {
-    logger.error('Schema repair failed', {
+    logger.error('Data normalization failed', {
       message: error instanceof Error ? error.message : 'Unknown error',
     });
-    // Don't exit — the app may still work if columns exist
   }
 
   // 3. Create Express app
