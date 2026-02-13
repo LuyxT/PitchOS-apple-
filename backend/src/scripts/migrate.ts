@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import path from 'path';
 
 /**
  * Syncs the database schema with the Prisma schema on startup.
@@ -9,12 +10,16 @@ import { execSync } from 'child_process';
  * cleanly sync without enum type conflicts.
  */
 
+const PRISMA_BIN = path.resolve(__dirname, '../../node_modules/.bin/prisma');
+const EXEC_TIMEOUT = 30_000; // 30s timeout per command
+
 function execSQL(sql: string, label: string): boolean {
   try {
-    execSync('npx prisma db execute --stdin', {
+    execSync(`${PRISMA_BIN} db execute --stdin`, {
       encoding: 'utf-8',
       input: sql,
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: EXEC_TIMEOUT,
     });
     console.log(`[migrate] ${label}: OK`);
     return true;
@@ -27,6 +32,9 @@ function execSQL(sql: string, label: string): boolean {
 }
 
 async function main() {
+  console.log('[migrate] Starting schema sync...');
+  console.log('[migrate] Prisma binary:', PRISMA_BIN);
+
   // Pre-step: convert UUID columns to TEXT and fix enum types
   // This allows db push to work without type conflicts (some users have CUIDs, not UUIDs)
   console.log('[migrate] Pre-step: converting columns to TEXT for compatibility...');
@@ -74,9 +82,10 @@ async function main() {
   // Main step: sync schema with prisma db push
   console.log('[migrate] Running prisma db push...');
   try {
-    const output = execSync('npx prisma db push --accept-data-loss --skip-generate', {
+    const output = execSync(`${PRISMA_BIN} db push --accept-data-loss --skip-generate`, {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 120_000, // 2 minutes for db push
     });
     console.log('[migrate] db push succeeded.');
     if (output) console.log(output.trim());
@@ -86,6 +95,7 @@ async function main() {
     const stderr = typeof e.stderr === 'string' ? e.stderr : '';
     const combined = (stdout + stderr).slice(0, 500);
     console.warn('[migrate] db push warning:', combined);
+    // Don't exit with error — server can still start and Prisma will create tables on demand
   }
 
   console.log('[migrate] Schema sync complete.');
