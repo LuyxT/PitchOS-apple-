@@ -8,140 +8,57 @@ datasource db {
 }
 
 enum UserRole {
-  TRAINER
-  BOARD
-  STAFF
-}
-
-enum FinanceEntryType {
-  INCOME
-  EXPENSE
-}
-
-enum InviteCodeTargetType {
-  CLUB
-  TEAM
+  trainer
+  player
+  board
 }
 
 model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  passwordHash String
-  role         UserRole       @default(TRAINER)
-  firstName    String?
-  lastName     String?
-  clubId       String?
-  teamId       String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                  String   @id @default(uuid()) @db.Uuid
+  email               String   @unique
+  passwordHash        String
+  role                UserRole
+  clubId              String?  @db.Uuid
+  teamId              String?  @db.Uuid
+  onboardingCompleted Boolean  @default(false)
+  createdAt           DateTime @default(now())
 
-  club         Club?          @relation(fields: [clubId], references: [id], onDelete: SetNull)
-  team         Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  refreshTokens RefreshToken[]
-
-  @@index([clubId])
-  @@index([teamId])
+  club Club? @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
 }
 
 model Club {
-  id             String         @id @default(cuid())
-  region         String
-  name           String
-  city           String
-  normalizedName String
-  normalizedCity String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  region    String
+  createdAt DateTime @default(now())
 
-  users          User[]
-  teams          Team[]
-  inviteCodes    InviteCode[]
-  financeEntries FinanceEntry[]
-
-  @@unique([normalizedName, normalizedCity])
-  @@index([name, city])
+  teams Team[]
+  users User[]
 }
 
 model Team {
-  id                 String       @id @default(cuid())
-  clubId             String
-  name               String
-  ageGroup           String
-  league             String
-  normalizedName     String
-  normalizedAgeGroup String
-  normalizedLeague   String
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  clubId    String   @db.Uuid
+  createdAt DateTime @default(now())
 
-  club               Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  users              User[]
-  players            Player[]
-  inviteCodes        InviteCode[]
+  club    Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  players Player[]
+  users   User[]
 
-  @@unique([clubId, normalizedName, normalizedAgeGroup, normalizedLeague], name: "team_unique_normalized")
   @@index([clubId])
 }
 
 model Player {
-  id        String   @id @default(cuid())
-  teamId    String
-  firstName String
-  lastName  String
-  position  String?
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  position  String
+  age       Int
+  teamId    String   @db.Uuid
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
-}
-
-model InviteCode {
-  id         String               @id @default(cuid())
-  code       String               @unique
-  targetType InviteCodeTargetType
-  clubId     String?
-  teamId     String?
-  isActive   Boolean              @default(true)
-  expiresAt  DateTime?
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-
-  club       Club?                @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  team       Team?                @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@index([clubId])
-  @@index([teamId])
-  @@index([isActive])
-}
-
-model FinanceEntry {
-  id        String           @id @default(cuid())
-  clubId    String
-  amount    Decimal          @db.Decimal(12, 2)
-  type      FinanceEntryType
-  title     String
-  date      DateTime
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  club      Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
-
-  @@index([clubId, date])
-}
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  userId    String
-  tokenHash String
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
 }

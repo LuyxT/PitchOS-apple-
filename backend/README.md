@@ -1,54 +1,26 @@
-# PitchInsights Backend
+# PitchInsights Backend (Express + Prisma)
 
-Production backend for PitchInsights using NestJS + Prisma + PostgreSQL.
-
-## Stack
-- Node.js 20+
-- NestJS
-- Prisma
+## Voraussetzungen
+- Node.js 22 LTS
 - PostgreSQL
-- JWT auth (access + refresh)
 
-## Local Setup
-1. Copy env file:
-   - `cp .env.example .env`
-2. Install dependencies:
-   - `npm ci`
-3. Apply migrations:
-   - `npm run prisma:migrate:deploy`
-4. Start dev server:
-   - `npm run start:dev`
+## Environment
+`.env` anlegen (siehe `.env.example`):
 
-## Production Startup
-- Build:
-  - `npm run build`
-- Run:
-  - `npm run start:prod`
-
-`start:prod` runs Prisma migrations (`prisma migrate deploy`) and then starts `dist/main.js`.
-
-## Required Env Vars
 - `DATABASE_URL`
-- `JWT_SECRET` (or `JWT_ACCESS_SECRET`)
-- `REFRESH_SECRET` (or `JWT_REFRESH_SECRET`)
-- `JWT_ACCESS_TTL` (default `15m`)
-- `JWT_REFRESH_TTL` (default `30d`)
-- `CORS_ORIGINS` (default `*`)
-- `PORT` (Railway sets this automatically)
+- `JWT_SECRET`
+- `PORT`
 
-If Railway does not expose `DATABASE_URL` directly, startup also supports:
-- `DATABASE_PRIVATE_URL` or `DATABASE_PUBLIC_URL`
-- `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+## Setup
+```bash
+npm install
+npm run prisma:generate
+npm run prisma:migrate:dev
+npm run build
+npm run start:prod
+```
 
-## API Base
-- Versioned base: `/api/v1`
-- Health:
-  - `/api/v1/health`
-  - `/health`
-  - `/`
-
-## Smoke Test
-With backend running locally:
-- `npm run smoke`
-
-The smoke script checks health, register/login/me, onboarding club/team, players, and finance bootstrap routes.
+## Railway
+- Build: `npm run build`
+- Start: `npm run start:prod`
+- Pflichtvariablen: `DATABASE_URL`, `JWT_SECRET`, `PORT`

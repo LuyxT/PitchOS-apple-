@@ -1,44 +1,27 @@
 # PitchInsights
 
-This repository contains:
-- iOS client app in `PitchInsights/`
-- production backend in `backend/`
-- archived legacy backend code in `backend_old/`
+Repository layout:
+- iOS client app: `PitchInsights/`
+- backend API: `backend/`
+- archived legacy backend: `backend_old/`
 
-## Backend (Railway-ready)
-The backend is fully isolated in `backend/`.
+## Backend quick start
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run prisma:generate
+npm run prisma:migrate:dev
+npm run build
+npm run start:prod
+```
 
-### Quick Start
-1. `cd backend`
-2. `cp .env.example .env`
-3. `npm ci`
-4. `npm run prisma:migrate:deploy`
-5. `npm run start:dev`
-
-### Production Commands
+## Railway
+Root scripts delegate to `backend/`:
 - Build: `npm run build`
-- Start: `npm run start:prod`
+- Start: `npm run start`
 
-`start:prod` applies Prisma migrations and then starts the server on `process.env.PORT`.
-
-### Railway (Repo Root)
-Railway builds from repository root.
-- Root build command: `npm run build` (delegates to `backend/`)
-- Root start command: `npm run start` (delegates to `backend/`)
-- No manual root-directory override is required.
-
-### Health URLs
-- `GET /`
-- `GET /health`
-- `GET /api/v1/health`
-
-All return JSON.
-
-### API Contract
-Every response uses the same envelope:
-- Success: `{ "success": true, "data": ..., "error": null }`
-- Error: `{ "success": false, "data": null, "error": { "code": "...", "message": "...", "details": ... } }`
-
-### Smoke Test
-Run with backend started:
-- `cd backend && npm run smoke`
+Required Railway variables:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PORT`
