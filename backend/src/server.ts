@@ -30,18 +30,7 @@ async function ensureSchemaColumns(): Promise<void> {
   // First: ensure the UserRole enum has the correct values
   await ensureUserRoleEnum(prisma);
 
-  const result = await prisma.$queryRaw<Array<{ column_name: string }>>`
-    SELECT column_name FROM information_schema.columns
-    WHERE table_name = 'User' AND column_name = 'onboardingCompleted'
-  `;
-
-  if (result.length > 0) {
-    logger.info('Schema check: all expected columns present');
-    return;
-  }
-
-  logger.warn('Schema check: User.onboardingCompleted missing — applying fixes...');
-
+  // Always run all statements — they use IF NOT EXISTS so are safe to repeat
   const statements = [
     `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT`,
     `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastName" TEXT`,
@@ -86,7 +75,7 @@ async function ensureSchemaColumns(): Promise<void> {
     }
   }
 
-  logger.info('Schema fix complete — missing columns and tables added');
+  logger.info('Schema check complete — all columns and tables ensured');
 }
 
 async function ensureUserRoleEnum(prisma: ReturnType<typeof getPrisma>): Promise<void> {
