@@ -106,6 +106,7 @@ final class AppSessionStore: ObservableObject {
         memberships = []
         activeContext = nil
         UserDefaults.standard.removeObject(forKey: activeContextKey)
+        UserDefaults.standard.removeObject(forKey: "pitchinsights.onboarding.draft")
         phase = .unauthenticated
     }
 

@@ -362,6 +362,9 @@ struct OnboardingFlowView: View {
                 session.applyAuthenticatedUser(authenticatedUser)
             }
 
+            // Clear stale draft so fresh onboarding starts from the right step
+            clearDraft()
+
             let me = try await dataStore.backend.fetchAuthMe()
             session.applyAuthMe(me)
             if me.onboardingRequired {
@@ -551,7 +554,9 @@ struct OnboardingFlowView: View {
         }
 
         let loadedStep = Step(rawValue: draft.step) ?? step
-        if loadedStep.sortOrder >= step.sortOrder {
+        // Don't jump past auth steps if user is not authenticated
+        let maxAllowedStep: Step = (session.phase == .onboarding) ? .complete : .register
+        if loadedStep.sortOrder >= step.sortOrder && loadedStep.sortOrder <= maxAllowedStep.sortOrder {
             step = loadedStep
         }
         email = draft.email
