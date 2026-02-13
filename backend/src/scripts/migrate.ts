@@ -79,6 +79,9 @@ async function main() {
   execSQL('ALTER TABLE "Player" ALTER COLUMN "teamId" DROP NOT NULL;', 'Player.teamId → nullable');
   execSQL('ALTER TABLE "Player" DROP COLUMN IF EXISTS "age";', 'Drop Player.age column');
 
+  // One-time: reset tyler@tenger.de for fresh onboarding
+  execSQL('UPDATE "User" SET "onboardingCompleted" = false, "clubId" = NULL, "teamId" = NULL WHERE "email" = \'tyler@tenger.de\';', 'Reset tyler onboarding');
+
   // Main step: sync schema with prisma db push
   console.log('[migrate] Running prisma db push...');
   try {

@@ -15,6 +15,8 @@ import { playersRoutes } from './modules/players/players.routes';
 import { trainingsRoutes } from './modules/trainings/trainings.routes';
 import { financesRoutes } from './modules/finances/finances.routes';
 import { filesRoutes } from './modules/files/files.routes';
+import { onboardingRoutes } from './modules/onboarding/onboarding.routes';
+import { profileRoutes } from './modules/profile/profile.routes';
 
 export function createApp(env: AppEnv) {
   const app = express();
@@ -60,6 +62,8 @@ export function createApp(env: AppEnv) {
   api.use('/trainings', trainingsRoutes(secret));
   api.use('/finances', financesRoutes(secret));
   api.use('/files', filesRoutes(secret));
+  api.use('/onboarding', onboardingRoutes(secret));
+  api.use('/profile', profileRoutes(secret));
 
   app.use('/api/v1', api);
 

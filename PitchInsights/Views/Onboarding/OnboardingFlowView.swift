@@ -456,15 +456,8 @@ struct OnboardingFlowView: View {
             }
 
             session.applyAuthMe(me)
-            if me.onboardingRequired {
-                session.phase = .onboarding
-                statusMessage = "Onboarding unvollstandig. Bitte Teamdaten prufen."
-                goTo(.club, style: .sceneReveal)
-            } else {
-                statusMessage = "Onboarding abgeschlossen."
-                clearDraft()
-                session.phase = .ready
-            }
+            session.phase = .onboarding
+            goTo(.profile, style: .cameraPush)
         } catch {
             let message = NetworkError.userMessage(from: error)
             statusMessage = message
