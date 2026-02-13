@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { CompatModule } from './compat/compat.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { FinanceModule } from './finance/finance.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -19,6 +20,7 @@ import { TeamModule } from './team/team.module';
     TeamModule,
     PlayersModule,
     FinanceModule,
+    CompatModule,
   ],
   controllers: [AppController],
   providers: [

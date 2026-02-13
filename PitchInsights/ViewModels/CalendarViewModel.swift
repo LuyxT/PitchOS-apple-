@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 final class CalendarViewModel: ObservableObject {
     @Published var viewMode: CalendarViewMode = .month
     @Published var focusDate: Date = Date()

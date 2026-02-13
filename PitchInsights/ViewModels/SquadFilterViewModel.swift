@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 final class SquadFilterViewModel: ObservableObject {
     @Published var filters = SquadFilters()
     @Published var isAnalysisVisible = true

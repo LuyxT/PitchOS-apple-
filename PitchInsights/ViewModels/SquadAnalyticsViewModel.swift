@@ -7,6 +7,7 @@ struct SquadAnalyticsSnapshot {
     var tacticalLineCounts: [PositionGroup: Int] = [:]
 }
 
+@MainActor
 final class SquadAnalyticsViewModel: ObservableObject {
     @Published private(set) var snapshot = SquadAnalyticsSnapshot()
 

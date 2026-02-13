@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import Combine
 
+@MainActor
 final class AnalysisPlayerViewModel: ObservableObject {
     @Published var player: AVPlayer = AVPlayer()
     @Published var isPlaying = false
@@ -14,9 +15,7 @@ final class AnalysisPlayerViewModel: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var clipRange: ClosedRange<Double>?
 
-    deinit {
-        cleanupObservers()
-    }
+    deinit {}
 
     func load(url: URL, initialTime: Double = 0, clipRange: ClosedRange<Double>? = nil) {
         cleanupObservers()

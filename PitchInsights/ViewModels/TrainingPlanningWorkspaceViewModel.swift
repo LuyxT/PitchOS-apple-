@@ -15,6 +15,7 @@ final class TrainingPlanningWorkspaceViewModel: ObservableObject {
     @Published var selectedSection: Section = .planung
     @Published var selectedPlanID: UUID?
     @Published var isBootstrapping = false
+    @Published var loadState: LoadState<Void> = .idle
     @Published var isSaving = false
     @Published var statusMessage: String?
     @Published var draftTitle = ""
@@ -29,6 +30,7 @@ final class TrainingPlanningWorkspaceViewModel: ObservableObject {
             await bootstrap(store: store)
             return
         }
+        loadState = .success(())
         if selectedPlanID == nil {
             selectedPlanID = store.activeTrainingPlanID ?? store.trainingPlans.first?.id
         }
@@ -36,9 +38,22 @@ final class TrainingPlanningWorkspaceViewModel: ObservableObject {
     }
 
     func bootstrap(store: AppDataStore) async {
+        print("[Training] state -> loading")
+        loadState = .loading
         isBootstrapping = true
         defer { isBootstrapping = false }
         await store.bootstrapTrainingsplanung()
+        if case .failed(let reason) = store.trainingConnectionState {
+            let error = NSError(domain: "TrainingBootstrap", code: 1, userInfo: [NSLocalizedDescriptionKey: reason])
+            print("[Training] state -> failure (\(reason))")
+            loadState = .failure(error)
+        } else if store.trainingPlans.isEmpty {
+            print("[Training] state -> empty")
+            loadState = .empty
+        } else {
+            print("[Training] state -> success")
+            loadState = .success(())
+        }
         if selectedPlanID == nil {
             selectedPlanID = store.activeTrainingPlanID ?? store.trainingPlans.first?.id
         }

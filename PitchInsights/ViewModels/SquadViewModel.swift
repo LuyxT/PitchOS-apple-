@@ -5,6 +5,7 @@ import SwiftUI
 import AppKit
 #endif
 
+@MainActor
 final class SquadViewModel: ObservableObject {
     @Published var selectedPlayerIDs: Set<UUID> = []
     @Published var sortField: SquadSortField = .number

@@ -40,7 +40,7 @@ struct TrainingPlanningWorkspaceView: View {
                     mainGoal: $workspaceViewModel.draftMainGoal,
                     secondaryGoalsText: $workspaceViewModel.draftSecondaryGoals,
                     includeGoalInCalendar: $includeGoalInCalendar,
-                    isBusy: workspaceViewModel.isBootstrapping || workspaceViewModel.isSaving,
+                    isBusy: workspaceViewModel.loadState.isLoading || workspaceViewModel.isSaving,
                     onCreate: {
                         Task { await workspaceViewModel.createPlan(store: dataStore) }
                     },
@@ -69,10 +69,10 @@ struct TrainingPlanningWorkspaceView: View {
                     }
                 )
 
-                if dataStore.trainingConnectionState == .syncing && dataStore.trainingPlans.isEmpty {
+                if workspaceViewModel.loadState.isLoading && dataStore.trainingPlans.isEmpty {
                     loadingState
-                } else if case .failed(let reason) = dataStore.trainingConnectionState, dataStore.trainingPlans.isEmpty {
-                    failedState(reason)
+                } else if case .failure(let error) = workspaceViewModel.loadState, dataStore.trainingPlans.isEmpty {
+                    failedState(error.localizedDescription)
                 } else if let plan = activePlan {
                     switch workspaceViewModel.selectedSection {
                     case .planung:
@@ -120,8 +120,10 @@ struct TrainingPlanningWorkspaceView: View {
                         )
                         .padding(12)
                     }
-                } else {
+                } else if case .empty = workspaceViewModel.loadState {
                     emptyState
+                } else {
+                    loadingState
                 }
 
                 if let status = combinedStatusMessage, !status.isEmpty {

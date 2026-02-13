@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 final class PlayerProfileViewModel: ObservableObject {
     @Published var draft: Player
 

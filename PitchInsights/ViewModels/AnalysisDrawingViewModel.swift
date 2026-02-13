@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 
+@MainActor
 final class AnalysisDrawingViewModel: ObservableObject {
     @Published var isDrawingMode = false
     @Published var selectedTool: AnalysisDrawingTool = .line

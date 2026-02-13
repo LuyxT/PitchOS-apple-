@@ -53,6 +53,32 @@ enum Module: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+enum ModuleRegistry {
+    static let allModules: [Module] = Module.allCases
+
+    static let enabledModules: [Module] = {
+        let available = Set(allModules)
+        guard
+            let raw = ProcessInfo.processInfo.environment["ENABLED_MODULES"],
+            !raw.isEmpty
+        else {
+            return allModules
+        }
+
+        let requested = raw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .compactMap { Module(rawValue: $0) }
+            .filter { available.contains($0) }
+
+        return requested.isEmpty ? allModules : requested
+    }()
+
+    static func isEnabled(_ module: Module) -> Bool {
+        enabledModules.contains(module)
+    }
+}
+
 enum DesktopWidgetSize: String, CaseIterable, Codable, Identifiable {
     case small
     case medium

@@ -29,20 +29,6 @@ function formatValidationErrors(errors: ValidationError[]) {
   }));
 }
 
-function successEnvelope<T>(payload: T): ApiEnvelope<T> {
-  return {
-    success: true,
-    data: payload,
-    error: null,
-  };
-}
-
-function healthPayload() {
-  return {
-    status: 'ok',
-  };
-}
-
 async function bootstrap() {
   const env = getEnv();
   const logger = new Logger('Bootstrap');
@@ -72,7 +58,7 @@ async function bootstrap() {
   app.use(helmet());
 
   app.enableCors({
-    origin: getCorsOrigins(),
+    origin: env.NODE_ENV === 'development' ? true : getCorsOrigins(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
@@ -102,11 +88,11 @@ async function bootstrap() {
   const httpAdapter = app.getHttpAdapter().getInstance();
 
   httpAdapter.get('/', (_req: Request, res: Response) => {
-    res.status(200).json(successEnvelope(healthPayload()));
+    res.status(200).json({ status: 'ok' });
   });
 
   httpAdapter.get('/health', (_req: Request, res: Response) => {
-    res.status(200).json(successEnvelope(healthPayload()));
+    res.status(200).json({ status: 'healthy' });
   });
 
   await app.init();
