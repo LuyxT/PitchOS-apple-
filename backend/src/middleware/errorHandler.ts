@@ -60,7 +60,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     return;
   }
 
-  // Unknown error — log and return details for debugging
+  // Unknown error — log full details server-side, return generic message to client
   const errName = err instanceof Error ? err.name : 'UnknownError';
   const errMessage = err instanceof Error ? err.message : 'Unknown error';
   const errCode = (err as Record<string, unknown>).code as string | undefined;
@@ -78,8 +78,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',
-      message: errMessage,
-      detail: errCode ?? null,
+      message: 'An unexpected error occurred',
     },
   });
 };
