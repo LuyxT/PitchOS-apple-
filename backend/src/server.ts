@@ -1,6 +1,6 @@
 import { loadEnv } from './config/env';
 import { logger } from './config/logger';
-import { getPrisma, connectDatabase, disconnectDatabase } from './lib/prisma';
+import { connectDatabase, disconnectDatabase } from './lib/prisma';
 import { createApp } from './app';
 
 // ── Global error handlers ──────────────────────────────────
@@ -22,34 +22,6 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-// ── Data normalization ──────────────────────────────────────
-
-async function normalizeUserRoles(): Promise<void> {
-  const prisma = getPrisma();
-
-  try {
-    // Convert role column to TEXT temporarily so we can fix values
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT`);
-    // Normalize values to lowercase
-    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = LOWER("role")`);
-    // Map any legacy values
-    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'player' WHERE "role" IN ('staff', 'spieler')`);
-    await prisma.$executeRawUnsafe(`UPDATE "User" SET "role" = 'trainer' WHERE "role" NOT IN ('trainer', 'player', 'board')`);
-    // Recreate enum (db push may have created it, but drop/recreate is safe)
-    await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "UserRole"`);
-    await prisma.$executeRawUnsafe(`CREATE TYPE "UserRole" AS ENUM ('trainer', 'player', 'board')`);
-    // Convert column back to enum
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole"`
-    );
-    logger.info('Data normalization: UserRole values normalized');
-  } catch (err) {
-    logger.error('Data normalization: UserRole fix failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
-
 // ── Bootstrap ──────────────────────────────────────────────
 
 async function bootstrap() {
@@ -66,15 +38,6 @@ async function bootstrap() {
       message: error instanceof Error ? error.message : 'Unknown database error',
     });
     process.exit(1);
-  }
-
-  // 2b. Normalize user role data (handles legacy uppercase values)
-  try {
-    await normalizeUserRoles();
-  } catch (error) {
-    logger.error('Data normalization failed', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
 
   // 3. Create Express app
