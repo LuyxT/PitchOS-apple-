@@ -246,6 +246,13 @@ export async function getMe(userId: string) {
   };
 }
 
+export async function deleteAccount(userId: string) {
+  const prisma = getPrisma();
+
+  await prisma.refreshToken.deleteMany({ where: { userId } });
+  await prisma.user.delete({ where: { id: userId } });
+}
+
 export async function logout(userId: string, rawRefreshToken?: string) {
   const prisma = getPrisma();
 

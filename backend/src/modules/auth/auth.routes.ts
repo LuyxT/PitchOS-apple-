@@ -12,6 +12,7 @@ export function authRoutes(jwtAccessSecret: string): Router {
   router.post('/refresh', validate(refreshSchema), asyncHandler(ctrl.refreshController));
   router.get('/me', authenticate(jwtAccessSecret), asyncHandler(ctrl.meController));
   router.post('/logout', authenticate(jwtAccessSecret), asyncHandler(ctrl.logoutController));
+  router.delete('/account', authenticate(jwtAccessSecret), asyncHandler(ctrl.deleteAccountController));
 
   return router;
 }

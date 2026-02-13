@@ -47,3 +47,11 @@ export async function logoutController(req: Request, res: Response) {
   await authService.logout(req.auth.userId, refreshToken);
   res.status(200).json({ success: true });
 }
+
+export async function deleteAccountController(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+  await authService.deleteAccount(req.auth.userId);
+  res.status(200).json({ success: true });
+}
