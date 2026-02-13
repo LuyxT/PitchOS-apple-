@@ -10,14 +10,14 @@ datasource db {
 // ─── User ────────────────────────────────────────────────
 
 model User {
-  id                  String   @id @default(uuid()) @db.Uuid
+  id                  String   @id @default(cuid())
   email               String   @unique
   passwordHash        String
   firstName           String?
   lastName            String?
   role                String
-  clubId              String?  @db.Uuid
-  teamId              String?  @db.Uuid
+  clubId              String?
+  teamId              String?
   onboardingCompleted Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -30,9 +30,9 @@ model User {
 // ─── Refresh Token ───────────────────────────────────────
 
 model RefreshToken {
-  id        String    @id @default(uuid()) @db.Uuid
+  id        String    @id @default(cuid())
   token     String    @unique
-  userId    String    @db.Uuid
+  userId    String
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
@@ -46,7 +46,7 @@ model RefreshToken {
 // ─── Club ────────────────────────────────────────────────
 
 model Club {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(cuid())
   name      String
   region    String
   createdAt DateTime @default(now())
@@ -59,9 +59,9 @@ model Club {
 // ─── Team ────────────────────────────────────────────────
 
 model Team {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(cuid())
   name      String
-  clubId    String   @db.Uuid
+  clubId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -76,11 +76,11 @@ model Team {
 // ─── Player ──────────────────────────────────────────────
 
 model Player {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(cuid())
   name      String
   position  String
   age       Int
-  teamId    String   @db.Uuid
+  teamId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -92,11 +92,11 @@ model Player {
 // ─── Training ────────────────────────────────────────────
 
 model Training {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(cuid())
   title       String
   description String?
   date        DateTime
-  teamId      String   @db.Uuid
+  teamId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -27,10 +27,41 @@ function execSQL(sql: string, label: string): boolean {
 }
 
 async function main() {
-  // Pre-step: convert role column from UserRole enum to TEXT if needed
-  // This allows db push to work without enum type conflicts
-  console.log('[migrate] Pre-step: fixing enum and normalizing data...');
-  execSQL('ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT;', 'Convert role to TEXT');
+  // Pre-step: convert UUID columns to TEXT and fix enum types
+  // This allows db push to work without type conflicts (some users have CUIDs, not UUIDs)
+  console.log('[migrate] Pre-step: converting columns to TEXT for compatibility...');
+
+  // Convert all UUID id columns to TEXT (safe: UUIDs are valid TEXT values)
+  // First drop FK constraints that reference UUID columns
+  const fkConstraints = [
+    { table: 'User', constraint: 'User_clubId_fkey' },
+    { table: 'User', constraint: 'User_teamId_fkey' },
+    { table: 'RefreshToken', constraint: 'RefreshToken_userId_fkey' },
+    { table: 'Team', constraint: 'Team_clubId_fkey' },
+    { table: 'Player', constraint: 'Player_teamId_fkey' },
+    { table: 'Training', constraint: 'Training_teamId_fkey' },
+  ];
+  for (const { table, constraint } of fkConstraints) {
+    execSQL(`ALTER TABLE "${table}" DROP CONSTRAINT IF EXISTS "${constraint}";`, `Drop FK ${constraint}`);
+  }
+
+  // Now convert columns
+  const uuidTables = [
+    { table: 'User', columns: ['id', 'clubId', 'teamId'] },
+    { table: 'RefreshToken', columns: ['id', 'userId'] },
+    { table: 'Club', columns: ['id'] },
+    { table: 'Team', columns: ['id', 'clubId'] },
+    { table: 'Player', columns: ['id', 'teamId'] },
+    { table: 'Training', columns: ['id', 'teamId'] },
+  ];
+  for (const { table, columns } of uuidTables) {
+    for (const col of columns) {
+      execSQL(`ALTER TABLE "${table}" ALTER COLUMN "${col}" TYPE TEXT;`, `${table}.${col} → TEXT`);
+    }
+  }
+
+  // Convert role column from UserRole enum to TEXT if needed
+  execSQL('ALTER TABLE "User" ALTER COLUMN "role" TYPE TEXT;', 'User.role → TEXT');
   execSQL('UPDATE "User" SET "role" = LOWER("role");', 'Lowercase role values');
   execSQL(`UPDATE "User" SET "role" = 'player' WHERE "role" IN ('staff', 'spieler');`, 'Map legacy roles');
   execSQL(`UPDATE "User" SET "role" = 'trainer' WHERE "role" NOT IN ('trainer', 'player', 'board');`, 'Fix unknown roles');
