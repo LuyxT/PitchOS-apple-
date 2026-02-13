@@ -45,7 +45,9 @@ async function ensureSchemaColumns(): Promise<void> {
     `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE "Team" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE "Player" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
-    `CREATE TABLE IF NOT EXISTS "RefreshToken" (
+    // Drop and recreate RefreshToken to fix any schema mismatch (tokens are ephemeral)
+    `DROP TABLE IF EXISTS "RefreshToken"`,
+    `CREATE TABLE "RefreshToken" (
       "id" UUID NOT NULL,
       "token" TEXT NOT NULL,
       "userId" UUID NOT NULL,
