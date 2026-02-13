@@ -1,6 +1,6 @@
 import { loadEnv } from './config/env';
 import { logger } from './config/logger';
-import { connectDatabase, disconnectDatabase } from './lib/prisma';
+import { getPrisma, connectDatabase, disconnectDatabase } from './lib/prisma';
 import { createApp } from './app';
 
 // ── Global error handlers ──────────────────────────────────
@@ -22,6 +22,70 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+// ── Schema repair ──────────────────────────────────────────
+
+async function ensureSchemaColumns(): Promise<void> {
+  const prisma = getPrisma();
+
+  const result = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'User' AND column_name = 'onboardingCompleted'
+  `;
+
+  if (result.length > 0) {
+    logger.info('Schema check: all expected columns present');
+    return;
+  }
+
+  logger.warn('Schema check: User.onboardingCompleted missing — applying fixes...');
+
+  const statements = [
+    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "firstName" TEXT`,
+    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastName" TEXT`,
+    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE "Team" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE "Player" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `CREATE TABLE IF NOT EXISTS "RefreshToken" (
+      "id" UUID NOT NULL,
+      "token" TEXT NOT NULL,
+      "userId" UUID NOT NULL,
+      "expiresAt" TIMESTAMP(3) NOT NULL,
+      "revokedAt" TIMESTAMP(3),
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "RefreshToken_token_key" ON "RefreshToken"("token")`,
+    `CREATE INDEX IF NOT EXISTS "RefreshToken_userId_idx" ON "RefreshToken"("userId")`,
+    `CREATE INDEX IF NOT EXISTS "RefreshToken_token_idx" ON "RefreshToken"("token")`,
+    `CREATE TABLE IF NOT EXISTS "Training" (
+      "id" UUID NOT NULL,
+      "title" TEXT NOT NULL,
+      "description" TEXT,
+      "date" TIMESTAMP(3) NOT NULL,
+      "teamId" UUID NOT NULL,
+      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Training_pkey" PRIMARY KEY ("id")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "Training_teamId_idx" ON "Training"("teamId")`,
+  ];
+
+  for (const sql of statements) {
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch (err) {
+      logger.warn('Schema fix SQL warning', {
+        sql: sql.slice(0, 100),
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  logger.info('Schema fix complete — missing columns and tables added');
+}
+
 // ── Bootstrap ──────────────────────────────────────────────
 
 async function bootstrap() {
@@ -38,6 +102,16 @@ async function bootstrap() {
       message: error instanceof Error ? error.message : 'Unknown database error',
     });
     process.exit(1);
+  }
+
+  // 2b. Ensure schema columns exist (handles botched migrations)
+  try {
+    await ensureSchemaColumns();
+  } catch (error) {
+    logger.error('Schema repair failed', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+    // Don't exit — the app may still work if columns exist
   }
 
   // 3. Create Express app
