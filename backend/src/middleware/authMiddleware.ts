@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'express';
-import { verifyAccessToken } from '../config/jwt';
+import { verifyAccessToken } from '../lib/jwt';
 import { AppError } from './errorHandler';
 
-export function authMiddleware(secret: string): RequestHandler {
+export function authenticate(secret: string): RequestHandler {
   return (req, _res, next) => {
     const header = req.headers.authorization;
 
@@ -11,7 +11,7 @@ export function authMiddleware(secret: string): RequestHandler {
       return;
     }
 
-    const token = header.slice('Bearer '.length).trim();
+    const token = header.slice(7).trim();
     if (!token) {
       next(new AppError(401, 'UNAUTHORIZED', 'Missing bearer token'));
       return;

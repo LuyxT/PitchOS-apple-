@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
-import { logError } from '../config/logger';
+import { ZodError } from 'zod';
+import { logger } from '../config/logger';
 
 export class AppError extends Error {
   readonly statusCode: number;
@@ -8,13 +9,15 @@ export class AppError extends Error {
 
   constructor(statusCode: number, code: string, message: string, details?: unknown) {
     super(message);
+    this.name = 'AppError';
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
   }
 }
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
+  // Malformed JSON body
   if (
     err instanceof SyntaxError &&
     'status' in err &&
@@ -30,6 +33,22 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
+  // Zod validation error
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Request validation failed',
+        details: err.errors.map((e) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        })),
+      },
+    });
+    return;
+  }
+
+  // Known application error
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       error: {
@@ -41,10 +60,14 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  logError('Unhandled application error', {
+  // Unknown error — log and return generic 500
+  logger.error('Unhandled application error', {
+    requestId: req.requestId,
+    method: req.method,
+    url: req.originalUrl,
     name: err instanceof Error ? err.name : 'UnknownError',
     message: err instanceof Error ? err.message : 'Unknown error',
-    stack: err instanceof Error ? err.stack : null,
+    stack: err instanceof Error ? err.stack : undefined,
   });
 
   res.status(500).json({

@@ -1,10 +1,13 @@
+import { loadEnv } from './config/env';
+import { logger } from './config/logger';
+import { connectDatabase, disconnectDatabase } from './lib/prisma';
 import { createApp } from './app';
-import { getEnv } from './config/env';
-import { logError, logInfo } from './config/logger';
-import { prisma } from './prisma/client';
+
+// ── Global error handlers ──────────────────────────────────
 
 process.on('uncaughtException', (error) => {
-  logError('Uncaught exception', {
+  logger.error('Uncaught exception — shutting down', {
+    name: error.name,
     message: error.message,
     stack: error.stack,
   });
@@ -12,61 +15,62 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  logError('Unhandled rejection', {
+  logger.error('Unhandled rejection — shutting down', {
     reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
   });
   process.exit(1);
 });
 
-async function bootstrap() {
-  let env;
-  try {
-    env = getEnv();
-  } catch (error) {
-    logError('Environment validation failed', {
-      message: error instanceof Error ? error.message : 'Unknown environment error',
-    });
-    process.exit(1);
-    return;
-  }
+// ── Bootstrap ──────────────────────────────────────────────
 
+async function bootstrap() {
+  // 1. Validate environment — crashes immediately if invalid
+  const env = loadEnv();
+  logger.info('Environment validated', { nodeEnv: env.NODE_ENV, port: env.PORT });
+
+  // 2. Connect to database
   try {
-    await prisma.$connect();
-    logInfo('Database connection established');
+    await connectDatabase();
+    logger.info('Database connection established');
   } catch (error) {
-    logError('Database connection failed', {
+    logger.error('Database connection failed', {
       message: error instanceof Error ? error.message : 'Unknown database error',
     });
     process.exit(1);
-    return;
   }
 
-  const app = createApp(env.JWT_SECRET);
-  logInfo('Routes registered', {
-    routes: ['/health', '/auth/*', '/clubs/*', '/teams/*', '/players/*'],
-  });
+  // 3. Create Express app
+  const app = createApp(env);
 
-  const server = app.listen(env.PORT, () => {
-    logInfo('Server started', {
+  // 4. Start HTTP server
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
+    logger.info('Server started', {
       port: env.PORT,
+      nodeEnv: env.NODE_ENV,
     });
   });
 
+  // 5. Graceful shutdown
   const shutdown = async (signal: string) => {
-    logInfo('Shutdown signal received', { signal });
+    logger.info('Shutdown signal received', { signal });
+
     server.close(async () => {
-      await prisma.$disconnect();
+      logger.info('HTTP server closed');
+      await disconnectDatabase();
+      logger.info('Database disconnected');
       process.exit(0);
     });
+
+    // Force exit after 10 seconds if graceful shutdown fails
+    setTimeout(() => {
+      logger.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10_000).unref();
   };
 
-  process.on('SIGINT', () => {
-    void shutdown('SIGINT');
-  });
-
-  process.on('SIGTERM', () => {
-    void shutdown('SIGTERM');
-  });
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
 void bootstrap();
