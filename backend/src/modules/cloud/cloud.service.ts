@@ -5,8 +5,8 @@ import { AppError } from '../../middleware/errorHandler';
 
 export interface CloudFolderDTO {
   id: string;
-  teamId: string;
-  parentId: string | null;
+  teamID: string;
+  parentID: string | null;
   name: string;
   isSystemFolder: boolean;
   isDeleted: boolean;
@@ -16,18 +16,18 @@ export interface CloudFolderDTO {
 
 export interface CloudFileDTO {
   id: string;
-  teamId: string;
-  ownerUserId: string;
+  teamID: string;
+  ownerUserID: string;
   name: string;
   originalName: string;
   type: string;
   mimeType: string;
   sizeBytes: number;
-  folderId: string | null;
+  folderID: string | null;
   tags: string[];
   moduleHint: string | null;
   visibility: string;
-  sharedUserIds: string[];
+  sharedUserIDs: string[];
   checksum: string | null;
   uploadStatus: string;
   deletedAt: string | null;
@@ -72,8 +72,8 @@ function toFolderDTO(f: {
 }): CloudFolderDTO {
   return {
     id: f.id,
-    teamId: f.teamId,
-    parentId: f.parentId,
+    teamID: f.teamId,
+    parentID: f.parentId,
     name: f.name,
     isSystemFolder: f.isSystemFolder,
     isDeleted: f.isDeleted,
@@ -108,18 +108,18 @@ function toFileDTO(f: {
 }): CloudFileDTO {
   return {
     id: f.id,
-    teamId: f.teamId,
-    ownerUserId: f.ownerUserId,
+    teamID: f.teamId,
+    ownerUserID: f.ownerUserId,
     name: f.name,
     originalName: f.originalName,
     type: f.type,
     mimeType: f.mimeType,
     sizeBytes: f.sizeBytes,
-    folderId: f.folderId,
+    folderID: f.folderId,
     tags: f.tags,
     moduleHint: f.moduleHint,
     visibility: f.visibility,
-    sharedUserIds: f.sharedUserIds,
+    sharedUserIDs: f.sharedUserIds,
     checksum: f.checksum,
     uploadStatus: f.uploadStatus,
     deletedAt: f.deletedAt ? f.deletedAt.toISOString() : null,
@@ -187,6 +187,7 @@ export async function getUsage(teamId: string): Promise<UsageDTO> {
 // ─── Bootstrap ─────────────────────────────────────────
 
 export async function bootstrap(teamId: string): Promise<{
+  teamID: string;
   usage: UsageDTO;
   folders: CloudFolderDTO[];
   files: CloudFileDTO[];
@@ -210,6 +211,7 @@ export async function bootstrap(teamId: string): Promise<{
   ]);
 
   return {
+    teamID: teamId,
     usage,
     folders: folders.map(toFolderDTO),
     files: files.map(toFileDTO),
@@ -436,10 +438,13 @@ export interface RegisterFileInput {
 }
 
 export async function registerFile(input: RegisterFileInput): Promise<{
-  id: string;
-  uploadURL: string;
+  fileID: string;
   uploadID: string;
-  headers: Record<string, string>;
+  uploadURL: string;
+  uploadHeaders: Record<string, string>;
+  chunkSizeBytes: number;
+  totalParts: number;
+  expiresAt: string | null;
 }> {
   const prisma = getPrisma();
 
@@ -475,11 +480,17 @@ export async function registerFile(input: RegisterFileInput): Promise<{
     },
   });
 
+  const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
+  const totalParts = Math.max(1, Math.ceil((input.sizeBytes ?? 0) / DEFAULT_CHUNK_SIZE));
+
   return {
-    id: file.id,
-    uploadURL: `/api/v1/cloud/files/${file.id}/upload`,
+    fileID: file.id,
     uploadID: file.id,
-    headers: {},
+    uploadURL: `/api/v1/cloud/files/${file.id}/upload`,
+    uploadHeaders: {},
+    chunkSizeBytes: DEFAULT_CHUNK_SIZE,
+    totalParts,
+    expiresAt: null,
   };
 }
 
