@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import express from 'express';
 import { asyncHandler } from '../../middleware/asyncHandler';
 import { authenticate } from '../../middleware/authMiddleware';
 import * as ctrl from './cloud.controller';
@@ -6,6 +7,7 @@ import * as ctrl from './cloud.controller';
 export function cloudRoutes(jwtAccessSecret: string): Router {
   const router = Router();
   const auth = authenticate(jwtAccessSecret);
+  const rawBody = express.raw({ type: '*/*', limit: '10mb' });
 
   // ─── Bootstrap ─────────────────────────────────────────
   router.get('/files/bootstrap', auth, asyncHandler(ctrl.bootstrap));
@@ -21,6 +23,7 @@ export function cloudRoutes(jwtAccessSecret: string): Router {
 
   // ─── File upload flow ──────────────────────────────────
   router.post('/files/register', auth, asyncHandler(ctrl.registerFile));
+  router.put('/files/:fileId/upload', auth, rawBody, asyncHandler(ctrl.uploadChunk));
   router.post('/files/:fileId/complete', auth, asyncHandler(ctrl.completeUpload));
 
   // ─── File mutations ────────────────────────────────────

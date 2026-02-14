@@ -178,6 +178,29 @@ export async function registerFile(req: Request, res: Response): Promise<void> {
   res.status(201).json(result);
 }
 
+// ─── Upload chunk ─────────────────────────────────────
+
+export async function uploadChunk(req: Request, res: Response): Promise<void> {
+  requireAuth(req);
+
+  const fileId = req.params.fileId;
+  if (!fileId) {
+    throw new AppError(400, 'MISSING_FILE_ID', 'fileId parameter is required');
+  }
+
+  const partNumber = req.headers['x-part-number']
+    ? parseInt(req.headers['x-part-number'] as string, 10)
+    : 0;
+
+  // In a production system this would stream the chunk to object storage.
+  // For now we accept the data and return a synthetic ETag so the iOS
+  // upload flow can proceed end-to-end.
+  const etag = `"part-${partNumber}"`;
+
+  res.setHeader('ETag', etag);
+  res.status(200).json({ partNumber, etag });
+}
+
 // ─── Complete upload ───────────────────────────────────
 
 export async function completeUpload(req: Request, res: Response): Promise<void> {
