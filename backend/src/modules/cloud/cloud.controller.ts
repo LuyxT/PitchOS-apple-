@@ -175,7 +175,14 @@ export async function registerFile(req: Request, res: Response): Promise<void> {
     linkedTrainingPlanID,
   });
 
-  res.status(201).json(result);
+  // Build absolute upload URL from the request origin
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const response = {
+    ...result,
+    uploadURL: result.uploadURL.startsWith('http') ? result.uploadURL : `${origin}${result.uploadURL}`,
+  };
+
+  res.status(201).json(response);
 }
 
 // ─── Upload chunk ─────────────────────────────────────
