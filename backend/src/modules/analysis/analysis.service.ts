@@ -107,6 +107,46 @@ function toDrawingDTO(d: {
   };
 }
 
+/* ── Categories ── */
+
+const DEFAULT_ANALYSIS_CATEGORIES = [
+  { name: 'Tor', colorHex: '#10B981', isSystem: true },
+  { name: 'Pressing', colorHex: '#3B82F6', isSystem: true },
+  { name: 'Aufbau', colorHex: '#F59E0B', isSystem: true },
+];
+
+async function ensureDefaultAnalysisCategories(userId: string) {
+  const prisma = getPrisma();
+  const count = await prisma.analysisCategory.count({ where: { userId } });
+  if (count > 0) return;
+  await prisma.analysisCategory.createMany({
+    data: DEFAULT_ANALYSIS_CATEGORIES.map((cat) => ({ ...cat, userId })),
+  });
+}
+
+export async function listAnalysisCategories(userId: string) {
+  const prisma = getPrisma();
+  await ensureDefaultAnalysisCategories(userId);
+  const categories = await prisma.analysisCategory.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+  return categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    colorHex: c.colorHex,
+    isSystem: c.isSystem,
+  }));
+}
+
+export async function createAnalysisCategory(userId: string, input: { name: string; colorHex: string }) {
+  const prisma = getPrisma();
+  const category = await prisma.analysisCategory.create({
+    data: { name: input.name, colorHex: input.colorHex, isSystem: false, userId },
+  });
+  return { id: category.id, name: category.name, colorHex: category.colorHex, isSystem: category.isSystem };
+}
+
 /* ── Videos ── */
 
 export async function registerVideo(

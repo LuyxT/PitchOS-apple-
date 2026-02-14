@@ -341,6 +341,18 @@ struct SignedPlaybackURLResponse: Decodable {
     let expiresAt: Date?
 }
 
+struct AnalysisCategoryDTO: Decodable {
+    let id: String
+    let name: String
+    let colorHex: String
+    let isSystem: Bool
+}
+
+struct CreateAnalysisCategoryRequest: Encodable {
+    let name: String
+    let colorHex: String
+}
+
 struct AnalysisSessionDTO: Decodable {
     let id: String
     let videoID: String

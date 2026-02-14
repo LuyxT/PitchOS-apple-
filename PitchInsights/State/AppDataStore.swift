@@ -973,9 +973,27 @@ final class AppDataStore: ObservableObject {
         guard !analysisCategories.contains(where: { $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) else {
             return
         }
-        analysisCategories.append(
-            AnalysisMarkerCategory(name: trimmedName, colorHex: colorHex, isSystem: false)
-        )
+        let localCategory = AnalysisMarkerCategory(name: trimmedName, colorHex: colorHex, isSystem: false)
+        analysisCategories.append(localCategory)
+
+        guard !AppConfiguration.isPlaceholder else { return }
+        Task {
+            do {
+                let dto = try await backend.createAnalysisCategory(
+                    CreateAnalysisCategoryRequest(name: trimmedName, colorHex: colorHex)
+                )
+                if let index = analysisCategories.firstIndex(where: { $0.id == localCategory.id }) {
+                    analysisCategories[index] = AnalysisMarkerCategory(
+                        id: UUID(uuidString: dto.id) ?? localCategory.id,
+                        name: dto.name,
+                        colorHex: dto.colorHex,
+                        isSystem: dto.isSystem
+                    )
+                }
+            } catch {
+                print("[client] addAnalysisCategory backend sync failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func bundleForAnalysisSession(_ sessionID: UUID) throws -> AnalysisSessionBundle {

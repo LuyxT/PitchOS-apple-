@@ -9,6 +9,10 @@ export function analysisRoutes(jwtAccessSecret: string): Router {
   const auth = authenticate(jwtAccessSecret);
   const rawBody = express.raw({ type: '*/*', limit: '50mb' });
 
+  // Categories
+  router.get('/categories', auth, asyncHandler(ctrl.listCategories));
+  router.post('/categories', auth, asyncHandler(ctrl.createCategory));
+
   // Videos
   router.post('/videos/register', auth, asyncHandler(ctrl.registerVideo));
   router.put('/videos/:videoId/upload', auth, rawBody, asyncHandler(ctrl.uploadVideoChunk));

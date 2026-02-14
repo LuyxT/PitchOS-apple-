@@ -699,6 +699,16 @@ model AnalysisDrawing {
   session AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
+model AnalysisCategory {
+  id        String   @id @default(uuid())
+  name      String
+  colorHex  String
+  isSystem  Boolean  @default(false)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Matches ────────────────────────────────────────────
 
 model Match {

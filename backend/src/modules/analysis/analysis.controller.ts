@@ -2,6 +2,28 @@ import type { Request, Response } from 'express';
 import { AppError } from '../../middleware/errorHandler';
 import * as analysisService from './analysis.service';
 
+/* ── Categories ── */
+
+export async function listCategories(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+  const categories = await analysisService.listAnalysisCategories(req.auth.userId);
+  res.status(200).json(categories);
+}
+
+export async function createCategory(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+  const { name, colorHex } = req.body;
+  if (!name || !colorHex) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Missing required fields: name, colorHex');
+  }
+  const category = await analysisService.createAnalysisCategory(req.auth.userId, { name, colorHex });
+  res.status(201).json(category);
+}
+
 /* ── Videos ── */
 
 export async function registerVideo(req: Request, res: Response) {

@@ -336,7 +336,7 @@ extension AppDataStore {
             firstName: names.first,
             lastName: names.last,
             dateOfBirth: player.dateOfBirth,
-            email: previous?.core.email ?? "\(player.name.replacingOccurrences(of: " ", with: ".").lowercased())@club.local",
+            email: previous?.core.email ?? "",
             phone: previous?.core.phone,
             clubName: player.teamName,
             roles: [.player],

@@ -225,6 +225,15 @@ final class BackendRepository {
         return try await sendAuthorized(.post("/analysis/sessions", body: data))
     }
 
+    func fetchAnalysisCategories() async throws -> [AnalysisCategoryDTO] {
+        try await sendAuthorized(.get("/analysis/categories"))
+    }
+
+    func createAnalysisCategory(_ request: CreateAnalysisCategoryRequest) async throws -> AnalysisCategoryDTO {
+        let data = try encode(request)
+        return try await sendAuthorized(.post("/analysis/categories", body: data))
+    }
+
     func fetchAnalysisSessions() async throws -> [AnalysisSessionDTO] {
         try await sendAuthorized(.get("/analysis/sessions"))
     }

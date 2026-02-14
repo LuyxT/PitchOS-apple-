@@ -10,7 +10,7 @@ enum AppConfiguration {
     static let baseURL = URL(string: API_BASE_URL)!
 
     static var messagingEnabled: Bool {
-        false
+        true
     }
 
     static var networkLoggingEnabled: Bool {
