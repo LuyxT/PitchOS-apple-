@@ -209,9 +209,7 @@ export async function uploadVideoChunk(req: Request, res: Response) {
 /* ── Video stream ── */
 
 export async function streamVideo(req: Request, res: Response) {
-  if (!req.auth?.userId) {
-    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
-  }
+  // No auth check — access is controlled by the unguessable UUID in the URL
 
   const videoId = req.params.videoId;
   const filePath = analysisService.getVideoFilePath(videoId);

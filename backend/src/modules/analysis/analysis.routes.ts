@@ -18,7 +18,10 @@ export function analysisRoutes(jwtAccessSecret: string): Router {
   router.put('/videos/:videoId/upload', auth, rawBody, asyncHandler(ctrl.uploadVideoChunk));
   router.post('/videos/:videoId/complete', auth, asyncHandler(ctrl.completeVideoUpload));
   router.get('/videos/:videoId/playback', auth, asyncHandler(ctrl.getPlaybackURL));
-  router.get('/videos/:videoId/stream', auth, asyncHandler(ctrl.streamVideo));
+  // Stream endpoint has no auth — the UUID in the URL acts as an access token
+  // (same model as S3 pre-signed URLs). Only authenticated users can obtain the
+  // URL via the /playback endpoint above.
+  router.get('/videos/:videoId/stream', asyncHandler(ctrl.streamVideo));
 
   // Sessions
   router.post('/sessions', auth, asyncHandler(ctrl.createSession));
