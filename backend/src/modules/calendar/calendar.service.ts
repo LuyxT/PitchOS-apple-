@@ -70,12 +70,25 @@ export async function listEvents(userId: string) {
 export async function createEvent(input: CreateEventInput, userId: string) {
   const prisma = getPrisma();
 
+  await ensureDefaultCategories(userId);
+
+  // Validate categoryId exists if provided
+  let categoryId = input.categoryId ?? null;
+  if (categoryId) {
+    const cat = await prisma.calendarCategory.findUnique({ where: { id: categoryId } });
+    if (!cat) {
+      // Fall back to first default category
+      const fallback = await prisma.calendarCategory.findFirst({ where: { userId } });
+      categoryId = fallback?.id ?? null;
+    }
+  }
+
   const event = await prisma.calendarEvent.create({
     data: {
       title: input.title,
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
-      categoryId: input.categoryId ?? null,
+      categoryId,
       visibility: input.visibility ?? 'team',
       audience: input.audience ?? 'all',
       audiencePlayerIds: input.audiencePlayerIds ?? [],
