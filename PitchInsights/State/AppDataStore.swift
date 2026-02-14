@@ -574,13 +574,10 @@ final class AppDataStore: ObservableObject {
             )
         }
         let persistedVideo = try analysisVideoStore.persistImportedVideo(from: sourceURL)
-        defer {
-            analysisVideoStore.removeVideo(relativePath: persistedVideo.localRelativePath)
-        }
         var videoAsset = AnalysisVideoAsset(
             cloudFileID: cloudFile.id,
             originalFilename: persistedVideo.originalFilename,
-            localRelativePath: "",
+            localRelativePath: persistedVideo.localRelativePath,
             fileSize: persistedVideo.fileSize,
             mimeType: persistedVideo.mimeType,
             sha256: persistedVideo.sha256,
@@ -959,6 +956,12 @@ final class AppDataStore: ObservableObject {
     func playbackURL(for videoAssetID: UUID) async throws -> URL {
         guard let asset = analysisVideoAssets.first(where: { $0.id == videoAssetID }) else {
             throw AnalysisStoreError.videoAssetNotFound
+        }
+        // Prefer local file when available (server storage is ephemeral)
+        if !asset.localRelativePath.isEmpty,
+           let localURL = analysisVideoStore.fileURL(for: asset.localRelativePath),
+           FileManager.default.fileExists(atPath: localURL.path(percentEncoded: false)) {
+            return localURL
         }
         return try await analysisPlaybackService.resolvedPlaybackURL(for: asset, backend: backend)
     }

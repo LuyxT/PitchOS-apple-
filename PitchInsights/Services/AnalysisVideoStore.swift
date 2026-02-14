@@ -41,9 +41,10 @@ final class AnalysisVideoStore {
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
-        self.sessionRootURL = fileManager.temporaryDirectory
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        self.sessionRootURL = appSupport
             .appendingPathComponent("PitchInsights", isDirectory: true)
-            .appendingPathComponent("AnalysisSession-\(UUID().uuidString)", isDirectory: true)
     }
 
     func persistImportedVideo(from sourceURL: URL) throws -> PersistedAnalysisVideo {
