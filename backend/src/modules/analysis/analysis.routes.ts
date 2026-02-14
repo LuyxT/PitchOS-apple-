@@ -7,7 +7,7 @@ import * as ctrl from './analysis.controller';
 export function analysisRoutes(jwtAccessSecret: string): Router {
   const router = Router();
   const auth = authenticate(jwtAccessSecret);
-  const rawBody = express.raw({ type: '*/*', limit: '500mb' });
+  const rawBody = express.raw({ type: '*/*', limit: '5gb' });
 
   // Categories
   router.get('/categories', auth, asyncHandler(ctrl.listCategories));
