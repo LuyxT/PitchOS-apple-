@@ -6,8 +6,10 @@ import * as ctrl from './profile.controller';
 
 export function profileRoutes(jwtAccessSecret: string): Router {
   const router = Router();
+  const auth = authenticate(jwtAccessSecret);
 
-  router.post('/', authenticate(jwtAccessSecret), validate(saveProfileSchema), asyncHandler(ctrl.saveProfileController));
+  router.get('/', auth, asyncHandler(ctrl.getProfileController));
+  router.post('/', auth, validate(saveProfileSchema), asyncHandler(ctrl.saveProfileController));
 
   return router;
 }

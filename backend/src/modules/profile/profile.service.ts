@@ -2,6 +2,23 @@ import { getPrisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import type { SaveProfileInput } from './profile.schema';
 
+export async function getProfile(userId: string) {
+  const prisma = getPrisma();
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      club: { select: { name: true } },
+    },
+  });
+
+  if (!user) {
+    throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
+  }
+
+  return toProfileDTO(user);
+}
+
 export async function saveProfile(userId: string, input: SaveProfileInput) {
   const prisma = getPrisma();
 
@@ -21,7 +38,18 @@ export async function saveProfile(userId: string, input: SaveProfileInput) {
     throw new AppError(404, 'USER_NOT_FOUND', 'User not found');
   }
 
-  // Return PersonProfileDTO format expected by iOS
+  return toProfileDTO(user);
+}
+
+function toProfileDTO(user: {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  role: string;
+  updatedAt: Date;
+  club: { name: string } | null;
+}) {
   return {
     id: user.id,
     linkedPlayerID: null,
