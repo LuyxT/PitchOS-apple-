@@ -197,6 +197,16 @@ export async function bootstrap(teamId: string): Promise<{
 
   const prisma = getPrisma();
 
+  // Clean up files stuck in "uploading" for more than 1 hour
+  const staleThreshold = new Date(Date.now() - 60 * 60 * 1000);
+  await prisma.cloudFile.deleteMany({
+    where: {
+      teamId,
+      uploadStatus: 'uploading',
+      createdAt: { lt: staleThreshold },
+    },
+  });
+
   const [usage, folders, files] = await Promise.all([
     getUsage(teamId),
     prisma.cloudFolder.findMany({
