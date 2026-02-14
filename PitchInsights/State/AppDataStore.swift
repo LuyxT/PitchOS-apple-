@@ -189,6 +189,35 @@ final class AppDataStore: ObservableObject {
         messengerRealtimeService = MessengerRealtimeService()
         configureMessengerRealtimeCallbacks()
         clearSeededDataForBackendOnlyMode()
+        loadPersistedVideoAssets()
+    }
+
+    // MARK: - Video asset persistence
+
+    private var videoAssetsFileURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = appSupport.appendingPathComponent("PitchInsights", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path(percentEncoded: false)) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir.appendingPathComponent("analysis_video_assets.json")
+    }
+
+    private func loadPersistedVideoAssets() {
+        let url = videoAssetsFileURL
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)),
+              let data = try? Data(contentsOf: url),
+              let assets = try? JSONDecoder().decode([AnalysisVideoAsset].self, from: data) else {
+            return
+        }
+        analysisVideoAssets = assets
+        print("[Analysis] Loaded \(assets.count) persisted video assets from disk")
+    }
+
+    private func persistVideoAssets() {
+        guard let data = try? JSONEncoder().encode(analysisVideoAssets) else { return }
+        try? data.write(to: videoAssetsFileURL, options: .atomic)
     }
 
     func refreshFromBackend() async {
@@ -622,6 +651,7 @@ final class AppDataStore: ObservableObject {
         }
 
         analysisVideoAssets.append(videoAsset)
+        persistVideoAssets()
         analysisSessions.append(session)
         activeAnalysisSessionID = session.id
         try? await attachAnalysisSession(session.id, toCloudFileID: cloudFile.id)
@@ -1047,6 +1077,7 @@ final class AppDataStore: ObservableObject {
         if let fallbackID = fallbackLocalID,
            let index = analysisVideoAssets.firstIndex(where: { $0.id == fallbackID }) {
             analysisVideoAssets[index].backendVideoID = backendVideoID
+            persistVideoAssets()
             return fallbackID
         }
         let id = fallbackLocalID ?? UUID()
@@ -1062,6 +1093,7 @@ final class AppDataStore: ObservableObject {
                 syncState: .synced
             )
         )
+        persistVideoAssets()
         return id
     }
 
@@ -1695,7 +1727,8 @@ final class AppDataStore: ObservableObject {
         tacticsBoardStates = [:]
         activeTacticsScenarioID = nil
 
-        analysisVideoAssets = []
+        // Note: analysisVideoAssets intentionally NOT cleared — they hold
+        // local file path mappings that must survive restarts.
         analysisSessions = []
         analysisMarkers = []
         analysisClips = []
