@@ -114,7 +114,10 @@ final class MessengerSyncService {
                 sha256: media.sha256
             )
         )
-        guard let uploadURL = URL(string: register.uploadURL) else {
+        let resolvedURLString = register.uploadURL.hasPrefix("http")
+            ? register.uploadURL
+            : AppConfiguration.API_BASE_URL + register.uploadURL
+        guard let uploadURL = URL(string: resolvedURLString) else {
             throw MessengerSyncServiceError.invalidUploadURL
         }
 

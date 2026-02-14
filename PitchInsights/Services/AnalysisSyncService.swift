@@ -28,7 +28,10 @@ final class AnalysisSyncService {
         )
 
         let registerResponse = try await backend.registerAnalysisVideo(registerRequest)
-        guard let uploadURL = URL(string: registerResponse.uploadURL) else {
+        let resolvedURLString = registerResponse.uploadURL.hasPrefix("http")
+            ? registerResponse.uploadURL
+            : AppConfiguration.API_BASE_URL + registerResponse.uploadURL
+        guard let uploadURL = URL(string: resolvedURLString) else {
             throw AnalysisSyncServiceError.invalidUploadURL
         }
 

@@ -51,7 +51,10 @@ final class CloudFileSyncService {
     ) async throws -> CloudFileDTO {
         let register = try await backend.registerCloudFileUpload(request)
 
-        guard let uploadURL = URL(string: register.uploadURL) else {
+        let resolvedURLString = register.uploadURL.hasPrefix("http")
+            ? register.uploadURL
+            : AppConfiguration.API_BASE_URL + register.uploadURL
+        guard let uploadURL = URL(string: resolvedURLString) else {
             throw CloudFileSyncError.invalidUploadURL
         }
         guard !register.uploadID.isEmpty else {
