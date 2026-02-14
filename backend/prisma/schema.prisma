@@ -77,34 +77,34 @@ model Team {
 // ─── Player ──────────────────────────────────────────────
 
 model Player {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   name               String
-  number             Int      @default(0)
+  number             Int       @default(0)
   position           String
-  status             String   @default("available")
+  status             String    @default("available")
   dateOfBirth        DateTime?
-  secondaryPositions String[] @default([])
+  secondaryPositions String[]  @default([])
   heightCm           Int?
   weightKg           Int?
   preferredFoot      String?
-  teamName           String   @default("")
-  squadStatus        String   @default("active")
+  teamName           String    @default("")
+  squadStatus        String    @default("active")
   joinedAt           DateTime?
-  roles              String[] @default([])
-  groups             String[] @default([])
-  injuryStatus       String   @default("fit")
-  notes              String   @default("")
-  developmentGoals   String   @default("")
+  roles              String[]  @default([])
+  groups             String[]  @default([])
+  injuryStatus       String    @default("fit")
+  notes              String    @default("")
+  developmentGoals   String    @default("")
   teamId             String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
 }
 
-// ─── Training ────────────────────────────────────────────
+// ─── Training (legacy sessions) ─────────────────────────
 
 model Training {
   id          String   @id @default(cuid())
@@ -118,4 +118,609 @@ model Training {
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+}
+
+// ─── Calendar ───────────────────────────────────────────
+
+model CalendarCategory {
+  id        String   @id @default(cuid())
+  name      String
+  colorHex  String
+  isSystem  Boolean  @default(false)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events CalendarEvent[]
+}
+
+model CalendarEvent {
+  id                           String    @id @default(cuid())
+  title                        String
+  startDate                    DateTime
+  endDate                      DateTime
+  categoryId                   String?
+  visibility                   String    @default("team")
+  audience                     String    @default("all")
+  audiencePlayerIds            String[]  @default([])
+  recurrence                   String?
+  location                     String?
+  notes                        String?
+  linkedTrainingPlanID         String?
+  eventKind                    String    @default("other")
+  playerVisibleGoal            String?
+  playerVisibleDurationMinutes Int?
+  userId                       String
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  category CalendarCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+}
+
+// ─── Training Plans ─────────────────────────────────────
+
+model TrainingPlan {
+  id              String   @id @default(cuid())
+  title           String
+  date            DateTime
+  location        String?
+  mainGoal        String?
+  secondaryGoals  String[] @default([])
+  status          String   @default("draft")
+  linkedMatchID   String?
+  calendarEventID String?
+  userId          String
+  teamId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  phases       TrainingPhase[]
+  exercises    TrainingExercise[]
+  groups       TrainingGroup[]
+  report       TrainingReport?
+  deviations   TrainingLiveDeviation[]
+  availability TrainingAvailability[]
+}
+
+model TrainingPhase {
+  id              String   @id @default(cuid())
+  planId          String
+  orderIndex      Int
+  type            String
+  title           String
+  durationMinutes Int
+  goal            String?
+  intensity       String?
+  description     String?
+  isCompletedLive Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  plan      TrainingPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  exercises TrainingExercise[]
+}
+
+model TrainingExercise {
+  id                    String   @id @default(cuid())
+  phaseId               String
+  planId                String
+  orderIndex            Int
+  name                  String
+  description           String?
+  durationMinutes       Int
+  intensity             String?
+  requiredPlayers       Int?
+  materials             String[] @default([])
+  excludedPlayerIDs     String[] @default([])
+  templateSourceID      String?
+  isSkippedLive         Boolean  @default(false)
+  actualDurationMinutes Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  phase TrainingPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  plan  TrainingPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model TrainingGroup {
+  id                   String   @id @default(cuid())
+  planId               String
+  name                 String
+  goal                 String?
+  playerIDs            String[] @default([])
+  headCoachUserID      String?
+  assistantCoachUserID String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  plan     TrainingPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  briefing TrainingGroupBriefing?
+}
+
+model TrainingGroupBriefing {
+  id              String   @id @default(cuid())
+  groupId         String   @unique
+  goal            String?
+  coachingPoints  String?
+  focusPoints     String?
+  commonMistakes  String?
+  targetIntensity String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  group TrainingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model TrainingReport {
+  id                  String   @id @default(cuid())
+  planId              String   @unique
+  generatedAt         DateTime @default(now())
+  plannedTotalMinutes Int?
+  actualTotalMinutes  Int?
+  attendance          Json     @default("[]")
+  groupFeedback       Json     @default("[]")
+  playerNotes         Json     @default("[]")
+  summary             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  plan TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model TrainingAvailability {
+  id       String  @id @default(cuid())
+  planId   String
+  playerID String
+  status   String  @default("available")
+  note     String?
+
+  plan TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model TrainingLiveDeviation {
+  id           String   @id @default(cuid())
+  planId       String
+  phaseID      String?
+  exerciseID   String?
+  kind         String
+  plannedValue String?
+  actualValue  String?
+  note         String?
+  timestamp    DateTime @default(now())
+
+  plan TrainingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model TrainingExerciseTemplate {
+  id                     String   @id @default(cuid())
+  name                   String
+  baseDescription        String?
+  defaultDuration        Int?
+  defaultIntensity       String?
+  defaultRequiredPlayers Int?
+  defaultMaterials       String[] @default([])
+  userId                 String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// ─── Tactics ────────────────────────────────────────────
+
+model TacticsState {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  activeScenarioID String?
+  scenarios        Json     @default("[]")
+  boards           Json     @default("[]")
+  updatedAt        DateTime @updatedAt
+}
+
+// ─── Cash / Finance ─────────────────────────────────────
+
+model CashCategory {
+  id        String   @id @default(cuid())
+  name      String
+  colorHex  String
+  isDefault Boolean  @default(false)
+  userId    String
+  teamId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions CashTransaction[]
+}
+
+model CashTransaction {
+  id                   String   @id @default(cuid())
+  amount               Float
+  date                 DateTime
+  categoryId           String
+  description          String
+  type                 String
+  playerID             String?
+  responsibleTrainerID String?
+  comment              String   @default("")
+  paymentStatus        String   @default("paid")
+  contextLabel         String?
+  userId               String
+  teamId               String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  category CashCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model MonthlyContribution {
+  id             String    @id @default(cuid())
+  playerID       String
+  amount         Float
+  dueDate        DateTime
+  status         String    @default("open")
+  monthKey       String
+  lastReminderAt DateTime?
+  userId         String
+  teamId         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model CashGoal {
+  id              String   @id @default(cuid())
+  name            String
+  targetAmount    Float
+  currentProgress Float    @default(0)
+  startDate       DateTime
+  endDate         DateTime
+  userId          String
+  teamId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─── Cloud Files ────────────────────────────────────────
+
+model CloudFolder {
+  id             String   @id @default(cuid())
+  teamId         String
+  parentId       String?
+  name           String
+  isSystemFolder Boolean  @default(false)
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   CloudFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children CloudFolder[] @relation("FolderTree")
+  files    CloudFile[]
+}
+
+model CloudFile {
+  id                      String    @id @default(cuid())
+  teamId                  String
+  ownerUserId             String
+  name                    String
+  originalName            String
+  type                    String
+  mimeType                String
+  sizeBytes               Int       @default(0)
+  folderId                String?
+  tags                    String[]  @default([])
+  moduleHint              String?
+  visibility              String    @default("team_wide")
+  sharedUserIds           String[]  @default([])
+  checksum                String?
+  uploadStatus            String    @default("ready")
+  deletedAt               DateTime?
+  linkedAnalysisSessionID String?
+  linkedAnalysisClipID    String?
+  linkedTacticsScenarioID String?
+  linkedTrainingPlanID    String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  folder CloudFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+}
+
+// ─── Messenger ──────────────────────────────────────────
+
+model MessengerChat {
+  id              String    @id @default(cuid())
+  title           String?
+  type            String    @default("direct")
+  writePermission String    @default("all_members")
+  temporaryUntil  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  participants MessengerParticipant[]
+  messages     MessengerMessage[]
+}
+
+model MessengerParticipant {
+  id          String    @id @default(cuid())
+  chatId      String
+  userId      String
+  displayName String
+  role        String    @default("player")
+  playerID    String?
+  mutedUntil  DateTime?
+  canWrite    Boolean   @default(true)
+  joinedAt    DateTime  @default(now())
+
+  chat MessengerChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+model MessengerMessage {
+  id           String   @id @default(cuid())
+  chatId       String
+  senderUserId String
+  senderName   String
+  type         String   @default("text")
+  text         String   @default("")
+  contextLabel String?
+  attachment   Json?
+  clipReference Json?
+  status       String   @default("sent")
+  readBy       Json     @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  chat MessengerChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+// ─── Admin ──────────────────────────────────────────────
+
+model AdminPerson {
+  id                    String    @id @default(cuid())
+  fullName              String
+  email                 String?
+  personType            String
+  role                  String
+  teamName              String?
+  groupIDs              String[]  @default([])
+  permissions           String[]  @default([])
+  presenceStatus        String    @default("available")
+  isOnline              Boolean   @default(false)
+  linkedPlayerID        String?
+  linkedMessengerUserID String?
+  lastActiveAt          DateTime?
+  userId                String
+  teamId                String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model AdminGroup {
+  id                 String    @id @default(cuid())
+  name               String
+  goal               String?
+  groupType          String    @default("training")
+  memberIDs          String[]  @default([])
+  responsibleCoachID String?
+  assistantCoachID   String?
+  startsAt           DateTime?
+  endsAt             DateTime?
+  userId             String
+  teamId             String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model AdminInvitation {
+  id            String    @id @default(cuid())
+  recipientName String
+  email         String
+  method        String    @default("email")
+  role          String
+  teamName      String?
+  status        String    @default("pending")
+  sentAt        DateTime  @default(now())
+  expiresAt     DateTime?
+  acceptedAt    DateTime?
+  userId        String
+  teamId        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model AdminAuditEntry {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorName String
+  action    String
+  target    String
+  detail    String?
+  area      String   @default("general")
+  userId    String
+  teamId    String?
+  createdAt DateTime @default(now())
+}
+
+model AdminSeason {
+  id           String   @id @default(cuid())
+  name         String
+  startsAt     DateTime
+  endsAt       DateTime
+  status       String   @default("planning")
+  teamCount    Int      @default(0)
+  playerCount  Int      @default(0)
+  trainerCount Int      @default(0)
+  userId       String
+  teamId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AdminClubSettings {
+  id                    String   @id @default(cuid())
+  clubName              String?
+  clubLogoPath          String?
+  primaryColorHex       String?
+  secondaryColorHex     String?
+  standardTrainingTypes String[] @default([])
+  defaultVisibility     String   @default("team")
+  teamNameConvention    String?
+  globalPermissions     String[] @default([])
+  userId                String   @unique
+  teamId                String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model AdminMessengerRules {
+  id                           String   @id @default(cuid())
+  allowPrivatePlayerChat       Boolean  @default(true)
+  allowDirectTrainerPlayerChat Boolean  @default(true)
+  defaultReadOnlyForPlayers    Boolean  @default(false)
+  defaultGroups                Json     @default("[]")
+  allowedChatTypes             String[] @default([])
+  groupRuleDescription         String?
+  userId                       String   @unique
+  teamId                       String?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+// ─── Settings ───────────────────────────────────────────
+
+model UserSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  presentation  Json     @default("{}")
+  notifications Json     @default("{}")
+  security      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── Profiles ───────────────────────────────────────────
+
+model PersonProfile {
+  id           String   @id @default(cuid())
+  userId       String
+  displayName  String
+  core         Json     @default("{}")
+  roleSpecific Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ProfileAuditEntry {
+  id        String   @id @default(cuid())
+  profileId String
+  actorId   String
+  actorName String
+  fieldPath String
+  area      String   @default("core")
+  oldValue  String?
+  newValue  String?
+  timestamp DateTime @default(now())
+}
+
+// ─── Analysis ───────────────────────────────────────────
+
+model AnalysisVideo {
+  id          String    @id @default(cuid())
+  filename    String
+  fileSize    Int       @default(0)
+  mimeType    String
+  sha256      String?
+  importedAt  DateTime?
+  playbackURL String?
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sessions AnalysisSession[]
+}
+
+model AnalysisSession {
+  id        String   @id @default(cuid())
+  videoId   String
+  title     String
+  matchId   String?
+  teamId    String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video    AnalysisVideo     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  markers  AnalysisMarker[]
+  clips    AnalysisClip[]
+  drawings AnalysisDrawing[]
+}
+
+model AnalysisMarker {
+  id          String   @id @default(cuid())
+  sessionId   String
+  videoId     String
+  timeSeconds Float
+  categoryId  String?
+  comment     String?
+  playerID    String?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model AnalysisClip {
+  id           String   @id @default(cuid())
+  sessionId    String
+  videoId      String
+  name         String
+  startSeconds Float
+  endSeconds   Float
+  playerIDs    String[] @default([])
+  note         String?
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  session AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model AnalysisDrawing {
+  id          String   @id @default(cuid())
+  sessionId   String
+  localId     String?
+  tool        String
+  points      Json     @default("[]")
+  colorHex    String
+  isTemporary Boolean  @default(false)
+  timeSeconds Float?
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ─── Matches ────────────────────────────────────────────
+
+model Match {
+  id        String   @id @default(cuid())
+  opponent  String
+  date      DateTime
+  venue     String?
+  result    String?
+  teamId    String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Feedback ───────────────────────────────────────────
+
+model Feedback {
+  id        String   @id @default(cuid())
+  player    String
+  summary   String
+  date      DateTime
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

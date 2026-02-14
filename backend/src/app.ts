@@ -17,6 +17,18 @@ import { financesRoutes } from './modules/finances/finances.routes';
 import { filesRoutes } from './modules/files/files.routes';
 import { onboardingRoutes } from './modules/onboarding/onboarding.routes';
 import { profileRoutes } from './modules/profile/profile.routes';
+import { calendarRoutes } from './modules/calendar/calendar.routes';
+import { cashRoutes } from './modules/cash/cash.routes';
+import { trainingPlansRoutes } from './modules/training-plans/training-plans.routes';
+import { cloudRoutes } from './modules/cloud/cloud.routes';
+import { messengerRoutes } from './modules/messenger/messenger.routes';
+import { adminRoutes } from './modules/admin/admin.routes';
+import { settingsRoutes } from './modules/settings/settings.routes';
+import { profilesRoutes } from './modules/profiles/profiles.routes';
+import { tacticsRoutes } from './modules/tactics/tactics.routes';
+import { analysisRoutes } from './modules/analysis/analysis.routes';
+import { matchesRoutes } from './modules/matches/matches.routes';
+import { feedbackRoutes } from './modules/feedback/feedback.routes';
 
 export function createApp(env: AppEnv) {
   const app = express();
@@ -60,10 +72,22 @@ export function createApp(env: AppEnv) {
   api.use('/teams', teamsRoutes(secret));
   api.use('/players', playersRoutes(secret));
   api.use('/trainings', trainingsRoutes(secret));
-  api.use('/finances', financesRoutes(secret));
+  api.use('/finance/cash', cashRoutes(secret));
+  api.use('/finance', financesRoutes(secret));
   api.use('/files', filesRoutes(secret));
   api.use('/onboarding', onboardingRoutes(secret));
   api.use('/profile', profileRoutes(secret));
+  api.use('/calendar', calendarRoutes(secret));
+  api.use('/training', trainingPlansRoutes(secret));
+  api.use('/cloud', cloudRoutes(secret));
+  api.use('/messages', messengerRoutes(secret));
+  api.use('/admin', adminRoutes(secret));
+  api.use('/settings', settingsRoutes(secret));
+  api.use('/profiles', profilesRoutes(secret));
+  api.use('/tactics', tacticsRoutes(secret));
+  api.use('/analysis', analysisRoutes(secret));
+  api.use('/matches', matchesRoutes(secret));
+  api.use('/feedback', feedbackRoutes(secret));
 
   app.use('/api/v1', api);
 
