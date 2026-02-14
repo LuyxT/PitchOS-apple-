@@ -79,8 +79,10 @@ struct AnalysisDrawingsPanel: View {
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .foregroundStyle(.red)
         }
         .padding(8)
