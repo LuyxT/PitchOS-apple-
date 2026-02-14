@@ -177,9 +177,11 @@ export async function registerFile(req: Request, res: Response): Promise<void> {
 
   // Build absolute upload URL from the request origin
   const origin = `${req.protocol}://${req.get('host')}`;
+  const authHeader = req.headers.authorization ?? '';
   const response = {
     ...result,
     uploadURL: result.uploadURL.startsWith('http') ? result.uploadURL : `${origin}${result.uploadURL}`,
+    uploadHeaders: authHeader ? { Authorization: authHeader } : {},
   };
 
   res.status(201).json(response);
