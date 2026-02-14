@@ -45,3 +45,15 @@ export async function listCategoriesController(req: Request, res: Response) {
   const categories = await calendarService.listCategories(req.auth.userId);
   res.status(200).json(categories);
 }
+
+export async function createCategoryController(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+  const { name, colorHex } = req.body;
+  if (!name || !colorHex) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Missing required fields: name, colorHex');
+  }
+  const category = await calendarService.createCategory(req.auth.userId, { name, colorHex });
+  res.status(201).json(category);
+}

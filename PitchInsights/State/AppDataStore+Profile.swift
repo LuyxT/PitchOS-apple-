@@ -14,7 +14,12 @@ extension AppDataStore {
             }
             profileConnectionState = .live
         } catch {
-            profileConnectionState = .failed(error.localizedDescription)
+            if isConnectivityFailure(error) {
+                profileConnectionState = .failed(error.localizedDescription)
+            } else {
+                print("[client] bootstrapProfiles: endpoint not available — \(error.localizedDescription)")
+                profileConnectionState = .live
+            }
         }
     }
 

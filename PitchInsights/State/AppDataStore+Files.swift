@@ -34,8 +34,13 @@ extension AppDataStore {
             syncLegacyFilesList()
             await refreshCloudCleanupSuggestions()
         } catch {
-            cloudConnectionState = .failed(error.localizedDescription)
-            cloudLastErrorMessage = error.localizedDescription
+            if isConnectivityFailure(error) {
+                cloudConnectionState = .failed(error.localizedDescription)
+                cloudLastErrorMessage = error.localizedDescription
+            } else {
+                print("[client] bootstrapCloudFiles: endpoint not available — \(error.localizedDescription)")
+                cloudConnectionState = .live
+            }
         }
     }
 
@@ -51,8 +56,12 @@ extension AppDataStore {
             cloudConnectionState = .live
             syncLegacyFilesList()
         } catch {
-            cloudConnectionState = .failed(error.localizedDescription)
-            cloudLastErrorMessage = error.localizedDescription
+            if isConnectivityFailure(error) {
+                cloudConnectionState = .failed(error.localizedDescription)
+                cloudLastErrorMessage = error.localizedDescription
+            } else {
+                print("[client] refreshCloudFiles: endpoint not available — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -68,8 +77,12 @@ extension AppDataStore {
             mergeCloudFiles(mapped, reset: cursor == nil)
             cloudFileNextCursor = page.nextCursor
         } catch {
-            cloudConnectionState = .failed(error.localizedDescription)
-            cloudLastErrorMessage = error.localizedDescription
+            if isConnectivityFailure(error) {
+                cloudConnectionState = .failed(error.localizedDescription)
+                cloudLastErrorMessage = error.localizedDescription
+            } else {
+                print("[client] refreshCloudTrash: endpoint not available — \(error.localizedDescription)")
+            }
         }
     }
 

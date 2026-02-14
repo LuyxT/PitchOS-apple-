@@ -10,10 +10,8 @@ struct ContentView: View {
             switch session.phase {
             case .checking:
                 sessionChecking
-            case .unauthenticated:
-                OnboardingFlowView(startAt: .welcome)
-            case .onboarding:
-                OnboardingFlowView(startAt: onboardingStartStep)
+            case .unauthenticated, .onboarding:
+                OnboardingFlowView(startAt: session.phase == .onboarding ? onboardingStartStep : .welcome)
             case .ready:
                 mainWorkspace
             case .backendUnavailable:
@@ -111,10 +109,16 @@ struct ContentView: View {
 
     private var onboardingStartStep: OnboardingFlowView.Step {
         if let onboardingState = session.onboardingState, onboardingState.completed == false {
-            return .club
+            if session.authUser?.clubId == nil {
+                return .role
+            }
+            if session.authUser?.teamId == nil {
+                return .club
+            }
+            return .profile
         }
         if session.authUser?.clubId == nil || session.authUser?.teamId == nil {
-            return .club
+            return .role
         }
         return .complete
     }

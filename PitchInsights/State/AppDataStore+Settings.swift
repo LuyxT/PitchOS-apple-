@@ -14,8 +14,13 @@ extension AppDataStore {
             settingsConnectionState = .live
             settingsLastErrorMessage = nil
         } catch {
-            settingsConnectionState = .failed(error.localizedDescription)
-            settingsLastErrorMessage = error.localizedDescription
+            if isConnectivityFailure(error) {
+                settingsConnectionState = .failed(error.localizedDescription)
+                settingsLastErrorMessage = error.localizedDescription
+            } else {
+                print("[client] bootstrapSettings: endpoint not available — \(error.localizedDescription)")
+                settingsConnectionState = .live
+            }
         }
     }
 

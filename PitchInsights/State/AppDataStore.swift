@@ -199,8 +199,10 @@ final class AppDataStore: ObservableObject {
             _ = try await backend.fetchAuthMe()
         } catch {
             if let networkErr = error as? NetworkError, networkErr.isUnauthorized {
-                print("[client] refreshFromBackend: unauthorized — session invalid")
+                print("[client] refreshFromBackend: unauthorized — clearing session")
                 backendConnectionState = .failed("Sitzung abgelaufen. Bitte erneut anmelden.")
+                backend.auth.clearTokens(notify: true)
+                return
             } else if isConnectivityFailure(error) {
                 print("[client] refreshFromBackend: connectivity failure")
                 backendConnectionState = .failed("Keine Verbindung zum Server.")
@@ -518,9 +520,22 @@ final class AppDataStore: ObservableObject {
         if calendarCategories.contains(where: { $0.name.lowercased() == trimmed.lowercased() }) {
             return
         }
-        calendarCategories.append(
-            CalendarCategory(id: UUID().uuidString.lowercased(), name: trimmed, colorHex: colorHex, isSystem: false)
-        )
+        let localCategory = CalendarCategory(id: UUID().uuidString.lowercased(), name: trimmed, colorHex: colorHex, isSystem: false)
+        calendarCategories.append(localCategory)
+
+        guard !AppConfiguration.isPlaceholder else { return }
+        Task {
+            do {
+                let dto = try await backend.createCalendarCategory(
+                    CreateCalendarCategoryRequest(name: trimmed, colorHex: colorHex)
+                )
+                if let index = calendarCategories.firstIndex(where: { $0.id == localCategory.id }) {
+                    calendarCategories[index] = CalendarCategory(id: dto.id, name: dto.name, colorHex: dto.colorHex, isSystem: dto.isSystem)
+                }
+            } catch {
+                print("[client] addCalendarCategory backend sync failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func ensureDefaultCategories() {

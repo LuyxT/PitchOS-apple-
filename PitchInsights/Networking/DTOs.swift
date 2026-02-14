@@ -200,6 +200,11 @@ struct CalendarCategoryDTO: Decodable {
     let isSystem: Bool
 }
 
+struct CreateCalendarCategoryRequest: Encodable {
+    let name: String
+    let colorHex: String
+}
+
 struct CreateCalendarEventRequest: Encodable {
     let title: String
     let startDate: Date

@@ -39,7 +39,12 @@ extension AppDataStore {
             await connectMessengerRealtime()
             await processMessengerOutboxQueue()
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            if isConnectivityFailure(error) {
+                messengerConnectionState = .failed(error.localizedDescription)
+            } else {
+                print("[client] bootstrapMessenger: endpoint not available — \(error.localizedDescription)")
+                messengerConnectionState = .disconnected
+            }
         }
     }
 

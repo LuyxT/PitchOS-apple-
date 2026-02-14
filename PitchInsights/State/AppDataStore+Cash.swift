@@ -22,8 +22,13 @@ extension AppDataStore {
             cashConnectionState = .live
             syncLegacyTransactionsFromCash()
         } catch {
-            cashConnectionState = .failed(error.localizedDescription)
-            cashLastErrorMessage = error.localizedDescription
+            if isConnectivityFailure(error) {
+                cashConnectionState = .failed(error.localizedDescription)
+                cashLastErrorMessage = error.localizedDescription
+            } else {
+                print("[client] bootstrapCashModule: endpoint not available — \(error.localizedDescription)")
+                cashConnectionState = .live
+            }
         }
     }
 

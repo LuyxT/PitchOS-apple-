@@ -34,6 +34,21 @@ export async function listCategories(userId: string) {
   return categories.map(formatCategoryResponse);
 }
 
+export async function createCategory(userId: string, input: { name: string; colorHex: string }) {
+  const prisma = getPrisma();
+
+  const category = await prisma.calendarCategory.create({
+    data: {
+      name: input.name,
+      colorHex: input.colorHex,
+      isSystem: false,
+      userId,
+    },
+  });
+
+  return formatCategoryResponse(category);
+}
+
 // ─── Events ──────────────────────────────────────────────
 
 export interface CreateEventInput {

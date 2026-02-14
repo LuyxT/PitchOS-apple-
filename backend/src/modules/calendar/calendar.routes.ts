@@ -14,6 +14,7 @@ export function calendarRoutes(jwtAccessSecret: string): Router {
 
   // Categories
   router.get('/categories', authenticate(jwtAccessSecret), asyncHandler(ctrl.listCategoriesController));
+  router.post('/categories', authenticate(jwtAccessSecret), asyncHandler(ctrl.createCategoryController));
 
   return router;
 }

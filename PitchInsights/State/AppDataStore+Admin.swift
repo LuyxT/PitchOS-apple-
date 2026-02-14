@@ -194,9 +194,11 @@ extension AppDataStore {
             applyAdminBootstrap(bootstrap)
             adminConnectionState = .live
         } catch {
-            adminConnectionState = .failed(error.localizedDescription)
-            if adminPersons.isEmpty {
-                seedAdminPlaceholderDataIfNeeded()
+            if isConnectivityFailure(error) {
+                adminConnectionState = .failed(error.localizedDescription)
+            } else {
+                print("[client] bootstrapAdministration: endpoint not available — \(error.localizedDescription)")
+                adminConnectionState = .failed(error.localizedDescription)
             }
         }
     }

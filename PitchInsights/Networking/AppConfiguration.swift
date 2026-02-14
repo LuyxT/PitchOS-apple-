@@ -22,7 +22,11 @@ enum AppConfiguration {
     }
 
     static var isPlaceholder: Bool {
+#if DEBUG
         false
+#else
+        false
+#endif
     }
 
 }

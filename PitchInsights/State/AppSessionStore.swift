@@ -63,6 +63,7 @@ final class AppSessionStore: ObservableObject {
     }
 
     func applyAuthenticatedUser(_ user: AuthUserDTO) {
+        print("[Session] applyAuthenticatedUser: clubId=\(user.clubId ?? "nil") teamId=\(user.teamId ?? "nil")")
         authUser = user
         let completed = user.clubId != nil && user.teamId != nil
         onboardingState = OnboardingStateDTO(
@@ -72,10 +73,13 @@ final class AppSessionStore: ObservableObject {
         )
         memberships = []
         activeContext = nil
-        phase = completed ? .ready : .onboarding
+        let newPhase: Phase = completed ? .ready : .onboarding
+        print("[Session] applyAuthenticatedUser: phase \(phase) → \(newPhase)")
+        phase = newPhase
     }
 
     func applyAuthMe(_ me: AuthMeDTO) {
+        print("[Session] applyAuthMe: onboardingRequired=\(me.onboardingRequired) clubId=\(me.clubId ?? "nil") teamId=\(me.teamId ?? "nil")")
         authUser = AuthUserDTO(
             id: me.id,
             email: me.email,
@@ -92,7 +96,9 @@ final class AppSessionStore: ObservableObject {
         )
         memberships = me.clubMemberships
         resolveActiveContext(from: me.clubMemberships)
-        phase = me.onboardingRequired ? .onboarding : .ready
+        let newPhase: Phase = me.onboardingRequired ? .onboarding : .ready
+        print("[Session] applyAuthMe: phase \(phase) → \(newPhase)")
+        phase = newPhase
     }
 
     func setActiveContext(_ membership: MembershipDTO) {

@@ -80,6 +80,9 @@ struct PitchInsightsApp: App {
             return
         }
         await session.bootstrap(using: dataStore.backend)
+        if session.phase == .ready {
+            await dataStore.refreshFromBackend()
+        }
         launchState = .ready
     }
 }

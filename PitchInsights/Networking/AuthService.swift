@@ -29,9 +29,8 @@ final class AuthService {
         }
         let refresh = payload.refreshToken.isEmpty ? payload.accessToken : payload.refreshToken
         storeTokens(AuthTokens(accessToken: payload.accessToken, refreshToken: refresh))
-        if let user = payload.user {
-            NotificationCenter.default.post(name: .authUserUpdated, object: user)
-        }
+        // Do NOT post .authUserUpdated here — the caller (submitAuth) handles
+        // session state via fetchAuthMe + applyAuthMe to avoid race conditions.
         return payload.user
     }
 
@@ -52,9 +51,8 @@ final class AuthService {
         }
         let refresh = payload.refreshToken.isEmpty ? payload.accessToken : payload.refreshToken
         storeTokens(AuthTokens(accessToken: payload.accessToken, refreshToken: refresh))
-        if let user = payload.user {
-            NotificationCenter.default.post(name: .authUserUpdated, object: user)
-        }
+        // Do NOT post .authUserUpdated here — the caller (submitAuth) handles
+        // session state via fetchAuthMe + applyAuthMe to avoid race conditions.
         return payload.user
     }
 

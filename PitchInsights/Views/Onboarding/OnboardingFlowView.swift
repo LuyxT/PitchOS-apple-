@@ -236,7 +236,17 @@ struct OnboardingFlowView: View {
             )
         case .complete:
             OnboardingCompleteView {
-                session.phase = .ready
+                Task { @MainActor in
+                    print("[Onboarding] complete: fetching final /auth/me to apply session")
+                    do {
+                        let me = try await dataStore.backend.fetchAuthMe()
+                        session.applyAuthMe(me)
+                        print("[Onboarding] complete: session applied, phase=\(session.phase)")
+                    } catch {
+                        print("[Onboarding] complete: fetchAuthMe failed, forcing .ready")
+                        session.phase = .ready
+                    }
+                }
             }
         }
     }
@@ -336,20 +346,20 @@ struct OnboardingFlowView: View {
         isBusy = true
         defer { isBusy = false }
 
-        do {
-            if !isLogin, password != passwordConfirmation {
-                throw NSError(
-                    domain: "Onboarding",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Passwortbestatigung stimmt nicht uberein."]
-                )
-            }
+        // 1) Validate passwords before network call
+        if !isLogin, password != passwordConfirmation {
+            statusMessage = "Passwortbestatigung stimmt nicht uberein."
+            motion.triggerError()
+            return
+        }
 
-            let authenticatedUser: AuthUserDTO?
+        // 2) Authenticate (login or register)
+        print("[Onboarding] submitAuth start isLogin=\(isLogin)")
+        do {
             if isLogin {
-                authenticatedUser = try await dataStore.backend.auth.login(email: email, password: password)
+                _ = try await dataStore.backend.auth.login(email: email, password: password)
             } else {
-                authenticatedUser = try await dataStore.backend.auth.register(
+                _ = try await dataStore.backend.auth.register(
                     email: email,
                     password: password,
                     passwordConfirmation: passwordConfirmation,
@@ -357,29 +367,56 @@ struct OnboardingFlowView: View {
                     inviteCode: inviteCode.isEmpty ? nil : inviteCode
                 )
             }
-
-            if let authenticatedUser {
-                session.applyAuthenticatedUser(authenticatedUser)
-            }
-
-            // Clear stale draft so fresh onboarding starts from the right step
-            clearDraft()
-
-            let me = try await dataStore.backend.fetchAuthMe()
-            session.applyAuthMe(me)
-            if me.onboardingRequired {
-                session.phase = .onboarding
-                goTo(.club, style: .cameraPush)
-            } else {
-                session.phase = .ready
-                clearDraft()
-            }
         } catch {
             let message = NetworkError.userMessage(from: error)
+            print("[Onboarding] auth failed: \(message)")
             statusMessage = message
             connectionError = message
             retryAction = isLogin ? .login : .register
             motion.triggerError()
+            return
+        }
+
+        // 3) Auth succeeded — verify token was stored
+        let storedToken = dataStore.backend.auth.accessToken
+        print("[Onboarding] auth succeeded, token stored=\(storedToken != nil)")
+        if storedToken == nil {
+            print("[Onboarding] ERROR: token not in Keychain after auth!")
+            statusMessage = "Token konnte nicht gespeichert werden. Bitte erneut versuchen."
+            connectionError = statusMessage
+            retryAction = .login
+            motion.triggerError()
+            return
+        }
+
+        // 4) Fetch /auth/me to determine onboarding state.
+        //    If this fails, the account already exists — retry with login.
+        print("[Onboarding] fetching /auth/me")
+        let me: AuthMeDTO
+        do {
+            me = try await dataStore.backend.fetchAuthMe()
+        } catch {
+            let message = NetworkError.userMessage(from: error)
+            print("[Onboarding] fetchAuthMe failed: \(message)")
+            statusMessage = message
+            connectionError = message
+            retryAction = .login  // Account exists, use login on retry
+            motion.triggerError()
+            return
+        }
+        print("[Onboarding] /auth/me → onboardingRequired=\(me.onboardingRequired) clubId=\(me.clubId ?? "nil") teamId=\(me.teamId ?? "nil")")
+
+        // 5) Navigate based on onboarding state
+        if me.onboardingRequired {
+            clearDraft()
+            goTo(.role, style: .cameraPush)
+            saveDraft()
+            print("[Onboarding] navigating to .role, phase → .onboarding")
+            session.phase = .onboarding
+        } else {
+            print("[Onboarding] onboarding complete, going to .ready")
+            session.applyAuthMe(me)
+            clearDraft()
         }
     }
 
@@ -400,6 +437,7 @@ struct OnboardingFlowView: View {
         defer { isSearching = false }
 
         do {
+            print("[Onboarding] submitClubSelection start")
             var me = try await dataStore.backend.fetchAuthMe()
             var resolvedClubId = me.clubId
 
@@ -426,6 +464,7 @@ struct OnboardingFlowView: View {
                         userInfo: [NSLocalizedDescriptionKey: "Stadt fehlt"]
                     )
                 }
+                print("[Onboarding] creating club: \(normalizedName)")
                 _ = try await dataStore.backend.createOnboardingClub(
                     ClubCreateRequest(
                         name: normalizedName,
@@ -435,6 +474,7 @@ struct OnboardingFlowView: View {
                 )
                 me = try await dataStore.backend.fetchAuthMe()
                 resolvedClubId = me.clubId
+                print("[Onboarding] club created, clubId=\(resolvedClubId ?? "nil")")
             }
 
             if selectedRole != "vorstand" {
@@ -447,6 +487,7 @@ struct OnboardingFlowView: View {
                     )
                 }
 
+                print("[Onboarding] creating team: \(resolvedTeamName)")
                 _ = try await dataStore.backend.createOnboardingTeam(
                     TeamCreateRequest(
                         clubId: resolvedClubId,
@@ -456,13 +497,16 @@ struct OnboardingFlowView: View {
                     )
                 )
                 me = try await dataStore.backend.fetchAuthMe()
+                print("[Onboarding] team created, teamId=\(me.teamId ?? "nil")")
             }
 
-            session.applyAuthMe(me)
-            session.phase = .onboarding
+            // Do NOT touch session here — navigate internally only.
+            // Session state is applied at the very end (complete step).
+            print("[Onboarding] navigating to .profile (no session mutation)")
             goTo(.profile, style: .cameraPush)
         } catch {
             let message = NetworkError.userMessage(from: error)
+            print("[Onboarding] submitClubSelection error: \(message)")
             statusMessage = message
             connectionError = message
             retryAction = .clubSubmit
@@ -491,7 +535,9 @@ struct OnboardingFlowView: View {
             )
             _ = try await dataStore.backend.submitProfile(request)
             _ = try await dataStore.backend.completeOnboarding()
-            session.onboardingState = OnboardingStateDTO(completed: true, completedAt: Date(), lastStep: "complete")
+            // Do NOT touch session here — navigate internally only.
+            // Session state is applied at the very end (complete step).
+            print("[Onboarding] profile saved, navigating to .complete (no session mutation)")
             motion.triggerSuccess()
             clearDraft()
             goTo(.complete, style: .transitionZoom)
