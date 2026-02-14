@@ -126,9 +126,10 @@ export async function registerVideo(
   });
 
   return {
-    id: video.id,
-    uploadURL: '/placeholder',
-    headers: {},
+    videoID: video.id,
+    uploadURL: `/api/v1/analysis/videos/${video.id}/upload`,
+    uploadHeaders: {} as Record<string, string>,
+    expiresAt: null as string | null,
   };
 }
 

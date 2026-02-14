@@ -9,7 +9,17 @@ export async function registerVideo(req: Request, res: Response) {
     throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
   }
   const result = await analysisService.registerVideo(req.auth.userId, req.body);
-  res.status(201).json(result);
+
+  // Build absolute upload URL from the request origin
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const authHeader = req.headers.authorization ?? '';
+  const response = {
+    ...result,
+    uploadURL: result.uploadURL.startsWith('http') ? result.uploadURL : `${origin}${result.uploadURL}`,
+    uploadHeaders: authHeader ? { Authorization: authHeader } : {},
+  };
+
+  res.status(201).json(response);
 }
 
 export async function completeVideoUpload(req: Request, res: Response) {
@@ -142,4 +152,26 @@ export async function saveDrawings(req: Request, res: Response) {
     req.body,
   );
   res.status(200).json(result);
+}
+
+/* ── Video upload chunk ── */
+
+export async function uploadVideoChunk(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+
+  const videoId = req.params.videoId;
+  if (!videoId) {
+    throw new AppError(400, 'MISSING_VIDEO_ID', 'videoId parameter is required');
+  }
+
+  const partNumber = req.headers['x-part-number']
+    ? parseInt(req.headers['x-part-number'] as string, 10)
+    : 0;
+
+  // Stub: accept the data and return a synthetic ETag
+  const etag = `"part-${partNumber}"`;
+  res.setHeader('ETag', etag);
+  res.status(200).json({ partNumber, etag });
 }
