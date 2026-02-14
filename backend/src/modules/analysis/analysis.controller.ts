@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import fs from 'fs';
 import { AppError } from '../../middleware/errorHandler';
 import * as analysisService from './analysis.service';
 
@@ -60,7 +61,8 @@ export async function getPlaybackURL(req: Request, res: Response) {
   if (!req.auth?.userId) {
     throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
   }
-  const result = await analysisService.getPlaybackURL(req.auth.userId, req.params.videoId);
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const result = await analysisService.getPlaybackURL(req.auth.userId, req.params.videoId, origin);
   res.status(200).json(result);
 }
 
@@ -176,7 +178,7 @@ export async function saveDrawings(req: Request, res: Response) {
   res.status(200).json(result);
 }
 
-/* ── Video upload chunk ── */
+/* ── Video upload ── */
 
 export async function uploadVideoChunk(req: Request, res: Response) {
   if (!req.auth?.userId) {
@@ -188,12 +190,63 @@ export async function uploadVideoChunk(req: Request, res: Response) {
     throw new AppError(400, 'MISSING_VIDEO_ID', 'videoId parameter is required');
   }
 
+  // Save the uploaded data to disk
+  const filePath = analysisService.getVideoFilePath(videoId);
+  const body = req.body as Buffer;
+  if (body && body.length > 0) {
+    fs.writeFileSync(filePath, body);
+  }
+
   const partNumber = req.headers['x-part-number']
     ? parseInt(req.headers['x-part-number'] as string, 10)
     : 0;
 
-  // Stub: accept the data and return a synthetic ETag
   const etag = `"part-${partNumber}"`;
   res.setHeader('ETag', etag);
   res.status(200).json({ partNumber, etag });
+}
+
+/* ── Video stream ── */
+
+export async function streamVideo(req: Request, res: Response) {
+  if (!req.auth?.userId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+
+  const videoId = req.params.videoId;
+  const filePath = analysisService.getVideoFilePath(videoId);
+
+  if (!fs.existsSync(filePath)) {
+    throw new AppError(404, 'VIDEO_FILE_NOT_FOUND', 'Video file not found on disk');
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunkSize = end - start + 1;
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunkSize,
+      'Content-Type': 'video/quicktime',
+    });
+
+    const stream = fs.createReadStream(filePath, { start, end });
+    stream.pipe(res);
+  } else {
+    res.writeHead(200, {
+      'Content-Length': fileSize,
+      'Content-Type': 'video/quicktime',
+      'Accept-Ranges': 'bytes',
+    });
+
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+  }
 }

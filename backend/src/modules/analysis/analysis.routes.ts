@@ -18,6 +18,7 @@ export function analysisRoutes(jwtAccessSecret: string): Router {
   router.put('/videos/:videoId/upload', auth, rawBody, asyncHandler(ctrl.uploadVideoChunk));
   router.post('/videos/:videoId/complete', auth, asyncHandler(ctrl.completeVideoUpload));
   router.get('/videos/:videoId/playback', auth, asyncHandler(ctrl.getPlaybackURL));
+  router.get('/videos/:videoId/stream', auth, asyncHandler(ctrl.streamVideo));
 
   // Sessions
   router.post('/sessions', auth, asyncHandler(ctrl.createSession));

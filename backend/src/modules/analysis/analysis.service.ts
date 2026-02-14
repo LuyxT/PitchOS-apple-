@@ -1,5 +1,22 @@
+import path from 'path';
+import fs from 'fs';
 import { getPrisma } from '../../lib/prisma';
 import { AppError } from '../../middleware/errorHandler';
+
+/* ── Upload directory ── */
+
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'videos');
+
+export function getVideoUploadDir() {
+  if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  }
+  return UPLOAD_DIR;
+}
+
+export function getVideoFilePath(videoId: string) {
+  return path.join(getVideoUploadDir(), `${videoId}.data`);
+}
 
 /* ── DTO mappers ── */
 
@@ -15,11 +32,11 @@ function toSessionDTO(s: {
 }) {
   return {
     id: s.id,
-    videoId: s.videoId,
+    videoID: s.videoId,
     title: s.title,
-    matchId: s.matchId,
-    teamId: s.teamId,
-    userId: s.userId,
+    matchID: s.matchId,
+    teamID: s.teamId,
+    userID: s.userId,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
@@ -39,13 +56,13 @@ function toMarkerDTO(m: {
 }) {
   return {
     id: m.id,
-    sessionId: m.sessionId,
-    videoId: m.videoId,
+    sessionID: m.sessionId,
+    videoID: m.videoId,
     timeSeconds: m.timeSeconds,
-    categoryId: m.categoryId,
+    categoryID: m.categoryId,
     comment: m.comment,
     playerID: m.playerID,
-    userId: m.userId,
+    userID: m.userId,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
   };
@@ -66,14 +83,14 @@ function toClipDTO(c: {
 }) {
   return {
     id: c.id,
-    sessionId: c.sessionId,
-    videoId: c.videoId,
+    sessionID: c.sessionId,
+    videoID: c.videoId,
     name: c.name,
     startSeconds: c.startSeconds,
     endSeconds: c.endSeconds,
     playerIDs: c.playerIDs,
     note: c.note,
-    userId: c.userId,
+    userID: c.userId,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -94,14 +111,14 @@ function toDrawingDTO(d: {
 }) {
   return {
     id: d.id,
-    sessionId: d.sessionId,
-    localId: d.localId,
+    sessionID: d.sessionId,
+    localID: d.localId,
     tool: d.tool,
     points: d.points,
     colorHex: d.colorHex,
     isTemporary: d.isTemporary,
     timeSeconds: d.timeSeconds,
-    userId: d.userId,
+    userID: d.userId,
     createdAt: d.createdAt.toISOString(),
     updatedAt: d.updatedAt.toISOString(),
   };
@@ -151,7 +168,7 @@ export async function createAnalysisCategory(userId: string, input: { name: stri
 
 export async function registerVideo(
   userId: string,
-  input: { filename: string; fileSize: number; mimeType: string; sha256?: string },
+  input: { filename: string; fileSize: number; mimeType: string; sha256?: string; importedAt?: string },
 ) {
   const prisma = getPrisma();
 
@@ -162,6 +179,7 @@ export async function registerVideo(
       fileSize: input.fileSize,
       mimeType: input.mimeType,
       sha256: input.sha256 ?? null,
+      importedAt: input.importedAt ? new Date(input.importedAt) : null,
     },
   });
 
@@ -176,7 +194,7 @@ export async function registerVideo(
 export async function completeVideoUpload(
   userId: string,
   videoId: string,
-  input: { playbackURL?: string },
+  input: { fileSize?: number; sha256?: string; completedAt?: string; playbackURL?: string },
 ) {
   const prisma = getPrisma();
 
@@ -188,18 +206,20 @@ export async function completeVideoUpload(
   const updated = await prisma.analysisVideo.update({
     where: { id: videoId },
     data: {
-      importedAt: new Date(),
+      importedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
       playbackURL: input.playbackURL ?? video.playbackURL,
+      fileSize: input.fileSize ?? video.fileSize,
+      sha256: input.sha256 ?? video.sha256,
     },
   });
 
   return {
-    id: updated.id,
-    playbackURL: updated.playbackURL,
+    videoID: updated.id,
+    playbackReady: true,
   };
 }
 
-export async function getPlaybackURL(userId: string, videoId: string) {
+export async function getPlaybackURL(userId: string, videoId: string, origin: string) {
   const prisma = getPrisma();
 
   const video = await prisma.analysisVideo.findUnique({ where: { id: videoId } });
@@ -209,8 +229,16 @@ export async function getPlaybackURL(userId: string, videoId: string) {
 
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
+  // Check if the video file exists on disk
+  const filePath = getVideoFilePath(videoId);
+  const fileExists = fs.existsSync(filePath);
+
+  const streamURL = fileExists
+    ? `${origin}/api/v1/analysis/videos/${videoId}/stream`
+    : video.playbackURL ?? `${origin}/api/v1/analysis/videos/${videoId}/stream`;
+
   return {
-    signedURL: video.playbackURL ?? '/placeholder',
+    signedPlaybackURL: streamURL,
     expiresAt: expiresAt.toISOString(),
   };
 }
@@ -219,17 +247,17 @@ export async function getPlaybackURL(userId: string, videoId: string) {
 
 export async function createSession(
   userId: string,
-  input: { videoId: string; title: string; matchId?: string; teamId?: string },
+  input: { videoID?: string; videoId?: string; title: string; matchID?: string; matchId?: string; teamID?: string; teamId?: string },
 ) {
   const prisma = getPrisma();
 
   const session = await prisma.analysisSession.create({
     data: {
       userId,
-      videoId: input.videoId,
+      videoId: input.videoID ?? input.videoId ?? '',
       title: input.title,
-      matchId: input.matchId ?? null,
-      teamId: input.teamId ?? null,
+      matchId: input.matchID ?? input.matchId ?? null,
+      teamId: input.teamID ?? input.teamId ?? null,
     },
   });
 
@@ -283,9 +311,12 @@ export async function getSession(userId: string, sessionId: string) {
 export async function createMarker(
   userId: string,
   input: {
-    sessionId: string;
-    videoId: string;
+    sessionID?: string;
+    sessionId?: string;
+    videoID?: string;
+    videoId?: string;
     timeSeconds: number;
+    categoryID?: string;
     categoryId?: string;
     comment?: string;
     playerID?: string;
@@ -296,10 +327,10 @@ export async function createMarker(
   const marker = await prisma.analysisMarker.create({
     data: {
       userId,
-      sessionId: input.sessionId,
-      videoId: input.videoId,
+      sessionId: input.sessionID ?? input.sessionId ?? '',
+      videoId: input.videoID ?? input.videoId ?? '',
       timeSeconds: input.timeSeconds,
-      categoryId: input.categoryId ?? null,
+      categoryId: input.categoryID ?? input.categoryId ?? null,
       comment: input.comment ?? null,
       playerID: input.playerID ?? null,
     },
@@ -312,9 +343,12 @@ export async function updateMarker(
   userId: string,
   markerId: string,
   input: {
+    sessionID?: string;
     sessionId?: string;
+    videoID?: string;
     videoId?: string;
     timeSeconds?: number;
+    categoryID?: string;
     categoryId?: string;
     comment?: string;
     playerID?: string;
@@ -330,10 +364,10 @@ export async function updateMarker(
   const updated = await prisma.analysisMarker.update({
     where: { id: markerId },
     data: {
-      sessionId: input.sessionId,
-      videoId: input.videoId,
+      sessionId: input.sessionID ?? input.sessionId,
+      videoId: input.videoID ?? input.videoId,
       timeSeconds: input.timeSeconds,
-      categoryId: input.categoryId,
+      categoryId: input.categoryID ?? input.categoryId,
       comment: input.comment,
       playerID: input.playerID,
     },
@@ -358,8 +392,10 @@ export async function deleteMarker(userId: string, markerId: string) {
 export async function createClip(
   userId: string,
   input: {
-    sessionId: string;
-    videoId: string;
+    sessionID?: string;
+    sessionId?: string;
+    videoID?: string;
+    videoId?: string;
     name: string;
     startSeconds: number;
     endSeconds: number;
@@ -372,8 +408,8 @@ export async function createClip(
   const clip = await prisma.analysisClip.create({
     data: {
       userId,
-      sessionId: input.sessionId,
-      videoId: input.videoId,
+      sessionId: input.sessionID ?? input.sessionId ?? '',
+      videoId: input.videoID ?? input.videoId ?? '',
       name: input.name,
       startSeconds: input.startSeconds,
       endSeconds: input.endSeconds,
@@ -400,7 +436,9 @@ export async function updateClip(
   userId: string,
   clipId: string,
   input: {
+    sessionID?: string;
     sessionId?: string;
+    videoID?: string;
     videoId?: string;
     name?: string;
     startSeconds?: number;
@@ -419,8 +457,8 @@ export async function updateClip(
   const updated = await prisma.analysisClip.update({
     where: { id: clipId },
     data: {
-      sessionId: input.sessionId,
-      videoId: input.videoId,
+      sessionId: input.sessionID ?? input.sessionId,
+      videoId: input.videoID ?? input.videoId,
       name: input.name,
       startSeconds: input.startSeconds,
       endSeconds: input.endSeconds,
@@ -446,7 +484,7 @@ export async function deleteClip(userId: string, clipId: string) {
 export async function shareClip(
   userId: string,
   clipId: string,
-  input: { targetChatID?: string; targetUserIDs?: string[] },
+  input: { playerIDs?: string[]; threadID?: string; message?: string; targetChatID?: string; targetUserIDs?: string[] },
 ) {
   const prisma = getPrisma();
 
@@ -456,8 +494,8 @@ export async function shareClip(
   }
 
   return {
-    shareURL: '/placeholder',
-    sharedAt: new Date().toISOString(),
+    threadID: input.threadID ?? null,
+    messageIDs: [] as string[],
   };
 }
 
@@ -468,6 +506,7 @@ export async function saveDrawings(
   sessionId: string,
   input: {
     drawings: Array<{
+      localID?: string;
       localId?: string;
       tool: string;
       points: unknown;
@@ -494,7 +533,7 @@ export async function saveDrawings(
         data: input.drawings.map((d) => ({
           sessionId,
           userId,
-          localId: d.localId ?? null,
+          localId: d.localID ?? d.localId ?? null,
           tool: d.tool,
           points: (d.points ?? []) as any,
           colorHex: d.colorHex,
