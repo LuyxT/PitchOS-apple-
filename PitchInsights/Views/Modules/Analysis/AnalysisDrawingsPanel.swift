@@ -79,17 +79,15 @@ struct AnalysisDrawingsPanel: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.orange)
             }
-            Button(role: .destructive) {
-                Haptics.trigger(.soft)
-                onDelete(drawing)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.red)
+            Image(systemName: "trash")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    Haptics.trigger(.soft)
+                    onDelete(drawing)
+                }
         }
         .padding(8)
         .background(

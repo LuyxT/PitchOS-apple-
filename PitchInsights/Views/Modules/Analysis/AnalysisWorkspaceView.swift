@@ -262,7 +262,6 @@ struct AnalysisWorkspaceView: View {
                 playerViewModel: playerViewModel,
                 markers: activeMarkers
             ) { marker in
-                playerViewModel.pause()
                 playerViewModel.seek(to: marker.timeSeconds)
             }
         }
@@ -304,7 +303,6 @@ struct AnalysisWorkspaceView: View {
             selectedPlayerFilters: $workspaceViewModel.filterState.playerIDs,
             highlightMarkerID: highlightMarkerID,
             onSeek: { marker in
-                playerViewModel.pause()
                 playerViewModel.seek(to: marker.timeSeconds)
             },
             onDelete: { marker in
@@ -322,7 +320,6 @@ struct AnalysisWorkspaceView: View {
             selectedClipID: $workspaceViewModel.selectedClipID,
             onSelect: { clip in
                 workspaceViewModel.selectedClipID = clip.id
-                playerViewModel.pause()
                 playerViewModel.seek(to: clip.startSeconds)
             },
             onDelete: { clip in
