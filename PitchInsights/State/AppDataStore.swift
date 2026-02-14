@@ -1071,6 +1071,13 @@ final class AppDataStore: ObservableObject {
 
     private func ensureLocalVideoAsset(backendVideoID: String, fallbackLocalID: UUID? = nil) -> UUID {
         if let index = analysisVideoAssets.firstIndex(where: { $0.backendVideoID == backendVideoID }) {
+            // Recovery: if found but localRelativePath is empty, try to recover from disk
+            if analysisVideoAssets[index].localRelativePath.isEmpty,
+               let recovered = findOrphanedVideoFilePath() {
+                analysisVideoAssets[index].localRelativePath = recovered
+                print("[Analysis] recovered orphaned video file for backendVideoID=\(backendVideoID): \(recovered)")
+                persistVideoAssets()
+            }
             return analysisVideoAssets[index].id
         }
         // Check if there's an existing asset by fallback ID that already has the local path
@@ -1081,20 +1088,54 @@ final class AppDataStore: ObservableObject {
             return fallbackID
         }
         let id = fallbackLocalID ?? UUID()
+        let recoveredPath = findOrphanedVideoFilePath() ?? ""
         analysisVideoAssets.append(
             AnalysisVideoAsset(
                 id: id,
                 backendVideoID: backendVideoID,
                 originalFilename: "Video \(backendVideoID.prefix(6))",
-                localRelativePath: "",
+                localRelativePath: recoveredPath,
                 fileSize: 0,
                 mimeType: "video/mp4",
                 sha256: "",
                 syncState: .synced
             )
         )
+        if !recoveredPath.isEmpty {
+            print("[Analysis] recovered orphaned video file for new asset backendVideoID=\(backendVideoID): \(recoveredPath)")
+        }
         persistVideoAssets()
         return id
+    }
+
+    /// Scans the AnalysisVideos directory for video files not claimed by any existing asset.
+    /// Returns the relative path of the newest orphaned file, or nil if none found.
+    private func findOrphanedVideoFilePath() -> String? {
+        guard let videosDir = analysisVideoStore.fileURL(for: "AnalysisVideos") else { return nil }
+        guard FileManager.default.fileExists(atPath: videosDir.path(percentEncoded: false)) else { return nil }
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: videosDir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+
+        let claimedPaths = Set(analysisVideoAssets.compactMap { asset -> String? in
+            asset.localRelativePath.isEmpty ? nil : asset.localRelativePath
+        })
+
+        let orphaned = files
+            .filter { url in
+                let relativePath = "AnalysisVideos/\(url.lastPathComponent)"
+                return !claimedPaths.contains(relativePath)
+            }
+            .sorted { a, b in
+                let dateA = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                let dateB = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                return dateA > dateB
+            }
+
+        guard let newest = orphaned.first else { return nil }
+        return "AnalysisVideos/\(newest.lastPathComponent)"
     }
 
     private func mapAnalysisMarker(
