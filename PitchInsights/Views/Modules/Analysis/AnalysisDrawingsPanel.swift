@@ -67,7 +67,13 @@ struct AnalysisDrawingsPanel: View {
                     .foregroundStyle(AppTheme.textSecondary)
                     .monospacedDigit()
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                Haptics.trigger(.light)
+                selectedDrawingID = drawing.id
+            }
+
             if drawing.isTemporary {
                 Text("Temporär")
                     .font(.system(size: 10, weight: .medium))
@@ -90,12 +96,6 @@ struct AnalysisDrawingsPanel: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? AppTheme.primary.opacity(0.16) : AppTheme.surfaceAlt.opacity(0.6))
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            Haptics.trigger(.light)
-            selectedDrawingID = drawing.id
-        }
-        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .contextMenu {
             Button("Löschen", role: .destructive) {
                 Haptics.trigger(.soft)

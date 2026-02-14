@@ -145,7 +145,6 @@ struct AnalysisMarkersPanel: View {
             selectedMarkerID = marker.id
             onSeek(marker)
         }
-        .interactiveSurface(hoverScale: 1.01, pressScale: 0.99, hoverShadowOpacity: 0.1, feedback: .light)
         .animation(AppMotion.settle, value: highlightMarkerID)
         .contextMenu {
             Button("Anspringen") {
