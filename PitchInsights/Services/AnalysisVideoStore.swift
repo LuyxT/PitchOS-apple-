@@ -70,7 +70,7 @@ final class AnalysisVideoStore {
             ? assetID.uuidString
             : "\(assetID.uuidString).\(fileExtension)"
 
-        let targetURL = directory.appendingPathComponent(targetFilename, conformingTo: .movie)
+        let targetURL = directory.appendingPathComponent(targetFilename)
 
         do {
             if fileManager.fileExists(atPath: targetURL.path(percentEncoded: false)) {

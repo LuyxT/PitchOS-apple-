@@ -959,9 +959,14 @@ final class AppDataStore: ObservableObject {
         }
         // Prefer local file when available (server storage is ephemeral)
         if !asset.localRelativePath.isEmpty,
-           let localURL = analysisVideoStore.fileURL(for: asset.localRelativePath),
-           FileManager.default.fileExists(atPath: localURL.path(percentEncoded: false)) {
-            return localURL
+           let localURL = analysisVideoStore.fileURL(for: asset.localRelativePath) {
+            let exists = FileManager.default.fileExists(atPath: localURL.path(percentEncoded: false))
+            print("[Analysis] playbackURL localPath=\(asset.localRelativePath) resolved=\(localURL.path) exists=\(exists)")
+            if exists {
+                return localURL
+            }
+        } else {
+            print("[Analysis] playbackURL localRelativePath is empty, falling back to backend. backendVideoID=\(asset.backendVideoID ?? "nil")")
         }
         return try await analysisPlaybackService.resolvedPlaybackURL(for: asset, backend: backend)
     }
@@ -1037,6 +1042,12 @@ final class AppDataStore: ObservableObject {
     private func ensureLocalVideoAsset(backendVideoID: String, fallbackLocalID: UUID? = nil) -> UUID {
         if let index = analysisVideoAssets.firstIndex(where: { $0.backendVideoID == backendVideoID }) {
             return analysisVideoAssets[index].id
+        }
+        // Check if there's an existing asset by fallback ID that already has the local path
+        if let fallbackID = fallbackLocalID,
+           let index = analysisVideoAssets.firstIndex(where: { $0.id == fallbackID }) {
+            analysisVideoAssets[index].backendVideoID = backendVideoID
+            return fallbackID
         }
         let id = fallbackLocalID ?? UUID()
         analysisVideoAssets.append(
