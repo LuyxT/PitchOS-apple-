@@ -209,11 +209,8 @@ struct AnalysisWorkspaceView: View {
                     VStack(spacing: 12) {
                         playerSection
                             .frame(height: playerHeight)
-                        ScrollView {
-                            sidePanels
-                                .frame(maxWidth: .infinity, alignment: .top)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        sidePanels
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(12)
@@ -221,11 +218,8 @@ struct AnalysisWorkspaceView: View {
                     HStack(spacing: 12) {
                         playerSection
                             .frame(maxWidth: .infinity)
-                        ScrollView {
-                            sidePanels
-                                .frame(maxWidth: .infinity, alignment: .top)
-                        }
-                        .frame(width: min(340, proxy.size.width * 0.33))
+                        sidePanels
+                            .frame(width: min(340, proxy.size.width * 0.33))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(12)
