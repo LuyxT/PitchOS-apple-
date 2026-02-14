@@ -176,25 +176,25 @@ struct PlayerDTO: Decodable {
 }
 
 struct CalendarEventDTO: Decodable {
-    let id: UUID
+    let id: String
     let title: String
     let startDate: Date
     let endDate: Date
-    let categoryId: UUID
+    let categoryId: String
     let visibility: String
     let audience: String
-    let audiencePlayerIds: [UUID]?
+    let audiencePlayerIds: [String]?
     let recurrence: String
     let location: String?
     let notes: String?
-    let linkedTrainingPlanID: UUID?
+    let linkedTrainingPlanID: String?
     let eventKind: String?
     let playerVisibleGoal: String?
     let playerVisibleDurationMinutes: Int?
 }
 
 struct CalendarCategoryDTO: Decodable {
-    let id: UUID
+    let id: String
     let name: String
     let colorHex: String
     let isSystem: Bool
@@ -204,7 +204,7 @@ struct CreateCalendarEventRequest: Encodable {
     let title: String
     let startDate: Date
     let endDate: Date
-    let categoryId: UUID
+    let categoryId: String
     let visibility: String
     let audience: String
     let audiencePlayerIds: [UUID]
@@ -238,7 +238,7 @@ struct UpdateCalendarEventRequest: Encodable {
     let title: String
     let startDate: Date
     let endDate: Date
-    let categoryId: UUID
+    let categoryId: String
     let visibility: String
     let audience: String
     let audiencePlayerIds: [UUID]
@@ -524,7 +524,7 @@ struct AuthMeDTO: Decodable {
                 completedAt: nil,
                 lastStep: decodedNextStep
             )
-            onboardingRequired = requiredFlag ?? onboardingState?.completed == false
+            onboardingRequired = requiredFlag ?? (onboardingState?.completed == false)
             nextStep = decodedNextStep ?? onboardingState?.lastStep
         }
     }

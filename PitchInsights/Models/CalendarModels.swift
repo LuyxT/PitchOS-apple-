@@ -51,7 +51,7 @@ enum CalendarEventKind: String, CaseIterable, Identifiable, Codable {
 }
 
 struct CalendarCategory: Identifiable, Equatable, Codable {
-    let id: UUID
+    let id: String
     var name: String
     var colorHex: String
     var isSystem: Bool
@@ -61,14 +61,14 @@ struct CalendarCategory: Identifiable, Equatable, Codable {
     }
 
     static let training = CalendarCategory(
-        id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA") ?? UUID(),
+        id: "local-default-training",
         name: "Training",
         colorHex: "#10b981",
         isSystem: true
     )
 
     static let match = CalendarCategory(
-        id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB") ?? UUID(),
+        id: "local-default-match",
         name: "Spiel",
         colorHex: "#2563eb",
         isSystem: true
@@ -76,11 +76,11 @@ struct CalendarCategory: Identifiable, Equatable, Codable {
 }
 
 struct CalendarEvent: Identifiable, Equatable, Codable {
-    let id: UUID
+    let id: String
     var title: String
     var startDate: Date
     var endDate: Date
-    var categoryID: UUID
+    var categoryID: String
     var visibility: CalendarVisibility
     var audience: CalendarAudience
     var audiencePlayerIDs: [UUID]
@@ -97,7 +97,7 @@ struct CalendarEventDraft {
     var title: String = ""
     var startDate: Date = Date()
     var endDate: Date = Calendar.current.date(byAdding: .minute, value: 90, to: Date()) ?? Date()
-    var categoryID: UUID = CalendarCategory.training.id
+    var categoryID: String = ""
     var visibility: CalendarVisibility = .team
     var audience: CalendarAudience = .team
     var audiencePlayerIDs: [UUID] = []

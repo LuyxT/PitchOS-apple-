@@ -163,12 +163,21 @@ export async function listAuditEntries(userId: string, profileId?: string) {
   const prisma = getPrisma();
 
   // Only return audit entries for profiles owned by this user
-  const where: Record<string, unknown> = {
-    profile: { userId },
-  };
-  if (profileId) {
-    where.profileId = profileId;
+  const userProfiles = await prisma.personProfile.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  const userProfileIds = userProfiles.map((p) => p.id);
+
+  if (userProfileIds.length === 0) {
+    return [];
   }
+
+  const where: Record<string, unknown> = {
+    profileId: profileId && userProfileIds.includes(profileId)
+      ? profileId
+      : { in: userProfileIds },
+  };
 
   const entries = await prisma.profileAuditEntry.findMany({
     where,

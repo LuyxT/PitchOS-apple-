@@ -4,8 +4,8 @@ struct CalendarEventPopover: View {
     @ObservedObject var viewModel: CalendarViewModel
     @Binding var categories: [CalendarCategory]
     let players: [Player]
-    let onSave: (CalendarEventDraft, Bool, UUID?) -> Void
-    let onDelete: (UUID) -> Void
+    let onSave: (CalendarEventDraft, Bool, String?) -> Void
+    let onDelete: (String) -> Void
 
     @State private var newCategoryName: String = ""
     @State private var newCategoryColor: Color = AppTheme.primary
@@ -56,7 +56,7 @@ struct CalendarEventPopover: View {
                             guard !name.isEmpty else { return }
                             guard !categories.contains(where: { $0.name.lowercased() == name.lowercased() }) else { return }
                             let category = CalendarCategory(
-                                id: UUID(),
+                                id: UUID().uuidString.lowercased(),
                                 name: name,
                                 colorHex: newCategoryColor.hexString,
                                 isSystem: false
@@ -163,6 +163,11 @@ struct CalendarEventPopover: View {
             }
         }
         .padding(4)
+        .onAppear {
+            if viewModel.draft.categoryID.isEmpty, let first = categories.first {
+                viewModel.draft.categoryID = first.id
+            }
+        }
     }
 
     private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {

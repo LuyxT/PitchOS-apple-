@@ -193,33 +193,56 @@ final class AppDataStore: ObservableObject {
 
     func refreshFromBackend() async {
         backendConnectionState = .syncing
-        do {
-            let profileDTO = try await backend.fetchProfile()
-            let playersDTO = try await backend.fetchPlayers()
-            let calendarEventsDTO = try await backend.fetchCalendarEvents()
-            let calendarCategoriesDTO = try await backend.fetchCalendarCategories()
-            let trainingsDTO = try await backend.fetchTrainings()
-            let matchesDTO = try await backend.fetchMatches()
-            let threadsDTO = try await backend.fetchThreads()
-            let feedbackDTO = try await backend.fetchFeedback()
-            let transactionsDTO = try await backend.fetchTransactions()
-            let filesDTO = try? await backend.fetchFiles()
-            let tacticsDTO = try await backend.fetchTactics()
-            let adminDTO = try await backend.fetchAdminTasks()
-            let tacticsStateDTO = try? await backend.fetchTacticsState()
-            let analysisSessionsDTO = try? await backend.fetchAnalysisSessions()
-            let profilesDTO = try? await backend.fetchPersonProfiles()
-            let profileAuditDTO = try? await backend.fetchProfileAudit(profileID: nil)
-            let cloudBootstrapDTO = try? await backend.fetchCloudFilesBootstrap(teamID: activeCloudTeamID())
 
+        // Verify auth is valid with a lightweight call first.
+        do {
+            _ = try await backend.fetchAuthMe()
+        } catch {
+            if let networkErr = error as? NetworkError, networkErr.isUnauthorized {
+                print("[client] refreshFromBackend: unauthorized — session invalid")
+                backendConnectionState = .failed("Sitzung abgelaufen. Bitte erneut anmelden.")
+            } else if isConnectivityFailure(error) {
+                print("[client] refreshFromBackend: connectivity failure")
+                backendConnectionState = .failed("Keine Verbindung zum Server.")
+            } else {
+                print("[client] refreshFromBackend: auth check failed, continuing anyway — \(error.localizedDescription)")
+            }
+            if backendConnectionState != .syncing { return }
+        }
+
+        // Fetch all data sources independently — missing endpoints (404) are tolerated.
+        let profileDTO = try? await backend.fetchProfile()
+        let playersDTO = try? await backend.fetchPlayers()
+        let calendarEventsDTO = try? await backend.fetchCalendarEvents()
+        let calendarCategoriesDTO = try? await backend.fetchCalendarCategories()
+        let trainingsDTO = try? await backend.fetchTrainings()
+        let matchesDTO = try? await backend.fetchMatches()
+        let threadsDTO = try? await backend.fetchThreads()
+        let feedbackDTO = try? await backend.fetchFeedback()
+        let transactionsDTO = try? await backend.fetchTransactions()
+        let filesDTO = try? await backend.fetchFiles()
+        let tacticsDTO = try? await backend.fetchTactics()
+        let adminDTO = try? await backend.fetchAdminTasks()
+        let tacticsStateDTO = try? await backend.fetchTacticsState()
+        let analysisSessionsDTO = try? await backend.fetchAnalysisSessions()
+        let profilesDTO = try? await backend.fetchPersonProfiles()
+        let profileAuditDTO = try? await backend.fetchProfileAudit(profileID: nil)
+        let cloudBootstrapDTO = try? await backend.fetchCloudFilesBootstrap(teamID: activeCloudTeamID())
+
+        // Apply whatever data we received.
+        if let profileDTO {
             profile = CoachProfile(
                 name: profileDTO.name,
                 license: profileDTO.license,
                 team: profileDTO.team,
                 seasonGoal: profileDTO.seasonGoal
             )
+        }
+        if let playersDTO {
             players = playersDTO.map { mapPlayer(from: $0) }
             normalizeTacticsBoardStates()
+        }
+        if let calendarCategoriesDTO {
             calendarCategories = calendarCategoriesDTO.map {
                 CalendarCategory(
                     id: $0.id,
@@ -229,6 +252,8 @@ final class AppDataStore: ObservableObject {
                 )
             }
             ensureDefaultCategories()
+        }
+        if let calendarEventsDTO {
             calendarEvents = calendarEventsDTO.map {
                 CalendarEvent(
                     id: $0.id,
@@ -238,60 +263,63 @@ final class AppDataStore: ObservableObject {
                     categoryID: $0.categoryId,
                     visibility: CalendarVisibility(rawValue: $0.visibility) ?? .team,
                     audience: CalendarAudience(rawValue: $0.audience) ?? .team,
-                    audiencePlayerIDs: $0.audiencePlayerIds ?? [],
+                    audiencePlayerIDs: $0.audiencePlayerIds?.compactMap { UUID(uuidString: $0) } ?? [],
                     recurrence: CalendarRecurrence(rawValue: $0.recurrence) ?? .none,
                     location: $0.location ?? "",
                     notes: $0.notes ?? "",
-                    linkedTrainingPlanID: $0.linkedTrainingPlanID,
+                    linkedTrainingPlanID: $0.linkedTrainingPlanID.flatMap { UUID(uuidString: $0) },
                     eventKind: CalendarEventKind(rawValue: $0.eventKind ?? "") ?? .generic,
                     playerVisibleGoal: $0.playerVisibleGoal,
                     playerVisibleDurationMinutes: $0.playerVisibleDurationMinutes
                 )
             }
+        }
+        if let trainingsDTO {
             trainings = trainingsDTO.map { TrainingSession(title: $0.title, date: $0.date, focus: $0.focus) }
+        }
+        if let matchesDTO {
             matches = matchesDTO.map { MatchInfo(opponent: $0.opponent, date: $0.date, homeAway: $0.homeAway) }
+        }
+        if let threadsDTO {
             threads = threadsDTO.map {
                 MessageThread(title: $0.title, lastMessage: $0.lastMessage, unreadCount: $0.unreadCount)
             }
+        }
+        if let feedbackDTO {
             feedbackEntries = feedbackDTO.map { FeedbackEntry(player: $0.player, summary: $0.summary, date: $0.date) }
+        }
+        if let transactionsDTO {
             transactions = transactionsDTO.map { TransactionEntry(title: $0.title, amount: $0.amount, date: $0.date, type: $0.type == "income" ? .income : .expense) }
             reconcileCashTransactionsFromLegacy(transactionsDTO)
-            if let cloudBootstrapDTO {
-                applyCloudBootstrap(cloudBootstrapDTO)
-                cloudConnectionState = .live
-                syncLegacyFilesList()
-            } else if let filesDTO {
-                files = filesDTO.map { FileItem(name: $0.name, category: $0.category) }
-            }
+        }
+        if let cloudBootstrapDTO {
+            applyCloudBootstrap(cloudBootstrapDTO)
+            cloudConnectionState = .live
+            syncLegacyFilesList()
+        } else if let filesDTO {
+            files = filesDTO.map { FileItem(name: $0.name, category: $0.category) }
+        }
+        if let tacticsDTO {
             tactics = tacticsDTO.map { TacticBoard(title: $0.title, detail: $0.detail) }
-            if let analysisSessionsDTO {
-                mergeAnalysisSessions(analysisSessionsDTO)
-            }
+        }
+        if let analysisSessionsDTO {
+            mergeAnalysisSessions(analysisSessionsDTO)
+        }
+        if let adminDTO {
             adminTasks = adminDTO.map { AdminTask(title: $0.title, due: $0.due) }
-            if let tacticsStateDTO {
-                applyTacticsState(tacticsStateDTO)
-            }
-            if let profilesDTO {
-                personProfiles = profilesDTO.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
-                activePersonProfileID = preferredProfileSelection()?.id
-                if let profileAuditDTO {
-                    profileAuditEntries = profileAuditDTO.map(mapProfileAuditEntry(_:))
-                }
-            }
-            syncLegacyCoachProfileFromProfiles()
-            backendConnectionState = .live
-        } catch {
-            if let networkErr = error as? NetworkError, networkErr.isUnauthorized {
-                print("[client] refreshFromBackend: unauthorized — session invalid")
-                backendConnectionState = .failed("Sitzung abgelaufen. Bitte erneut anmelden.")
-            } else if isConnectivityFailure(error) {
-                print("[client] refreshFromBackend: connectivity failure")
-                backendConnectionState = .failed("Keine Verbindung zum Server.")
-            } else {
-                print("[client] refreshFromBackend: \(error.localizedDescription)")
-                backendConnectionState = .failed(error.localizedDescription)
+        }
+        if let tacticsStateDTO {
+            applyTacticsState(tacticsStateDTO)
+        }
+        if let profilesDTO {
+            personProfiles = profilesDTO.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
+            activePersonProfileID = preferredProfileSelection()?.id
+            if let profileAuditDTO {
+                profileAuditEntries = profileAuditDTO.map(mapProfileAuditEntry(_:))
             }
         }
+        syncLegacyCoachProfileFromProfiles()
+        backendConnectionState = .live
     }
 
     func checkBackendBootstrap() async -> Bool {
@@ -348,7 +376,7 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    private func isConnectivityFailure(_ error: Error) -> Bool {
+    func isConnectivityFailure(_ error: Error) -> Bool {
         NetworkError.isConnectivity(error)
     }
 
@@ -369,11 +397,11 @@ final class AppDataStore: ObservableObject {
                     categoryID: $0.categoryId,
                     visibility: CalendarVisibility(rawValue: $0.visibility) ?? .team,
                     audience: CalendarAudience(rawValue: $0.audience) ?? .team,
-                    audiencePlayerIDs: $0.audiencePlayerIds ?? [],
+                    audiencePlayerIDs: $0.audiencePlayerIds?.compactMap { UUID(uuidString: $0) } ?? [],
                     recurrence: CalendarRecurrence(rawValue: $0.recurrence) ?? .none,
                     location: $0.location ?? "",
                     notes: $0.notes ?? "",
-                    linkedTrainingPlanID: $0.linkedTrainingPlanID,
+                    linkedTrainingPlanID: $0.linkedTrainingPlanID.flatMap { UUID(uuidString: $0) },
                     eventKind: CalendarEventKind(rawValue: $0.eventKind ?? "") ?? .generic,
                     playerVisibleGoal: $0.playerVisibleGoal,
                     playerVisibleDurationMinutes: $0.playerVisibleDurationMinutes
@@ -381,14 +409,17 @@ final class AppDataStore: ObservableObject {
             }
         } catch {
             // Keep local data on failure.
-            backendConnectionState = .failed(error.localizedDescription)
+            print("[client] refreshCalendar failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
     @MainActor
     func createCalendarEvent(_ draft: CalendarEventDraft) async {
         let event = CalendarEvent(
-            id: UUID(),
+            id: UUID().uuidString.lowercased(),
             title: draft.title,
             startDate: draft.startDate,
             endDate: draft.endDate,
@@ -405,12 +436,15 @@ final class AppDataStore: ObservableObject {
             _ = try await backend.createCalendarEvent(request)
             await refreshCalendar()
         } catch {
-            backendConnectionState = .failed(error.localizedDescription)
+            print("[client] createCalendarEvent failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
     @MainActor
-    func updateCalendarEvent(id: UUID, draft: CalendarEventDraft) async {
+    func updateCalendarEvent(id: String, draft: CalendarEventDraft) async {
         do {
             let request = UpdateCalendarEventRequest(
                 title: draft.title,
@@ -431,24 +465,30 @@ final class AppDataStore: ObservableObject {
             _ = try await backend.updateCalendarEvent(id: id, request: request)
             await refreshCalendar()
         } catch {
-            backendConnectionState = .failed(error.localizedDescription)
+            print("[client] updateCalendarEvent failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
     @MainActor
-    func deleteCalendarEvent(id: UUID) async {
+    func deleteCalendarEvent(id: String) async {
         do {
             _ = try await backend.deleteCalendarEvent(id: id)
             await refreshCalendar()
         } catch {
-            backendConnectionState = .failed(error.localizedDescription)
+            print("[client] deleteCalendarEvent failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
     @MainActor
     func duplicateCalendarEvent(_ event: CalendarEvent) async {
         let copy = CalendarEvent(
-            id: UUID(),
+            id: UUID().uuidString.lowercased(),
             title: event.title,
             startDate: event.startDate,
             endDate: event.endDate,
@@ -465,7 +505,10 @@ final class AppDataStore: ObservableObject {
             _ = try await backend.createCalendarEvent(request)
             await refreshCalendar()
         } catch {
-            backendConnectionState = .failed(error.localizedDescription)
+            print("[client] duplicateCalendarEvent failed: \(error.localizedDescription)")
+            if isConnectivityFailure(error) {
+                backendConnectionState = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -476,16 +519,16 @@ final class AppDataStore: ObservableObject {
             return
         }
         calendarCategories.append(
-            CalendarCategory(id: UUID(), name: trimmed, colorHex: colorHex, isSystem: false)
+            CalendarCategory(id: UUID().uuidString.lowercased(), name: trimmed, colorHex: colorHex, isSystem: false)
         )
     }
 
     private func ensureDefaultCategories() {
-        if !calendarCategories.contains(where: { $0.id == CalendarCategory.training.id }) {
+        if !calendarCategories.contains(where: { $0.name.lowercased() == "training" }) {
             calendarCategories.insert(CalendarCategory.training, at: 0)
         }
-        if !calendarCategories.contains(where: { $0.id == CalendarCategory.match.id }) {
-            calendarCategories.insert(CalendarCategory.match, at: 1)
+        if !calendarCategories.contains(where: { $0.name.lowercased() == "spiel" }) {
+            calendarCategories.insert(CalendarCategory.match, at: min(1, calendarCategories.count))
         }
     }
 
@@ -1227,7 +1270,10 @@ final class AppDataStore: ObservableObject {
                 }
                 backendConnectionState = .live
             } catch {
-                backendConnectionState = .failed(error.localizedDescription)
+                print("[client] pushCreatePlayer failed: \(error.localizedDescription)")
+                if isConnectivityFailure(error) {
+                    backendConnectionState = .failed(error.localizedDescription)
+                }
             }
         }
     }
@@ -1243,7 +1289,10 @@ final class AppDataStore: ObservableObject {
                 }
                 backendConnectionState = .live
             } catch {
-                backendConnectionState = .failed(error.localizedDescription)
+                print("[client] pushUpdatePlayer failed: \(error.localizedDescription)")
+                if isConnectivityFailure(error) {
+                    backendConnectionState = .failed(error.localizedDescription)
+                }
             }
         }
     }
@@ -1255,7 +1304,10 @@ final class AppDataStore: ObservableObject {
                 _ = try await backend.deletePlayer(id: playerID)
                 backendConnectionState = .live
             } catch {
-                backendConnectionState = .failed(error.localizedDescription)
+                print("[client] pushDeletePlayer failed: \(error.localizedDescription)")
+                if isConnectivityFailure(error) {
+                    backendConnectionState = .failed(error.localizedDescription)
+                }
             }
         }
     }
@@ -1277,7 +1329,10 @@ final class AppDataStore: ObservableObject {
             } catch is CancellationError {
                 // Ignore cancellation because a newer sync has been scheduled.
             } catch {
-                backendConnectionState = .failed(error.localizedDescription)
+                print("[client] tacticsStateSync failed: \(error.localizedDescription)")
+                if isConnectivityFailure(error) {
+                    backendConnectionState = .failed(error.localizedDescription)
+                }
             }
         }
     }

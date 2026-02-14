@@ -5,7 +5,7 @@ import Combine
 final class CalendarViewModel: ObservableObject {
     @Published var viewMode: CalendarViewMode = .month
     @Published var focusDate: Date = Date()
-    @Published var selectedEventID: UUID?
+    @Published var selectedEventID: String?
     @Published var isPresentingPopover = false
     @Published var draft: CalendarEventDraft = CalendarEventDraft()
     @Published var isEditing = false
@@ -80,7 +80,7 @@ final class CalendarViewModel: ObservableObject {
             title: "",
             startDate: date,
             endDate: endDate,
-            categoryID: CalendarCategory.training.id,
+            categoryID: "",
             visibility: .team,
             audience: .team,
             audiencePlayerIDs: [],

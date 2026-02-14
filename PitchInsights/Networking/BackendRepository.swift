@@ -153,13 +153,13 @@ final class BackendRepository {
         return try await sendAuthorized(.post("/calendar/events", body: data))
     }
 
-    func updateCalendarEvent(id: UUID, request: UpdateCalendarEventRequest) async throws -> CalendarEventDTO {
+    func updateCalendarEvent(id: String, request: UpdateCalendarEventRequest) async throws -> CalendarEventDTO {
         let data = try encode(request)
-        return try await sendAuthorized(.put("/calendar/events/\(id.uuidString)", body: data))
+        return try await sendAuthorized(.put("/calendar/events/\(id)", body: data))
     }
 
-    func deleteCalendarEvent(id: UUID) async throws -> EmptyResponse {
-        try await sendAuthorized(.delete("/calendar/events/\(id.uuidString)"))
+    func deleteCalendarEvent(id: String) async throws -> EmptyResponse {
+        try await sendAuthorized(.delete("/calendar/events/\(id)"))
     }
 
     func createPlayer(_ request: UpsertPlayerRequest) async throws -> PlayerDTO {

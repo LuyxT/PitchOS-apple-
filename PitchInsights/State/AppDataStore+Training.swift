@@ -35,7 +35,12 @@ extension AppDataStore {
 
             trainingConnectionState = .live
         } catch {
-            trainingConnectionState = .failed(error.localizedDescription)
+            if isConnectivityFailure(error) {
+                trainingConnectionState = .failed(error.localizedDescription)
+            } else {
+                print("[client] bootstrapTrainingsplanung: endpoint not available — \(error.localizedDescription)")
+                trainingConnectionState = .live
+            }
         }
     }
 
@@ -650,11 +655,11 @@ extension AppDataStore {
             categoryID: dto.categoryId,
             visibility: CalendarVisibility(rawValue: dto.visibility) ?? .team,
             audience: CalendarAudience(rawValue: dto.audience) ?? .team,
-            audiencePlayerIDs: dto.audiencePlayerIds ?? [],
+            audiencePlayerIDs: dto.audiencePlayerIds?.compactMap { UUID(uuidString: $0) } ?? [],
             recurrence: CalendarRecurrence(rawValue: dto.recurrence) ?? .none,
             location: dto.location ?? "",
             notes: dto.notes ?? "",
-            linkedTrainingPlanID: dto.linkedTrainingPlanID ?? planID,
+            linkedTrainingPlanID: dto.linkedTrainingPlanID.flatMap { UUID(uuidString: $0) } ?? planID,
             eventKind: CalendarEventKind(rawValue: dto.eventKind ?? "") ?? .training,
             playerVisibleGoal: dto.playerVisibleGoal,
             playerVisibleDurationMinutes: dto.playerVisibleDurationMinutes
@@ -667,7 +672,7 @@ extension AppDataStore {
         }
 
         if let index = trainingPlans.firstIndex(where: { $0.id == planID }) {
-            trainingPlans[index].calendarEventID = event.id
+            trainingPlans[index].calendarEventID = UUID(uuidString: event.id)
             trainingPlans[index].syncState = .synced
             trainingPlans[index].updatedAt = Date()
         }
