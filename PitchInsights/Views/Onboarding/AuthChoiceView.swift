@@ -7,6 +7,7 @@ enum AuthChoice {
 
 struct AuthChoiceView: View {
     @EnvironmentObject private var motion: MotionEngine
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let selected: AuthChoice?
     let onSelect: (AuthChoice) -> Void
@@ -17,18 +18,33 @@ struct AuthChoiceView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 14) {
-                    choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
-                    choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
-                }
+            if isCompactPhoneLayout {
                 VStack(spacing: 10) {
                     choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
                     choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
                 }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 14) {
+                        choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
+                        choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+                    }
+                    VStack(spacing: 10) {
+                        choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
+                        choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+                    }
+                }
             }
         }
         .frame(maxWidth: 460)
+    }
+
+    private var isCompactPhoneLayout: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
     }
 
     private func choiceCard(title: String, subtitle: String, value: AuthChoice) -> some View {

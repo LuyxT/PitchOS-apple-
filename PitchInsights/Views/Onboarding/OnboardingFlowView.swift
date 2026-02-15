@@ -87,15 +87,14 @@ struct OnboardingFlowView: View {
             Group {
                 if isCompactPhoneLayout {
                     GeometryReader { proxy in
-                        let cardWidth = max(300, min(420, proxy.size.width - 24))
                         ScrollView(.vertical, showsIndicators: false) {
-                            VStack {
+                            VStack(spacing: 0) {
                                 onboardingCard
-                                    .frame(width: cardWidth)
-                                    .padding(.vertical, 14)
+                                    .padding(.horizontal, 12)
+                                    .padding(.top, max(12, proxy.safeAreaInsets.top + 8))
+                                    .padding(.bottom, 16)
                             }
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: proxy.size.height)
+                            .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .top)
                         }
                     }
                 } else {
@@ -138,7 +137,7 @@ struct OnboardingFlowView: View {
             footer
         }
         .padding(isCompactPhoneLayout ? 18 : 32)
-        .frame(maxWidth: 720)
+        .frame(maxWidth: isCompactPhoneLayout ? .infinity : 720, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: isCompactPhoneLayout ? 16 : 20, style: .continuous)
                 .fill(AppTheme.surface.opacity(0.96))
