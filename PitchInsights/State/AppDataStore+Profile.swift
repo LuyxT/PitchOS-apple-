@@ -90,6 +90,12 @@ extension AppDataStore {
     }
 
     func currentViewerProfile() -> PersonProfile? {
+        // Email match is the strongest identity signal — always prefer the
+        // profile that belongs to the authenticated user.
+        if let email = currentAuthEmail?.lowercased(), !email.isEmpty,
+           let matched = personProfiles.first(where: { $0.core.email.lowercased() == email }) {
+            return matched
+        }
         if let activePersonProfileID,
            let active = personProfiles.first(where: { $0.id == activePersonProfileID }) {
             return active
@@ -262,13 +268,14 @@ enum ProfileStoreError: LocalizedError {
 
 extension AppDataStore {
     func preferredProfileSelection() -> PersonProfile? {
-        if let activePersonProfileID,
-           let active = personProfiles.first(where: { $0.id == activePersonProfileID }) {
-            return active
-        }
+        // Email match first — the logged-in user's own profile always wins.
         if let email = currentAuthEmail?.lowercased(), !email.isEmpty,
            let matched = personProfiles.first(where: { $0.core.email.lowercased() == email }) {
             return matched
+        }
+        if let activePersonProfileID,
+           let active = personProfiles.first(where: { $0.id == activePersonProfileID }) {
+            return active
         }
         if let messengerUserID = messengerCurrentUser?.userID,
            let person = adminPersons.first(where: { $0.linkedMessengerUserID == messengerUserID }),
