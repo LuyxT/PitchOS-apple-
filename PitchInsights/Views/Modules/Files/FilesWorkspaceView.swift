@@ -274,36 +274,49 @@ struct FilesWorkspaceView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(AppTheme.textSecondary)
 
-            List(selection: $viewModel.selectedFolderID) {
-                ForEach(viewModel.visibleFolders(in: dataStore)) { folder in
-                    Label(folder.name, systemImage: folder.name == CloudSystemFolder.trash.rawValue ? "trash" : "folder")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AppTheme.textPrimary)
-                        .tag(Optional(folder.id))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(viewModel.visibleFolders(in: dataStore)) { folder in
+                        HStack(spacing: 8) {
+                            Image(systemName: folder.name == CloudSystemFolder.trash.rawValue ? "trash" : "folder")
+                                .foregroundStyle(AppTheme.primary)
+                                .frame(width: 16)
+                            Text(folder.name)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppTheme.textPrimary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(viewModel.selectedFolderID == folder.id ? AppTheme.primary.opacity(0.16) : Color.clear)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Haptics.trigger(.light)
+                            viewModel.selectFolder(folder.id, store: dataStore)
+                        }
                         .contextMenu {
                             if !folder.isSystemFolder {
                                 Button("Ordner umbenennen") {
                                     Haptics.trigger(.soft)
                                     pendingNewFolderName = folder.name
                                 }
-                                Button("Als aktiver Ordner setzen") {
-                                    Haptics.trigger(.soft)
-                                    viewModel.selectFolder(folder.id, store: dataStore)
-                                }
                             }
                         }
+                    }
                 }
+                .padding(4)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .background(AppTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppTheme.border, lineWidth: 1)
+            )
         }
         .frame(width: 220)
-        .onChange(of: viewModel.selectedFolderID) { _, folderID in
-            Haptics.trigger(.light)
-            viewModel.selectFolder(folderID, store: dataStore)
-        }
     }
 
     @ViewBuilder

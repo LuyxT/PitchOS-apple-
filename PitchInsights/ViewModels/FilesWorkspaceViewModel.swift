@@ -29,7 +29,6 @@ final class FilesWorkspaceViewModel: ObservableObject {
         await store.bootstrapCloudFiles()
         selectedFolderID = store.cloudActiveFolderID ?? store.cloudFolders.first(where: { $0.name == CloudSystemFolder.root.rawValue })?.id
         filter.folderID = selectedFolderID
-        await store.refreshCloudFiles(filter: filter)
     }
 
     func refresh(store: AppDataStore) async {
