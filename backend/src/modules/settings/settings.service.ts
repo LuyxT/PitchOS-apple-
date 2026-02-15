@@ -4,30 +4,76 @@ import { AppError } from '../../middleware/errorHandler';
 
 // ─── DTOs ────────────────────────────────────────────────
 
-interface SessionDTO {
+interface SecuritySessionDTO {
   id: string;
   deviceName: string;
-  lastActiveAt: string;
-  isCurrent: boolean;
+  platformName: string;
+  lastUsedAt: string;
+  ipAddress: string;
+  location: string;
+  isCurrentDevice: boolean;
+}
+
+interface SecurityTokenDTO {
+  id: string;
+  name: string;
+  scope: string;
+  lastUsedAt: string | null;
+  createdAt: string;
 }
 
 interface SecuritySettingsDTO {
   twoFactorEnabled: boolean;
-  activeSessions: SessionDTO[];
+  sessions: SecuritySessionDTO[];
+  apiTokens: SecurityTokenDTO[];
+  privacyURL: string;
 }
 
 interface AppInfoSettingsDTO {
-  appVersion: string;
-  backendVersion: string;
+  version: string;
   buildNumber: string;
-  environment: string;
+  lastUpdateAt: string;
+  updateState: string;
+  changelog: string[];
+}
+
+interface AccountContextDTO {
+  id: string;
+  clubName: string;
+  teamName: string;
+  roleTitle: string;
+  isCurrent: boolean;
 }
 
 interface AccountSettingsDTO {
-  userId: string;
-  email: string;
-  role: string;
-  teamId: string | null;
+  contexts: AccountContextDTO[];
+  selectedContextID: string | null;
+  canDeactivateAccount: boolean;
+  canLeaveTeam: boolean;
+}
+
+interface PresentationSettingsDTO {
+  language: string;
+  region: string;
+  timeZoneID: string;
+  unitSystem: string;
+  appearanceMode: string;
+  contrastMode: string;
+  uiScale: string;
+  reduceAnimations: boolean;
+  interactivePreviews: boolean;
+}
+
+interface NotificationModuleDTO {
+  module: string;
+  push: boolean;
+  inApp: boolean;
+  email: boolean;
+}
+
+interface NotificationSettingsDTO {
+  globalEnabled: boolean;
+  modules: NotificationModuleDTO[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -61,12 +107,70 @@ async function buildSecurityDTO(userId: string, currentTokenId?: string): Promis
 
   return {
     twoFactorEnabled: false,
-    activeSessions: activeSessions.map((session) => ({
+    sessions: activeSessions.map((session) => ({
       id: session.id,
       deviceName: 'Unknown Device',
-      lastActiveAt: session.createdAt.toISOString(),
-      isCurrent: currentTokenId ? session.id === currentTokenId : false,
+      platformName: 'macOS',
+      lastUsedAt: session.createdAt.toISOString(),
+      ipAddress: '',
+      location: '',
+      isCurrentDevice: currentTokenId ? session.id === currentTokenId : false,
     })),
+    apiTokens: [],
+    privacyURL: '',
+  };
+}
+
+function buildPresentationDTO(stored: Record<string, unknown>): PresentationSettingsDTO {
+  return {
+    language: (stored.language as string) ?? 'de',
+    region: (stored.region as string) ?? 'DE',
+    timeZoneID: (stored.timeZoneID as string) ?? 'Europe/Berlin',
+    unitSystem: (stored.unitSystem as string) ?? 'metric',
+    appearanceMode: (stored.appearanceMode as string) ?? 'light',
+    contrastMode: (stored.contrastMode as string) ?? 'standard',
+    uiScale: (stored.uiScale as string) ?? 'medium',
+    reduceAnimations: (stored.reduceAnimations as boolean) ?? false,
+    interactivePreviews: (stored.interactivePreviews as boolean) ?? true,
+  };
+}
+
+function buildNotificationDTO(stored: Record<string, unknown>): NotificationSettingsDTO {
+  return {
+    globalEnabled: (stored.globalEnabled as boolean) ?? true,
+    modules: Array.isArray(stored.modules) ? stored.modules : [],
+  };
+}
+
+function buildAccountDTO(user: {
+  id: string;
+  email: string;
+  role: string;
+  teamId: string | null;
+}, clubName?: string): AccountSettingsDTO {
+  const roleTitleMap: Record<string, string> = {
+    headCoach: 'Chef-Trainer',
+    assistantCoach: 'Co-Trainer',
+    player: 'Spieler',
+    admin: 'Administrator',
+    trainer: 'Trainer',
+  };
+  const roleTitle = roleTitleMap[user.role] ?? user.role;
+  const teamName = user.teamId ?? '1. Mannschaft';
+
+  return {
+    contexts: [
+      {
+        id: user.id,
+        clubName: clubName ?? '',
+        teamName,
+        roleTitle,
+        isCurrent: true,
+      },
+    ],
+    selectedContextID: user.id,
+    canDeactivateAccount: true,
+    canLeaveTeam: user.teamId != null,
   };
 }
 
@@ -79,7 +183,9 @@ export async function getBootstrap(userId: string) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, role: true, teamId: true },
+    include: {
+      club: { select: { name: true } },
+    },
   });
 
   if (!user) {
@@ -87,18 +193,20 @@ export async function getBootstrap(userId: string) {
   }
 
   const security = await buildSecurityDTO(userId);
+  const presentation = buildPresentationDTO(
+    (settings.presentation as Record<string, unknown>) ?? {},
+  );
+  const notifications = buildNotificationDTO(
+    (settings.notifications as Record<string, unknown>) ?? {},
+  );
+  const account = buildAccountDTO(user, user.club?.name ?? '');
 
   return {
-    presentation: settings.presentation as Record<string, unknown>,
-    notifications: settings.notifications as Record<string, unknown>,
+    presentation,
+    notifications,
     security,
     appInfo: getAppInfo(),
-    account: {
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      teamId: user.teamId,
-    },
+    account,
   };
 }
 
@@ -219,10 +327,11 @@ export async function revokeAllSessions(userId: string, currentTokenId?: string)
 
 export function getAppInfo(): AppInfoSettingsDTO {
   return {
-    appVersion: '1.0.0',
-    backendVersion: '1.0.0',
+    version: '1.0.0',
     buildNumber: '1',
-    environment: process.env.NODE_ENV ?? 'production',
+    lastUpdateAt: new Date().toISOString(),
+    updateState: 'current',
+    changelog: [],
   };
 }
 
@@ -277,15 +386,10 @@ export async function switchAccountContext(
   const user = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, email: true, role: true, teamId: true },
+    include: { club: { select: { name: true } } },
   });
 
-  return {
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-    teamId: user.teamId,
-  };
+  return buildAccountDTO(user, user.club?.name ?? '');
 }
 
 export async function deactivateAccount(userId: string) {

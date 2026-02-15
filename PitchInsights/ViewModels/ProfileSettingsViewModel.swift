@@ -21,6 +21,8 @@ final class ProfileSettingsViewModel: ObservableObject {
         contexts = store.settingsAccount.contexts
         selectedContextID = store.settingsAccount.selectedContextID
 
+        print("[ProfileSettings] load: viewer=\(viewer?.displayName ?? "nil") backendID=\(viewer?.backendID ?? "nil") headCoach=\(viewer?.headCoach != nil ? "present" : "nil")")
+
         if let viewer {
             let permissions = viewer.linkedAdminPersonID
                 .flatMap { id in
@@ -31,14 +33,22 @@ final class ProfileSettingsViewModel: ObservableObject {
                 viewerAdminPermissions: permissions,
                 target: viewer
             )
+            print("[ProfileSettings] load: canEditCore=\(permissionSnapshot.canEditCore) canEditResponsibilities=\(permissionSnapshot.canEditResponsibilities)")
         } else {
             permissionSnapshot = .none
+            print("[ProfileSettings] load: no viewer — permissions set to .none")
         }
     }
 
     func save(store: AppDataStore) async {
-        guard var draftProfile else { return }
+        guard var draftProfile else {
+            print("[ProfileSettings] save: draftProfile is nil — aborting")
+            return
+        }
+        print("[ProfileSettings] save: starting for \(draftProfile.displayName) backendID=\(draftProfile.backendID ?? "nil") headCoach=\(draftProfile.headCoach != nil ? "present" : "nil")")
+
         if let emailError = validator.validateProfileEmail(draftProfile.core.email) {
+            print("[ProfileSettings] save: email validation failed — \(emailError)")
             errorMessage = emailError
             statusMessage = nil
             return
@@ -53,9 +63,11 @@ final class ProfileSettingsViewModel: ObservableObject {
             self.draftProfile = saved
             statusMessage = "Profil gespeichert."
             errorMessage = nil
+            print("[ProfileSettings] save: SUCCESS — headCoach=\(saved.headCoach != nil ? "present" : "nil")")
         } catch {
             errorMessage = error.localizedDescription
             statusMessage = nil
+            print("[ProfileSettings] save: FAILED — \(error.localizedDescription)")
         }
     }
 

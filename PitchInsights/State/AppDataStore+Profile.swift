@@ -6,7 +6,11 @@ extension AppDataStore {
         profileConnectionState = .syncing
         do {
             let profileDTOs = try await backend.fetchPersonProfiles()
+            print("[Profile] bootstrapProfiles: fetched \(profileDTOs.count) profiles from backend")
             personProfiles = profileDTOs.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
+            for p in personProfiles {
+                print("[Profile]   — \(p.displayName) backendID=\(p.backendID ?? "nil") email=\(p.core.email) headCoach=\(p.headCoach != nil ? "present" : "nil")")
+            }
             if personProfiles.isEmpty {
                 seedProfilesFromCurrentStateIfNeeded()
                 await ensureCurrentUserProfileExists()
@@ -14,6 +18,7 @@ extension AppDataStore {
             // Always re-evaluate preferred selection (seeding may have added the
             // user profile after activePersonProfileID was already set to a player).
             activePersonProfileID = preferredProfileSelection()?.id
+            print("[Profile] bootstrapProfiles: activePersonProfileID=\(activePersonProfileID?.uuidString ?? "nil") currentAuthEmail=\(currentAuthEmail ?? "nil")")
             profileConnectionState = .live
         } catch {
             if isConnectivityFailure(error) {
@@ -44,9 +49,14 @@ extension AppDataStore {
         let normalized = normalizeProfile(value)
         let previous = personProfiles.first(where: { $0.id == normalized.id })
 
+        print("[Profile] upsertProfile: id=\(normalized.id) backendID=\(normalized.backendID ?? "nil") name=\(normalized.displayName)")
+        print("[Profile] upsertProfile: headCoach=\(normalized.headCoach != nil ? "present" : "nil") roles=\(normalized.core.roles.map(\.rawValue))")
+
         do {
             let request = makeUpsertProfileRequest(normalized)
+            print("[Profile] upsertProfile: sending \(request.id != nil ? "PUT" : "POST") to backend")
             let dto = try await backend.upsertPersonProfile(request)
+            print("[Profile] upsertProfile: backend response backendID=\(dto.id) headCoach=\(dto.headCoach != nil ? "present" : "nil")")
             let mapped = mapPersonProfile(dto, fallback: normalized)
             upsertLocalProfile(mapped)
             applyProfileToLinkedModules(mapped)
@@ -54,6 +64,7 @@ extension AppDataStore {
             profileConnectionState = .live
             return mapped
         } catch {
+            print("[Profile] upsertProfile FAILED: \(error.localizedDescription)")
             profileConnectionState = .failed(error.localizedDescription)
             throw error
         }
