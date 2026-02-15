@@ -50,21 +50,6 @@ struct FilesWorkspaceView: View {
                 await viewModel.refresh(store: dataStore)
             }
         }
-        .onChange(of: viewModel.filter.type) { _, _ in
-            Task {
-                await viewModel.refresh(store: dataStore)
-            }
-        }
-        .onChange(of: viewModel.filter.sortField) { _, _ in
-            Task {
-                await viewModel.refresh(store: dataStore)
-            }
-        }
-        .onChange(of: viewModel.filter.sortDirection) { _, _ in
-            Task {
-                await viewModel.refresh(store: dataStore)
-            }
-        }
         .onChange(of: viewModel.filter.query) { _, _ in
             searchDebounceTask?.cancel()
             searchDebounceTask = Task {
