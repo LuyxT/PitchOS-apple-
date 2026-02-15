@@ -230,6 +230,10 @@ extension AppDataStore {
            let active = personProfiles.first(where: { $0.id == activePersonProfileID }) {
             return active
         }
+        if let email = currentAuthEmail?.lowercased(), !email.isEmpty,
+           let matched = personProfiles.first(where: { $0.core.email.lowercased() == email }) {
+            return matched
+        }
         if let messengerUserID = messengerCurrentUser?.userID,
            let person = adminPersons.first(where: { $0.linkedMessengerUserID == messengerUserID }),
            let linked = personProfiles.first(where: { $0.linkedAdminPersonID == person.id }) {

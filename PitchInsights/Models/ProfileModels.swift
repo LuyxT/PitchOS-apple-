@@ -44,7 +44,7 @@ enum ProfileRoleType: String, CaseIterable, Identifiable, Codable, Hashable {
         case .player:
             return "figure.soccer"
         case .headCoach:
-            return "person.crop.square.badge.checkmark"
+            return "person.crop.circle.badge.checkmark"
         case .assistantCoach:
             return "person.2.badge.gearshape"
         case .coachingStaff:

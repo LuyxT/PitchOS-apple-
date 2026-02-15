@@ -71,6 +71,8 @@ final class AppDataStore: ObservableObject {
 
     @Published var backendConnectionState: BackendConnectionState = .syncing
 
+    var currentAuthEmail: String?
+
     @Published var profile: CoachProfile = CoachProfile(
         name: "",
         license: "",

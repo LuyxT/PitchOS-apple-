@@ -81,6 +81,7 @@ struct PitchInsightsApp: App {
         }
         await session.bootstrap(using: dataStore.backend)
         if session.phase == .ready {
+            dataStore.currentAuthEmail = session.authUser?.email
             await dataStore.refreshFromBackend()
         }
         launchState = .ready
