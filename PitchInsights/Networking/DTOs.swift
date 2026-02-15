@@ -117,6 +117,7 @@ struct UpsertPersonProfileRequest: Encodable {
     let id: String?
     let linkedPlayerID: UUID?
     let linkedAdminPersonID: UUID?
+    let displayName: String?
     let core: ProfileCoreDTO
     let player: PlayerRoleProfileDTO?
     let headCoach: HeadCoachProfileDTO?
@@ -127,6 +128,7 @@ struct UpsertPersonProfileRequest: Encodable {
     let board: BoardProfileDTO?
     let facility: FacilityProfileDTO?
     let lockedFieldKeys: [String]
+    let updatedBy: String?
 }
 
 struct ProfileAuditEntryDTO: Codable {

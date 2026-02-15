@@ -9,7 +9,7 @@ extension AppDataStore {
             personProfiles = profileDTOs.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
             if personProfiles.isEmpty {
                 seedProfilesFromCurrentStateIfNeeded()
-                ensureCurrentUserProfileExists()
+                await ensureCurrentUserProfileExists()
             }
             // Always re-evaluate preferred selection (seeding may have added the
             // user profile after activePersonProfileID was already set to a player).
@@ -21,7 +21,7 @@ extension AppDataStore {
             } else {
                 print("[client] bootstrapProfiles: endpoint not available — \(error.localizedDescription)")
                 seedProfilesFromCurrentStateIfNeeded()
-                ensureCurrentUserProfileExists()
+                await ensureCurrentUserProfileExists()
                 activePersonProfileID = preferredProfileSelection()?.id
                 profileConnectionState = .live
             }
@@ -219,7 +219,7 @@ extension AppDataStore {
         syncLegacyCoachProfileFromProfiles()
     }
 
-    func ensureCurrentUserProfileExists() {
+    func ensureCurrentUserProfileExists() async {
         guard let email = currentAuthEmail?.lowercased(), !email.isEmpty else { return }
         guard !personProfiles.contains(where: { $0.core.email.lowercased() == email }) else { return }
 
@@ -234,7 +234,7 @@ extension AppDataStore {
             lastName = ""
         }
 
-        let userProfile = PersonProfile(
+        var userProfile = PersonProfile(
             core: ProfileCoreData(
                 avatarPath: nil,
                 firstName: firstName,
@@ -250,6 +250,16 @@ extension AppDataStore {
             headCoach: defaultHeadCoachData(),
             updatedBy: "System"
         )
+
+        // Persist to backend immediately so the profile survives app restarts.
+        do {
+            let request = makeUpsertProfileRequest(userProfile)
+            let dto = try await backend.upsertPersonProfile(request)
+            userProfile = mapPersonProfile(dto, fallback: userProfile)
+        } catch {
+            print("[client] ensureCurrentUserProfileExists: backend save failed — \(error.localizedDescription)")
+        }
+
         personProfiles.append(userProfile)
         personProfiles.sort { $0.displayName < $1.displayName }
     }
@@ -717,6 +727,7 @@ extension AppDataStore {
             id: profile.backendID,
             linkedPlayerID: profile.linkedPlayerID,
             linkedAdminPersonID: profile.linkedAdminPersonID,
+            displayName: profile.displayName,
             core: ProfileCoreDTO(
                 avatarPath: profile.core.avatarPath,
                 firstName: profile.core.firstName,
@@ -812,7 +823,8 @@ extension AppDataStore {
                     availability: $0.availability
                 )
             },
-            lockedFieldKeys: Array(profile.lockedFieldKeys)
+            lockedFieldKeys: Array(profile.lockedFieldKeys),
+            updatedBy: profile.updatedBy
         )
     }
 
