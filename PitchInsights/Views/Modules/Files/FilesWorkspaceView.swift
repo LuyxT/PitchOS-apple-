@@ -11,7 +11,6 @@ struct FilesWorkspaceView: View {
     @State private var pendingNewFolderName = ""
     @State private var pendingRename = ""
     @State private var pendingTags = ""
-    @State private var searchDebounceTask: Task<Void, Never>?
 
     private var selectedFile: CloudFile? {
         guard let id = viewModel.selectedFileID else { return nil }
@@ -43,18 +42,6 @@ struct FilesWorkspaceView: View {
             Task {
                 await viewModel.bootstrapIfNeeded(store: dataStore)
                 await dataStore.refreshCloudCleanupSuggestions()
-            }
-        }
-        .onChange(of: viewModel.filter.status) { _, _ in
-            Task {
-                await viewModel.refresh(store: dataStore)
-            }
-        }
-        .onChange(of: viewModel.filter.query) { _, _ in
-            searchDebounceTask?.cancel()
-            searchDebounceTask = Task {
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                await viewModel.refresh(store: dataStore)
             }
         }
     }
@@ -316,7 +303,6 @@ struct FilesWorkspaceView: View {
         .onChange(of: viewModel.selectedFolderID) { _, folderID in
             Haptics.trigger(.light)
             viewModel.selectFolder(folderID, store: dataStore)
-            Task { await viewModel.refresh(store: dataStore) }
         }
     }
 
