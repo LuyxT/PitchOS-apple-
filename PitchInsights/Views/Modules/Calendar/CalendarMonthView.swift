@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CalendarMonthView: View {
     @EnvironmentObject private var dataStore: AppDataStore
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject var viewModel: CalendarViewModel
     let events: [CalendarEvent]
     let categories: [CalendarCategory]
@@ -230,7 +229,7 @@ struct CalendarMonthView: View {
 
     private var isCompactPhoneLayout: Bool {
         #if os(iOS)
-        horizontalSizeClass == .compact
+        UIDevice.current.userInterfaceIdiom == .phone
         #else
         false
         #endif

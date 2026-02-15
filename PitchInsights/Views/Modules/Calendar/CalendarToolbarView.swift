@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct CalendarToolbarView: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject var viewModel: CalendarViewModel
     let onCreate: () -> Void
 
@@ -108,7 +107,7 @@ struct CalendarToolbarView: View {
 
     private var isCompactPhoneLayout: Bool {
         #if os(iOS)
-        horizontalSizeClass == .compact
+        UIDevice.current.userInterfaceIdiom == .phone
         #else
         false
         #endif

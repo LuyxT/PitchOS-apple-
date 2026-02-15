@@ -13,39 +13,15 @@ struct CalendarView: View {
 
             Divider()
 
-            Group {
-                switch viewModel.viewMode {
-                case .day:
-                    CalendarDayView(
-                        viewModel: viewModel,
-                        events: dataStore.calendarEvents,
-                        categories: dataStore.calendarCategories,
-                        hoverSlot: $hoverSlot
-                    )
-                case .week:
-                    CalendarWeekView(
-                        viewModel: viewModel,
-                        events: dataStore.calendarEvents,
-                        categories: dataStore.calendarCategories,
-                        hoverSlot: $hoverSlot
-                    )
-                case .month:
-                    CalendarMonthView(
-                        viewModel: viewModel,
-                        events: dataStore.calendarEvents,
-                        categories: dataStore.calendarCategories,
-                        hoverSlot: $hoverSlot
-                    )
-                case .year:
-                    CalendarYearView(
-                        viewModel: viewModel,
-                        events: dataStore.calendarEvents,
-                        categories: dataStore.calendarCategories
-                    )
-                }
+            if isPhoneLayout {
+                calendarContent
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .background(AppTheme.surface)
+            } else {
+                calendarContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.surface)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppTheme.surface)
         }
         .background(AppTheme.surface)
         .popover(isPresented: $viewModel.isPresentingPopover, arrowEdge: .top) {
@@ -89,6 +65,47 @@ struct CalendarView: View {
                 viewModel.selectedEventID = nil
             }
         }
+        #endif
+    }
+
+    @ViewBuilder
+    private var calendarContent: some View {
+        switch viewModel.viewMode {
+        case .day:
+            CalendarDayView(
+                viewModel: viewModel,
+                events: dataStore.calendarEvents,
+                categories: dataStore.calendarCategories,
+                hoverSlot: $hoverSlot
+            )
+        case .week:
+            CalendarWeekView(
+                viewModel: viewModel,
+                events: dataStore.calendarEvents,
+                categories: dataStore.calendarCategories,
+                hoverSlot: $hoverSlot
+            )
+        case .month:
+            CalendarMonthView(
+                viewModel: viewModel,
+                events: dataStore.calendarEvents,
+                categories: dataStore.calendarCategories,
+                hoverSlot: $hoverSlot
+            )
+        case .year:
+            CalendarYearView(
+                viewModel: viewModel,
+                events: dataStore.calendarEvents,
+                categories: dataStore.calendarCategories
+            )
+        }
+    }
+
+    private var isPhoneLayout: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
         #endif
     }
 }
