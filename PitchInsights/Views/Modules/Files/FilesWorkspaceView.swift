@@ -242,6 +242,25 @@ struct FilesWorkspaceView: View {
 
     private var content: some View {
         GeometryReader { proxy in
+            #if os(iOS)
+            if proxy.size.width < 980 {
+                VStack(spacing: 10) {
+                    filesTable
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    ScrollView {
+                        detailsColumn
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    .frame(height: 250)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    filesTable
+                    detailsColumn
+                }
+            }
+            #else
             if proxy.size.width < 1180 {
                 VStack(spacing: 10) {
                     folderColumn
@@ -264,6 +283,7 @@ struct FilesWorkspaceView: View {
                     detailsColumn
                 }
             }
+            #endif
         }
         .padding(12)
     }
