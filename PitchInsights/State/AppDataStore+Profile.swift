@@ -11,11 +11,9 @@ extension AppDataStore {
                 seedProfilesFromCurrentStateIfNeeded()
                 ensureCurrentUserProfileExists()
             }
-            if let selected = activePersonProfileID, !personProfiles.contains(where: { $0.id == selected }) {
-                activePersonProfileID = personProfiles.first?.id
-            } else if activePersonProfileID == nil {
-                activePersonProfileID = preferredProfileSelection()?.id
-            }
+            // Always re-evaluate preferred selection (seeding may have added the
+            // user profile after activePersonProfileID was already set to a player).
+            activePersonProfileID = preferredProfileSelection()?.id
             profileConnectionState = .live
         } catch {
             if isConnectivityFailure(error) {
@@ -24,6 +22,7 @@ extension AppDataStore {
                 print("[client] bootstrapProfiles: endpoint not available — \(error.localizedDescription)")
                 seedProfilesFromCurrentStateIfNeeded()
                 ensureCurrentUserProfileExists()
+                activePersonProfileID = preferredProfileSelection()?.id
                 profileConnectionState = .live
             }
         }

@@ -348,6 +348,10 @@ final class AppDataStore: ObservableObject {
         }
         if let profilesDTO {
             personProfiles = profilesDTO.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
+            if personProfiles.isEmpty {
+                seedProfilesFromCurrentStateIfNeeded()
+                ensureCurrentUserProfileExists()
+            }
             activePersonProfileID = preferredProfileSelection()?.id
             if let profileAuditDTO {
                 profileAuditEntries = profileAuditDTO.map(mapProfileAuditEntry(_:))
