@@ -230,6 +230,11 @@ extension AppDataStore {
            let active = personProfiles.first(where: { $0.id == activePersonProfileID }) {
             return active
         }
+        if let messengerUserID = messengerCurrentUser?.userID,
+           let person = adminPersons.first(where: { $0.linkedMessengerUserID == messengerUserID }),
+           let linked = personProfiles.first(where: { $0.linkedAdminPersonID == person.id }) {
+            return linked
+        }
         if let headCoach = personProfiles.first(where: { $0.core.roles.contains(.headCoach) }) {
             return headCoach
         }
