@@ -13,56 +13,71 @@ struct CalendarWeekView: View {
         let weekStart = viewModel.startOfWeek(for: viewModel.focusDate)
         let days = (0..<7).compactMap { viewModel.calendar.date(byAdding: .day, value: $0, to: weekStart) }
 
-        VStack(spacing: 0) {
-            headerRow(days: days)
+        Group {
+            if isPhoneLayout {
+                VStack(spacing: 0) {
+                    phoneDaySelector(days: days)
+                    Divider()
+                    CalendarDayView(
+                        viewModel: viewModel,
+                        events: events,
+                        categories: categories,
+                        hoverSlot: $hoverSlot
+                    )
+                }
+            } else {
+                VStack(spacing: 0) {
+                    headerRow(days: days)
 
-            ScrollView {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(spacing: 0) {
-                        ForEach(0..<24, id: \.self) { hour in
-                            Text(String(format: "%02d:00", hour))
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(AppTheme.textSecondary)
-                                .frame(width: 54, height: hourRowHeight, alignment: .topLeading)
-                                .padding(.top, 6)
-                        }
-                    }
-
-                    GeometryReader { proxy in
-                        let columnWidth = proxy.size.width / CGFloat(days.count)
-                        ZStack(alignment: .topLeading) {
+                    ScrollView {
+                        HStack(alignment: .top, spacing: 12) {
                             VStack(spacing: 0) {
                                 ForEach(0..<24, id: \.self) { hour in
-                                    weekGridRow(hour: hour, days: days)
+                                    Text(String(format: "%02d:00", hour))
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(AppTheme.textSecondary)
+                                        .frame(width: 54, height: hourRowHeight, alignment: .topLeading)
+                                        .padding(.top, 6)
                                 }
                             }
 
-                            ForEach(eventsForWeek(days: days)) { event in
-                                if let dayIndex = dayIndex(for: event.startDate, days: days) {
-                                    CalendarEventBlock(
-                                        event: event,
-                                        category: categories.first(where: { $0.id == event.categoryID }),
-                                        isSelected: viewModel.selectedEventID == event.id,
-                                        onSelect: { viewModel.selectedEventID = event.id },
-                                        onEdit: { viewModel.beginEdit(event: event) },
-                                        onDuplicate: {
-                                            Task { await dataStore.duplicateCalendarEvent(event) }
-                                        },
-                                        onDelete: {
-                                            Task { await dataStore.deleteCalendarEvent(id: event.id) }
+                            GeometryReader { proxy in
+                                let columnWidth = proxy.size.width / CGFloat(days.count)
+                                ZStack(alignment: .topLeading) {
+                                    VStack(spacing: 0) {
+                                        ForEach(0..<24, id: \.self) { hour in
+                                            weekGridRow(hour: hour, days: days)
                                         }
-                                    )
-                                    .frame(width: columnWidth - 10, height: eventHeight(for: event))
-                                    .offset(x: CGFloat(dayIndex) * columnWidth + 5, y: eventOffset(for: event))
+                                    }
+
+                                    ForEach(eventsForWeek(days: days)) { event in
+                                        if let dayIndex = dayIndex(for: event.startDate, days: days) {
+                                            CalendarEventBlock(
+                                                event: event,
+                                                category: categories.first(where: { $0.id == event.categoryID }),
+                                                isSelected: viewModel.selectedEventID == event.id,
+                                                onSelect: { viewModel.selectedEventID = event.id },
+                                                onEdit: { viewModel.beginEdit(event: event) },
+                                                onDuplicate: {
+                                                    Task { await dataStore.duplicateCalendarEvent(event) }
+                                                },
+                                                onDelete: {
+                                                    Task { await dataStore.deleteCalendarEvent(id: event.id) }
+                                                }
+                                            )
+                                            .frame(width: columnWidth - 10, height: eventHeight(for: event))
+                                            .offset(x: CGFloat(dayIndex) * columnWidth + 5, y: eventOffset(for: event))
+                                        }
+                                    }
                                 }
+                                .frame(height: hourRowHeight * 24)
                             }
+                            .frame(height: hourRowHeight * 24)
                         }
-                        .frame(height: hourRowHeight * 24)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
-                    .frame(height: hourRowHeight * 24)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
             }
         }
         .background(AppTheme.surface)
@@ -143,5 +158,49 @@ struct CalendarWeekView: View {
         let minutes = max(15, viewModel.calendar.dateComponents([.minute], from: event.startDate, to: event.endDate).minute ?? 0)
         let minuteHeight = hourRowHeight / 60
         return CGFloat(minutes) * minuteHeight
+    }
+
+    private func phoneDaySelector(days: [Date]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(days, id: \.self) { day in
+                    let isSelected = viewModel.calendar.isDate(day, inSameDayAs: viewModel.focusDate)
+                    Button {
+                        Haptics.trigger(.light)
+                        viewModel.focusDate = day
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(day, format: .dateTime.weekday(.abbreviated))
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(day, format: .dateTime.day())
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .foregroundStyle(isSelected ? AppTheme.primaryDark : AppTheme.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(isSelected ? AppTheme.primary.opacity(0.18) : AppTheme.surfaceAlt)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(isSelected ? AppTheme.primary.opacity(0.5) : AppTheme.border, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .background(AppTheme.surfaceAlt)
+    }
+
+    private var isPhoneLayout: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
     }
 }
