@@ -256,11 +256,8 @@ private struct PhoneModuleTabView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                ModuleRegistry.makeView(for: module)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            .background(AppTheme.background)
+            AdaptiveModuleViewport(module: module, profile: .iphoneMobile)
+                .background(AppTheme.background)
             .navigationTitle(ModuleRegistry.definition(for: module).title)
         }
     }

@@ -19,6 +19,7 @@ struct IPadRootView: View {
                     .tag(module)
             }
             .navigationTitle("Module")
+            .navigationSplitViewColumnWidth(min: 170, ideal: 200, max: 230)
         } detail: {
             ZStack {
                 AppTheme.background.ignoresSafeArea()
@@ -113,28 +114,8 @@ private struct IPadModuleHostView: View {
         ModuleRegistry.definition(for: module).title
     }
 
-    private var preferredSize: CGSize {
-        ModuleRegistry.definition(for: module).windowPreferredSize
-    }
-
     var body: some View {
-        GeometryReader { proxy in
-            let availableWidth = max(360, proxy.size.width - 24)
-            let availableHeight = max(420, proxy.size.height - 24)
-            let needsHorizontalScroll = preferredSize.width > availableWidth * 1.08
-
-            ScrollView(needsHorizontalScroll ? [.horizontal, .vertical] : [.vertical]) {
-                ModuleRegistry.makeView(for: module)
-                    .frame(
-                        minWidth: availableWidth,
-                        minHeight: availableHeight,
-                        alignment: .topLeading
-                    )
-                    .padding(12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            }
-            .scrollIndicators(.visible)
-        }
+        AdaptiveModuleViewport(module: module, profile: .ipadTablet)
         .background(AppTheme.background)
         .navigationTitle(title)
     }
