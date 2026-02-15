@@ -3,6 +3,8 @@ import Foundation
 struct AuthUserDTO: Codable {
     let id: String
     let email: String
+    let firstName: String?
+    let lastName: String?
     let role: String?
     let clubId: String?
     let teamId: String?
@@ -12,6 +14,8 @@ struct AuthUserDTO: Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case email
+        case firstName
+        case lastName
         case role
         case clubId
         case teamId
@@ -22,6 +26,8 @@ struct AuthUserDTO: Codable {
     init(
         id: String,
         email: String,
+        firstName: String? = nil,
+        lastName: String? = nil,
         role: String?,
         clubId: String?,
         teamId: String?,
@@ -30,6 +36,8 @@ struct AuthUserDTO: Codable {
     ) {
         self.id = id
         self.email = email
+        self.firstName = firstName
+        self.lastName = lastName
         self.role = role
         self.clubId = clubId
         self.teamId = teamId
@@ -41,6 +49,8 @@ struct AuthUserDTO: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         email = try container.decode(String.self, forKey: .email)
+        firstName = try? container.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try? container.decodeIfPresent(String.self, forKey: .lastName)
         role = try? container.decodeIfPresent(String.self, forKey: .role)
         let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
         let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)

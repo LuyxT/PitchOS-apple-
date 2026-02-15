@@ -83,6 +83,8 @@ final class AppSessionStore: ObservableObject {
         authUser = AuthUserDTO(
             id: me.id,
             email: me.email,
+            firstName: me.firstName,
+            lastName: me.lastName,
             role: me.role,
             clubId: me.clubId,
             teamId: me.teamId,

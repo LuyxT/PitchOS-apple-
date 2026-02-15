@@ -469,6 +469,8 @@ struct ShareAnalysisClipResponse: Decodable {
 struct AuthMeDTO: Decodable {
     let id: String
     let email: String
+    let firstName: String?
+    let lastName: String?
     let role: String?
     let clubId: String?
     let teamId: String?
@@ -482,6 +484,8 @@ struct AuthMeDTO: Decodable {
     enum CodingKeys: String, CodingKey {
         case id
         case email
+        case firstName
+        case lastName
         case role
         case clubId
         case teamId
@@ -497,6 +501,8 @@ struct AuthMeDTO: Decodable {
     private struct NestedUser: Decodable {
         let id: String
         let email: String
+        let firstName: String?
+        let lastName: String?
         let role: String?
         let clubId: String?
         let teamId: String?
@@ -509,6 +515,8 @@ struct AuthMeDTO: Decodable {
         if let nestedUser = try? container.decode(NestedUser.self, forKey: .user) {
             id = nestedUser.id
             email = nestedUser.email
+            firstName = nestedUser.firstName
+            lastName = nestedUser.lastName
             role = nestedUser.role
             let directClub = nestedUser.clubId
             let org = nestedUser.organizationId
@@ -519,6 +527,8 @@ struct AuthMeDTO: Decodable {
         } else {
             id = try container.decode(String.self, forKey: .id)
             email = try container.decode(String.self, forKey: .email)
+            firstName = try? container.decodeIfPresent(String.self, forKey: .firstName)
+            lastName = try? container.decodeIfPresent(String.self, forKey: .lastName)
             role = try? container.decodeIfPresent(String.self, forKey: .role)
             let directClub = try? container.decodeIfPresent(String.self, forKey: .clubId)
             let org = try? container.decodeIfPresent(String.self, forKey: .organizationId)

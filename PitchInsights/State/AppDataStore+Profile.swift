@@ -218,14 +218,22 @@ extension AppDataStore {
         guard let email = currentAuthEmail?.lowercased(), !email.isEmpty else { return }
         guard !personProfiles.contains(where: { $0.core.email.lowercased() == email }) else { return }
 
-        let emailUser = email.components(separatedBy: "@").first ?? ""
-        let firstName = emailUser.prefix(1).uppercased() + emailUser.dropFirst()
+        let firstName: String
+        let lastName: String
+        if let fn = currentAuthFirstName, !fn.isEmpty {
+            firstName = fn
+            lastName = currentAuthLastName ?? ""
+        } else {
+            let emailUser = email.components(separatedBy: "@").first ?? ""
+            firstName = emailUser.prefix(1).uppercased() + emailUser.dropFirst()
+            lastName = ""
+        }
 
         let userProfile = PersonProfile(
             core: ProfileCoreData(
                 avatarPath: nil,
                 firstName: firstName,
-                lastName: "",
+                lastName: lastName,
                 dateOfBirth: nil,
                 email: email,
                 phone: nil,
