@@ -1016,25 +1016,16 @@ extension AppDataStore {
     }
 
     private func buildMessengerDirectoryFromPlayers() {
-        var directory: [MessengerParticipant] = players.map { player in
-            MessengerParticipant(
-                backendUserID: "player.\(player.id.uuidString.lowercased())",
-                displayName: player.name,
-                role: .player,
-                playerID: player.id,
-                canWrite: true
-            )
-        }
+        var directory: [MessengerParticipant] = []
         if let me = messengerCurrentUser {
-            directory.insert(
+            directory.append(
                 MessengerParticipant(
                     backendUserID: me.userID,
                     displayName: me.displayName,
                     role: me.role,
                     playerID: nil,
                     canWrite: true
-                ),
-                at: 0
+                )
             )
         }
         messengerUserDirectory = directory
