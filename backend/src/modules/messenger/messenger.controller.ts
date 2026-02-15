@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { AppError } from '../../middleware/errorHandler';
 import * as svc from './messenger.service';
+import { messengerHub } from './messenger.ws';
 
 // ─── Helper ───────────────────────────────────────────
 
@@ -119,6 +120,10 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     attachmentID,
     clipReference,
   });
+
+  // Broadcast to all connected chat participants
+  messengerHub.broadcastMessageCreated(chatId, message).catch(() => {});
+
   res.status(201).json(message);
 }
 
@@ -127,6 +132,10 @@ export async function deleteMessage(req: Request, res: Response): Promise<void> 
   const { chatId, messageId } = req.params;
 
   await svc.deleteMessage(chatId, messageId, userId);
+
+  // Broadcast deletion to all connected chat participants
+  messengerHub.broadcastMessageDeleted(chatId, messageId).catch(() => {});
+
   res.status(200).json({ success: true });
 }
 
@@ -192,5 +201,16 @@ export async function getMediaDownload(req: Request, res: Response): Promise<voi
   const { mediaId } = req.params;
 
   const result = svc.getMediaDownload(mediaId);
+  res.status(200).json(result);
+}
+
+// ─── Realtime token ──────────────────────────────────
+
+export async function realtimeToken(req: Request, res: Response): Promise<void> {
+  const userId = requireAuth(req);
+  const auth = req.auth!;
+  const secret = req.app.locals.env.JWT_ACCESS_SECRET as string;
+
+  const result = messengerHub.generateRealtimeToken(userId, auth.email, auth.role, secret);
   res.status(200).json(result);
 }

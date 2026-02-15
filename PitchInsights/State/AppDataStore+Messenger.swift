@@ -68,7 +68,7 @@ extension AppDataStore {
             mergeChats(mapped, reset: cursor == nil, archived: includeArchived)
             messengerChatNextCursor = page.nextCursor
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] loadChats error: \(error.localizedDescription)")
         }
     }
 
@@ -88,7 +88,7 @@ extension AppDataStore {
             mergeMessages(mapped, chatID: chatID, reset: before == nil && cursor == nil)
             messengerMessageNextCursorByChat[chatID] = page.nextCursor
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] loadMessages error: \(error.localizedDescription)")
         }
     }
 
@@ -136,7 +136,7 @@ extension AppDataStore {
             let dto = try await messengerSyncService.updateChat(chatID: chat.backendChatID, pinned: newValue)
             upsertChat(mapMessengerChat(dto: dto))
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] pinChat error: \(error.localizedDescription)")
         }
     }
 
@@ -150,7 +150,7 @@ extension AppDataStore {
             let dto = try await messengerSyncService.updateChat(chatID: chat.backendChatID, muted: newValue)
             upsertChat(mapMessengerChat(dto: dto))
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] muteChat error: \(error.localizedDescription)")
         }
     }
 
@@ -178,7 +178,7 @@ extension AppDataStore {
             }
             upsertChat(mapMessengerChat(dto: dto))
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] archiveChat error: \(error.localizedDescription)")
         }
     }
 
@@ -262,7 +262,7 @@ extension AppDataStore {
             )
             await processMessengerOutboxQueue()
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] sendMedia error: \(error.localizedDescription)")
         }
     }
 
@@ -374,7 +374,7 @@ extension AppDataStore {
         do {
             try await messengerSyncService.markRead(chatID: chat.backendChatID, lastReadMessageID: backendMessageID)
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] markChatRead error: \(error.localizedDescription)")
         }
     }
 
@@ -407,7 +407,7 @@ extension AppDataStore {
             }
             messengerSearchResults = mergeSearch(local: local, remote: mapped)
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] searchMessenger error: \(error.localizedDescription)")
         }
     }
 
@@ -441,7 +441,7 @@ extension AppDataStore {
         do {
             try await messengerSyncService.deleteMessage(chatID: chat.backendChatID, messageID: backendMessageID)
         } catch {
-            messengerConnectionState = .failed(error.localizedDescription)
+            print("[client] deleteMessage error: \(error.localizedDescription)")
         }
     }
 

@@ -514,7 +514,7 @@ final class BackendRepository {
     }
 
     func fetchMessengerRealtimeToken() async throws -> MessengerRealtimeTokenResponse {
-        throw unsupportedFeature("Realtime messaging is not available on this backend.")
+        try await sendAuthorized(.get("/messages/realtime/token"))
     }
 
     func fetchFeedback() async throws -> [FeedbackEntryDTO] {

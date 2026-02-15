@@ -34,5 +34,8 @@ export function messengerRoutes(jwtAccessSecret: string): Router {
   router.post('/media/:mediaId/complete', authenticate(jwtAccessSecret), asyncHandler(ctrl.completeMediaUpload));
   router.get('/media/:mediaId/download', authenticate(jwtAccessSecret), asyncHandler(ctrl.getMediaDownload));
 
+  // Realtime
+  router.get('/realtime/token', authenticate(jwtAccessSecret), asyncHandler(ctrl.realtimeToken));
+
   return router;
 }

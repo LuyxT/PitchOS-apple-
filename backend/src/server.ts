@@ -2,6 +2,7 @@ import { loadEnv } from './config/env';
 import { logger } from './config/logger';
 import { connectDatabase, disconnectDatabase } from './lib/prisma';
 import { createApp } from './app';
+import { messengerHub } from './modules/messenger/messenger.ws';
 
 // ── Global error handlers ──────────────────────────────────
 
@@ -51,7 +52,11 @@ async function bootstrap() {
     });
   });
 
-  // 5. Graceful shutdown
+  // 5. Attach WebSocket handler for messenger realtime
+  messengerHub.attach(server, env.JWT_ACCESS_SECRET);
+  logger.info('Messenger WebSocket handler attached');
+
+  // 6. Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info('Shutdown signal received', { signal });
 
