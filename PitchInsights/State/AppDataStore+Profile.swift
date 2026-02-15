@@ -9,6 +9,7 @@ extension AppDataStore {
             personProfiles = profileDTOs.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
             if personProfiles.isEmpty {
                 seedProfilesFromCurrentStateIfNeeded()
+                ensureCurrentUserProfileExists()
             }
             if let selected = activePersonProfileID, !personProfiles.contains(where: { $0.id == selected }) {
                 activePersonProfileID = personProfiles.first?.id
@@ -22,6 +23,7 @@ extension AppDataStore {
             } else {
                 print("[client] bootstrapProfiles: endpoint not available — \(error.localizedDescription)")
                 seedProfilesFromCurrentStateIfNeeded()
+                ensureCurrentUserProfileExists()
                 profileConnectionState = .live
             }
         }
@@ -210,6 +212,33 @@ extension AppDataStore {
             activePersonProfileID = preferredProfileSelection()?.id
         }
         syncLegacyCoachProfileFromProfiles()
+    }
+
+    func ensureCurrentUserProfileExists() {
+        guard let email = currentAuthEmail?.lowercased(), !email.isEmpty else { return }
+        guard !personProfiles.contains(where: { $0.core.email.lowercased() == email }) else { return }
+
+        let emailUser = email.components(separatedBy: "@").first ?? ""
+        let firstName = emailUser.prefix(1).uppercased() + emailUser.dropFirst()
+
+        let userProfile = PersonProfile(
+            core: ProfileCoreData(
+                avatarPath: nil,
+                firstName: firstName,
+                lastName: "",
+                dateOfBirth: nil,
+                email: email,
+                phone: nil,
+                clubName: profile.team,
+                roles: [.headCoach],
+                isActive: true,
+                internalNotes: ""
+            ),
+            headCoach: defaultHeadCoachData(),
+            updatedBy: "System"
+        )
+        personProfiles.append(userProfile)
+        personProfiles.sort { $0.displayName < $1.displayName }
     }
 }
 
