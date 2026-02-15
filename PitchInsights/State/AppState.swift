@@ -36,6 +36,16 @@ final class AppState: ObservableObject {
     func setActive(_ module: Module) {
         guard ModuleRegistry.isEnabled(module) else { return }
         activeModule = module
+        MotionEngine.shared.emit(
+            .navigation,
+            payload: MotionPayload(
+                title: "Modul geöffnet",
+                subtitle: module.title,
+                iconName: module.iconName,
+                severity: .info,
+                scope: module.motionScope
+            )
+        )
     }
 
     func addToDesktop(_ module: Module) {
@@ -168,6 +178,16 @@ final class AppState: ObservableObject {
             floatingWindows.append(window)
         }
         activeModule = module
+        MotionEngine.shared.emit(
+            .navigation,
+            payload: MotionPayload(
+                title: "Fenster geöffnet",
+                subtitle: module.title,
+                iconName: module.iconName,
+                severity: .info,
+                scope: module.motionScope
+            )
+        )
     }
 
     func openFolderWindow(_ folderId: UUID) {

@@ -37,9 +37,11 @@ extension AppDataStore {
         } catch {
             if isConnectivityFailure(error) {
                 trainingConnectionState = .failed(error.localizedDescription)
+                motionError(error, scope: .trainingsplan, title: "Trainingsplanung offline")
             } else {
                 print("[client] bootstrapTrainingsplanung: endpoint not available — \(error.localizedDescription)")
                 trainingConnectionState = .live
+                motionError(error, scope: .trainingsplan, title: "Trainingsplanung konnte nicht geladen werden")
             }
         }
     }
@@ -53,27 +55,48 @@ extension AppDataStore {
             throw TrainingStoreError.invalidTitle
         }
 
-        let dto = try await backend.createTrainingPlan(
-            CreateTrainingPlanRequest(
-                title: trimmed,
-                date: draft.date,
-                location: draft.location,
-                mainGoal: draft.mainGoal,
-                secondaryGoals: draft.secondaryGoals,
-                linkedMatchID: draft.linkedMatchID
-            )
+        motionProgress(
+            "Training wird erstellt",
+            subtitle: trimmed,
+            progress: nil,
+            scope: .trainingsplan
         )
 
-        let localPlan = mapTrainingPlan(dto: dto)
-        upsertTrainingPlan(localPlan)
+        do {
+            let dto = try await backend.createTrainingPlan(
+                CreateTrainingPlanRequest(
+                    title: trimmed,
+                    date: draft.date,
+                    location: draft.location,
+                    mainGoal: draft.mainGoal,
+                    secondaryGoals: draft.secondaryGoals,
+                    linkedMatchID: draft.linkedMatchID
+                )
+            )
 
-        let defaultPhases = TrainingPhase.defaults(planID: localPlan.id)
-        _ = try await savePhases(planID: localPlan.id, phases: defaultPhases)
+            let localPlan = mapTrainingPlan(dto: dto)
+            upsertTrainingPlan(localPlan)
 
-        activeTrainingPlanID = localPlan.id
-        try await loadTrainingPlanDetails(backendPlanID: dto.id)
-        upsertTrainingPlanCloudFileReference(localPlan)
-        return localPlan
+            let defaultPhases = TrainingPhase.defaults(planID: localPlan.id)
+            _ = try await savePhases(planID: localPlan.id, phases: defaultPhases)
+
+            activeTrainingPlanID = localPlan.id
+            try await loadTrainingPlanDetails(backendPlanID: dto.id)
+            upsertTrainingPlanCloudFileReference(localPlan)
+            motionClearProgress()
+            motionCreate(
+                "Training erstellt",
+                subtitle: localPlan.title,
+                scope: .trainingsplan,
+                contextId: localPlan.id.uuidString,
+                icon: "figure.soccer"
+            )
+            return localPlan
+        } catch {
+            motionClearProgress()
+            motionError(error, scope: .trainingsplan, title: "Training konnte nicht erstellt werden")
+            throw error
+        }
     }
 
     func updateTrainingPlan(_ plan: TrainingPlan) async throws -> TrainingPlan {
@@ -84,23 +107,35 @@ extension AppDataStore {
             throw AnalysisStoreError.backendIdentifierMissing
         }
 
-        let dto = try await backend.updateTrainingPlan(
-            planID: backendID,
-            request: UpdateTrainingPlanRequest(
-                title: plan.title,
-                date: plan.date,
-                location: plan.location,
-                mainGoal: plan.mainGoal,
-                secondaryGoals: plan.secondaryGoals,
-                linkedMatchID: plan.linkedMatchID,
-                status: plan.status.rawValue
+        do {
+            let dto = try await backend.updateTrainingPlan(
+                planID: backendID,
+                request: UpdateTrainingPlanRequest(
+                    title: plan.title,
+                    date: plan.date,
+                    location: plan.location,
+                    mainGoal: plan.mainGoal,
+                    secondaryGoals: plan.secondaryGoals,
+                    linkedMatchID: plan.linkedMatchID,
+                    status: plan.status.rawValue
+                )
             )
-        )
 
-        let updated = mapTrainingPlan(dto: dto, fallbackLocalID: plan.id)
-        upsertTrainingPlan(updated)
-        upsertTrainingPlanCloudFileReference(updated)
-        return updated
+            let updated = mapTrainingPlan(dto: dto, fallbackLocalID: plan.id)
+            upsertTrainingPlan(updated)
+            upsertTrainingPlanCloudFileReference(updated)
+            motionUpdate(
+                "Training aktualisiert",
+                subtitle: updated.title,
+                scope: .trainingsplan,
+                contextId: updated.id.uuidString,
+                icon: "checkmark.seal.fill"
+            )
+            return updated
+        } catch {
+            motionError(error, scope: .trainingsplan, title: "Training konnte nicht aktualisiert werden", contextId: plan.id.uuidString)
+            throw error
+        }
     }
 
     func deleteTrainingPlan(planID: UUID) async throws {
@@ -112,7 +147,12 @@ extension AppDataStore {
             throw TrainingStoreError.planNotFound
         }
 
-        _ = try await backend.deleteTrainingPlan(planID: backendID)
+        do {
+            _ = try await backend.deleteTrainingPlan(planID: backendID)
+        } catch {
+            motionError(error, scope: .trainingsplan, title: "Training konnte nicht gelöscht werden", contextId: planID.uuidString)
+            throw error
+        }
 
         let phaseIDs = Set((trainingPhasesByPlan[planID] ?? []).map(\.id))
         trainingPlans.removeAll { $0.id == planID }
@@ -129,6 +169,13 @@ extension AppDataStore {
         if activeTrainingPlanID == planID {
             activeTrainingPlanID = trainingPlans.first?.id
         }
+        motionDelete(
+            "Training gelöscht",
+            subtitle: plan.title,
+            scope: .trainingsplan,
+            contextId: planID.uuidString,
+            icon: "trash.circle.fill"
+        )
     }
 
     func addPhase(planID: UUID, type: TrainingPhaseType) async throws -> TrainingPhase {
@@ -642,10 +689,25 @@ extension AppDataStore {
             throw TrainingStoreError.planNotFound
         }
 
-        let dto = try await backend.linkTrainingToCalendar(
-            planID: backendPlanID,
-            request: LinkTrainingCalendarRequest(playersViewLevel: visibility.playersViewLevel.rawValue)
+        motionProgress(
+            "Trainingsplan wird in Kalender eingetragen",
+            subtitle: nil,
+            progress: nil,
+            scope: .trainingsplan,
+            contextId: planID.uuidString
         )
+
+        let dto: CalendarEventDTO
+        do {
+            dto = try await backend.linkTrainingToCalendar(
+                planID: backendPlanID,
+                request: LinkTrainingCalendarRequest(playersViewLevel: visibility.playersViewLevel.rawValue)
+            )
+        } catch {
+            motionClearProgress()
+            motionError(error, scope: .trainingsplan, title: "Kalender-Verknüpfung fehlgeschlagen", contextId: planID.uuidString)
+            throw error
+        }
 
         let event = CalendarEvent(
             id: dto.id,
@@ -676,6 +738,15 @@ extension AppDataStore {
             trainingPlans[index].syncState = .synced
             trainingPlans[index].updatedAt = Date()
         }
+
+        motionClearProgress()
+        motionUpdate(
+            "In Kalender eingetragen",
+            subtitle: event.title,
+            scope: .trainingsplan,
+            contextId: planID.uuidString,
+            icon: "calendar.badge.checkmark"
+        )
 
         return event
     }

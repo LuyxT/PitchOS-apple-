@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct FeedbackSettingsView: View {
     @EnvironmentObject private var dataStore: AppDataStore
+    @EnvironmentObject private var motion: MotionEngine
     @ObservedObject var viewModel: FeedbackSettingsViewModel
     let activeModuleID: String
 
@@ -66,6 +67,8 @@ struct FeedbackSettingsView: View {
             }
             .padding(12)
             .background(cardBackground)
+
+            motionSettingsCard
         }
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -85,5 +88,48 @@ struct FeedbackSettingsView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(AppTheme.border, lineWidth: 1)
             )
+    }
+
+    private var motionSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Feedback & Motion")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.black)
+
+            Picker("Animationen", selection: Binding(
+                get: { motion.settings.intensity },
+                set: { newValue in
+                    motion.updateSettings { $0.intensity = newValue }
+                }
+            )) {
+                Text("Subtle").tag(MotionAnimationIntensity.subtle)
+                Text("Normal").tag(MotionAnimationIntensity.normal)
+                Text("Strong").tag(MotionAnimationIntensity.strong)
+            }
+            .pickerStyle(.segmented)
+
+            Toggle("Sounds", isOn: Binding(
+                get: { motion.settings.soundsEnabled },
+                set: { newValue in
+                    motion.updateSettings { $0.soundsEnabled = newValue }
+                }
+            ))
+
+            Toggle("Haptics", isOn: Binding(
+                get: { motion.settings.hapticsEnabled },
+                set: { newValue in
+                    motion.updateSettings { $0.hapticsEnabled = newValue }
+                }
+            ))
+
+            Toggle("Reduce Motion respektieren", isOn: Binding(
+                get: { motion.settings.reduceMotionRespect },
+                set: { newValue in
+                    motion.updateSettings { $0.reduceMotionRespect = newValue }
+                }
+            ))
+        }
+        .padding(12)
+        .background(cardBackground)
     }
 }

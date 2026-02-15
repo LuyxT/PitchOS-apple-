@@ -14,16 +14,32 @@ enum HapticStyle {
 
 enum Haptics {
     static func trigger(_ style: HapticStyle) {
+        let settings = MotionSettings.load()
+        guard settings.hapticsEnabled else { return }
+
+        let resolvedStyle: HapticStyle
+        if settings.reduceMotionRespect {
+            #if os(iOS)
+            resolvedStyle = UIAccessibility.isReduceMotionEnabled ? .light : style
+            #elseif os(macOS)
+            resolvedStyle = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? .light : style
+            #else
+            resolvedStyle = style
+            #endif
+        } else {
+            resolvedStyle = style
+        }
+
         #if os(macOS)
         let performer = NSHapticFeedbackManager.defaultPerformer
-        switch style {
+        switch resolvedStyle {
         case .success:
             performer.perform(.alignment, performanceTime: .now)
         case .soft, .light:
             performer.perform(.generic, performanceTime: .now)
         }
         #elseif os(iOS)
-        switch style {
+        switch resolvedStyle {
         case .success:
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         case .soft:

@@ -25,9 +25,11 @@ extension AppDataStore {
             if isConnectivityFailure(error) {
                 cashConnectionState = .failed(error.localizedDescription)
                 cashLastErrorMessage = error.localizedDescription
+                motionError(error, scope: .mannschaftskasse, title: "Kassenmodul offline")
             } else {
                 print("[client] bootstrapCashModule: endpoint not available — \(error.localizedDescription)")
                 cashConnectionState = .live
+                motionError(error, scope: .mannschaftskasse, title: "Kassendaten konnten nicht geladen werden")
             }
         }
     }
@@ -73,6 +75,7 @@ extension AppDataStore {
             if case .failed = cashConnectionState {} else {
                 cashConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .mannschaftskasse, title: "Transaktionen konnten nicht geladen werden")
         }
     }
 
@@ -164,6 +167,23 @@ extension AppDataStore {
             cashTransactions.insert(transaction, at: 0)
         }
         syncLegacyTransactionsFromCash()
+        if editingID == nil {
+            motionCreate(
+                transaction.type == .income ? "Einnahme gebucht" : "Ausgabe gebucht",
+                subtitle: transaction.description,
+                scope: .mannschaftskasse,
+                contextId: transaction.id.uuidString,
+                icon: transaction.type == .income ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill"
+            )
+        } else {
+            motionUpdate(
+                "Buchung aktualisiert",
+                subtitle: transaction.description,
+                scope: .mannschaftskasse,
+                contextId: transaction.id.uuidString,
+                icon: "checkmark.circle.fill"
+            )
+        }
         return transaction
     }
 
@@ -182,10 +202,18 @@ extension AppDataStore {
                 _ = try await backend.deleteCashTransaction(transactionID: backendID)
             } catch {
                 cashTransactions.insert(backup, at: index)
+                motionError(error, scope: .mannschaftskasse, title: "Buchung konnte nicht gelöscht werden", contextId: id.uuidString)
                 throw error
             }
         }
         syncLegacyTransactionsFromCash()
+        motionDelete(
+            "Buchung gelöscht",
+            subtitle: backup.description,
+            scope: .mannschaftskasse,
+            contextId: id.uuidString,
+            icon: "trash.fill"
+        )
     }
 
     func duplicateCashTransaction(id: UUID) async throws -> CashTransaction {
@@ -233,10 +261,18 @@ extension AppDataStore {
                 }
             } catch {
                 markCashTransactionSyncState(id: duplicated.id, state: .syncFailed)
+                motionError(error, scope: .mannschaftskasse, title: "Buchung konnte nicht dupliziert werden", contextId: duplicated.id.uuidString)
                 throw error
             }
         }
         syncLegacyTransactionsFromCash()
+        motionCreate(
+            "Buchung dupliziert",
+            subtitle: duplicated.description,
+            scope: .mannschaftskasse,
+            contextId: duplicated.id.uuidString,
+            icon: "doc.on.doc.fill"
+        )
         return duplicated
     }
 
@@ -407,8 +443,26 @@ extension AppDataStore {
             if let index = cashGoals.firstIndex(where: { $0.id == goal.id }) {
                 cashGoals[index] = goal
             }
+            if editingID == nil {
+                motionCreate(
+                    "Kassenziel erstellt",
+                    subtitle: goal.name,
+                    scope: .mannschaftskasse,
+                    contextId: goal.id.uuidString,
+                    icon: "target"
+                )
+            } else {
+                motionUpdate(
+                    "Kassenziel aktualisiert",
+                    subtitle: goal.name,
+                    scope: .mannschaftskasse,
+                    contextId: goal.id.uuidString,
+                    icon: "target"
+                )
+            }
             return goal
         } catch {
+            motionError(error, scope: .mannschaftskasse, title: "Kassenziel konnte nicht gespeichert werden", contextId: goal.id.uuidString)
             throw error
         }
     }
@@ -429,9 +483,17 @@ extension AppDataStore {
                 _ = try await backend.deleteCashGoal(goalID: backendID)
             } catch {
                 cashGoals.insert(backup, at: index)
+                motionError(error, scope: .mannschaftskasse, title: "Kassenziel konnte nicht gelöscht werden", contextId: id.uuidString)
                 throw error
             }
         }
+        motionDelete(
+            "Kassenziel gelöscht",
+            subtitle: backup.name,
+            scope: .mannschaftskasse,
+            contextId: id.uuidString,
+            icon: "target"
+        )
     }
 
     func filteredCashTransactions(_ filter: CashFilterState) -> [CashTransaction] {

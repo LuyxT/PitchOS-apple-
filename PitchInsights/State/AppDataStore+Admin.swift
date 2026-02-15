@@ -19,12 +19,24 @@ extension AppDataStore {
             let bootstrap = try await backend.fetchAdminBootstrap()
             applyAdminBootstrap(bootstrap)
             adminConnectionState = .live
+            MotionEngine.shared.emit(
+                .sync,
+                payload: MotionPayload(
+                    title: "Verwaltung synchronisiert",
+                    subtitle: "Alle Verwaltungsdaten sind aktuell.",
+                    iconName: "building.2.crop.circle",
+                    severity: .success,
+                    scope: .verwaltung
+                )
+            )
         } catch {
             if isConnectivityFailure(error) {
                 adminConnectionState = .failed(error.localizedDescription)
+                motionError(error, scope: .verwaltung, title: "Verwaltung offline")
             } else {
                 print("[client] bootstrapAdministration: endpoint not available — \(error.localizedDescription)")
                 adminConnectionState = .failed(error.localizedDescription)
+                motionError(error, scope: .verwaltung, title: "Verwaltung konnte nicht geladen werden")
             }
         }
     }
@@ -83,6 +95,23 @@ extension AppDataStore {
             targetName: mapped.fullName,
             details: "\(mapped.personType.title) in \(mapped.teamName)"
         )
+        if person.backendID == nil {
+            motionCreate(
+                "Person angelegt",
+                subtitle: mapped.fullName,
+                scope: .verwaltung,
+                contextId: mapped.id.uuidString,
+                icon: "person.badge.plus"
+            )
+        } else {
+            motionUpdate(
+                "Person aktualisiert",
+                subtitle: mapped.fullName,
+                scope: .verwaltung,
+                contextId: mapped.id.uuidString,
+                icon: "person.crop.circle.badge.checkmark"
+            )
+        }
         return mapped
     }
 
@@ -117,6 +146,13 @@ extension AppDataStore {
             actorName: currentAdminActorName(),
             targetName: person.fullName,
             details: "Eintrag wurde aus Verwaltung entfernt."
+        )
+        motionDelete(
+            "Person entfernt",
+            subtitle: person.fullName,
+            scope: .verwaltung,
+            contextId: personID.uuidString,
+            icon: "person.badge.minus"
         )
     }
 
@@ -154,6 +190,23 @@ extension AppDataStore {
             targetName: mapped.name,
             details: "\(mapped.groupType.title), \(mapped.memberIDs.count) Mitglieder"
         )
+        if group.backendID == nil {
+            motionCreate(
+                "Gruppe erstellt",
+                subtitle: mapped.name,
+                scope: .verwaltung,
+                contextId: mapped.id.uuidString,
+                icon: "person.3.sequence.fill"
+            )
+        } else {
+            motionUpdate(
+                "Gruppe aktualisiert",
+                subtitle: mapped.name,
+                scope: .verwaltung,
+                contextId: mapped.id.uuidString,
+                icon: "person.3.sequence.fill"
+            )
+        }
         return mapped
     }
 
@@ -178,6 +231,13 @@ extension AppDataStore {
             actorName: currentAdminActorName(),
             targetName: group.name,
             details: "Gruppe wurde entfernt."
+        )
+        motionDelete(
+            "Gruppe gelöscht",
+            subtitle: group.name,
+            scope: .verwaltung,
+            contextId: groupID.uuidString,
+            icon: "person.3.sequence.fill"
         )
     }
 
@@ -218,6 +278,13 @@ extension AppDataStore {
             actorName: currentAdminActorName(),
             targetName: mapped.recipientName,
             details: "\(mapped.role.title) für \(mapped.teamName)"
+        )
+        motionCreate(
+            "Einladung versendet",
+            subtitle: mapped.recipientName,
+            scope: .verwaltung,
+            contextId: mapped.id.uuidString,
+            icon: "envelope.badge.fill"
         )
         return mapped
     }
@@ -444,6 +511,12 @@ extension AppDataStore {
             targetName: adminClubSettings.clubName,
             details: "Serverseitig gespeichert."
         )
+        motionUpdate(
+            "Berechtigung aktualisiert",
+            subtitle: adminClubSettings.clubName,
+            scope: .verwaltung,
+            icon: "building.2.crop.circle"
+        )
     }
 
     func saveAdminMessengerRules(_ rules: AdminMessengerRules) async throws {
@@ -476,6 +549,12 @@ extension AppDataStore {
             actorName: currentAdminActorName(),
             targetName: "Messenger",
             details: rules.groupRuleDescription
+        )
+        motionUpdate(
+            "Berechtigung aktualisiert",
+            subtitle: "Messenger-Regeln übernommen",
+            scope: .verwaltung,
+            icon: "checkmark.shield"
         )
     }
 

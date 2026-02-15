@@ -11,7 +11,7 @@ struct PitchInsightsApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var dataStore = AppDataStore()
     @StateObject private var session = AppSessionStore()
-    @StateObject private var motion = MotionEngine()
+    @StateObject private var motion = MotionEngine.shared
     @State private var launchState: LaunchState = .checking
 
     var body: some Scene {
@@ -56,6 +56,10 @@ struct PitchInsightsApp: App {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(AppTheme.background.ignoresSafeArea())
                 }
+            }
+            .overlay {
+                MotionOverlayLayer()
+                    .environmentObject(motion)
             }
             .task {
                 await bootstrap()

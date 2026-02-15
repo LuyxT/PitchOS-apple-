@@ -56,9 +56,20 @@ final class AppSessionStore: ObservableObject {
             } else {
                 phase = .ready
             }
+            MotionEngine.shared.emit(
+                .success,
+                payload: MotionPayload(
+                    title: "Anmeldung aktiv",
+                    subtitle: me.email,
+                    iconName: "person.crop.circle.fill.badge.checkmark",
+                    severity: .success,
+                    scope: .global
+                )
+            )
         } catch {
             backend.auth.clearTokens(notify: true)
             phase = .unauthenticated
+            MotionEngine.shared.emitNetworkError(error, scope: .global, title: "Session konnte nicht wiederhergestellt werden")
         }
     }
 
@@ -76,6 +87,16 @@ final class AppSessionStore: ObservableObject {
         let newPhase: Phase = completed ? .ready : .onboarding
         print("[Session] applyAuthenticatedUser: phase \(phase) → \(newPhase)")
         phase = newPhase
+        MotionEngine.shared.emit(
+            .success,
+            payload: MotionPayload(
+                title: completed ? "Willkommen zurück" : "Konto erstellt",
+                subtitle: user.email,
+                iconName: completed ? "checkmark.circle.fill" : "person.badge.plus",
+                severity: .success,
+                scope: .global
+            )
+        )
     }
 
     func applyAuthMe(_ me: AuthMeDTO) {
@@ -101,6 +122,16 @@ final class AppSessionStore: ObservableObject {
         let newPhase: Phase = me.onboardingRequired ? .onboarding : .ready
         print("[Session] applyAuthMe: phase \(phase) → \(newPhase)")
         phase = newPhase
+        MotionEngine.shared.emit(
+            .success,
+            payload: MotionPayload(
+                title: me.onboardingRequired ? "Onboarding fortsetzen" : "Dashboard bereit",
+                subtitle: me.email,
+                iconName: me.onboardingRequired ? "sparkles" : "checkmark.circle.fill",
+                severity: .success,
+                scope: .global
+            )
+        )
     }
 
     func setActiveContext(_ membership: MembershipDTO) {
@@ -116,6 +147,16 @@ final class AppSessionStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: activeContextKey)
         UserDefaults.standard.removeObject(forKey: "pitchinsights.onboarding.draft")
         phase = .unauthenticated
+        MotionEngine.shared.emit(
+            .sync,
+            payload: MotionPayload(
+                title: "Abgemeldet",
+                subtitle: "Session wurde beendet.",
+                iconName: "person.crop.circle.badge.xmark",
+                severity: .info,
+                scope: .global
+            )
+        )
     }
 
     private func resolveActiveContext(from memberships: [MembershipDTO]) {

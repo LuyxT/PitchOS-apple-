@@ -17,9 +17,11 @@ extension AppDataStore {
             if isConnectivityFailure(error) {
                 settingsConnectionState = .failed(error.localizedDescription)
                 settingsLastErrorMessage = error.localizedDescription
+                motionError(error, scope: .global, title: "Einstellungen offline")
             } else {
                 print("[client] bootstrapSettings: endpoint not available — \(error.localizedDescription)")
                 settingsConnectionState = .live
+                motionError(error, scope: .global, title: "Einstellungen konnten nicht geladen werden")
             }
         }
     }
@@ -47,6 +49,7 @@ extension AppDataStore {
         } catch {
             settingsConnectionState = .failed(error.localizedDescription)
             settingsLastErrorMessage = error.localizedDescription
+            motionError(error, scope: .global, title: "Darstellung konnte nicht gespeichert werden")
             throw error
         }
     }
@@ -74,6 +77,7 @@ extension AppDataStore {
         } catch {
             settingsConnectionState = .failed(error.localizedDescription)
             settingsLastErrorMessage = error.localizedDescription
+            motionError(error, scope: .global, title: "Benachrichtigungen konnten nicht gespeichert werden")
             throw error
         }
     }
@@ -99,6 +103,7 @@ extension AppDataStore {
         } catch {
             settingsConnectionState = .failed(error.localizedDescription)
             settingsLastErrorMessage = error.localizedDescription
+            motionError(error, scope: .global, title: "Passwort konnte nicht geändert werden")
             throw error
         }
     }
@@ -114,6 +119,7 @@ extension AppDataStore {
         } catch {
             settingsConnectionState = .failed(error.localizedDescription)
             settingsLastErrorMessage = error.localizedDescription
+            motionError(error, scope: .global, title: "2FA konnte nicht aktualisiert werden")
             throw error
         }
     }

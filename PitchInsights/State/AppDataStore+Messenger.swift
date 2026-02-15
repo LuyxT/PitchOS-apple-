@@ -41,9 +41,11 @@ extension AppDataStore {
         } catch {
             if isConnectivityFailure(error) {
                 messengerConnectionState = .failed(error.localizedDescription)
+                motionError(error, scope: .messenger, title: "Messenger offline")
             } else {
                 print("[client] bootstrapMessenger: endpoint not available — \(error.localizedDescription)")
                 messengerConnectionState = .disconnected
+                motionError(error, scope: .messenger, title: "Messenger konnte nicht gestartet werden")
             }
         }
     }
@@ -69,6 +71,7 @@ extension AppDataStore {
             messengerChatNextCursor = page.nextCursor
         } catch {
             print("[client] loadChats error: \(error.localizedDescription)")
+            motionError(error, scope: .messenger, title: "Chats konnten nicht geladen werden")
         }
     }
 
@@ -89,6 +92,7 @@ extension AppDataStore {
             messengerMessageNextCursorByChat[chatID] = page.nextCursor
         } catch {
             print("[client] loadMessages error: \(error.localizedDescription)")
+            motionError(error, scope: .messenger, title: "Nachrichten konnten nicht geladen werden", contextId: chatID.uuidString)
         }
     }
 
@@ -198,6 +202,13 @@ extension AppDataStore {
             isMine: true
         )
         appendLocalMessage(message)
+        motionProgress(
+            "Nachricht wird gesendet",
+            subtitle: trimmed,
+            progress: nil,
+            scope: .messenger,
+            contextId: message.id.uuidString
+        )
         enqueueOutbox(
             localMessageID: message.id,
             chatID: chatID,
@@ -249,6 +260,13 @@ extension AppDataStore {
                 isMine: true
             )
             appendLocalMessage(message)
+            motionProgress(
+                "Medium wird gesendet",
+                subtitle: cloudFile.name,
+                progress: nil,
+                scope: .messenger,
+                contextId: message.id.uuidString
+            )
             enqueueOutbox(
                 localMessageID: message.id,
                 chatID: chatID,
@@ -263,6 +281,7 @@ extension AppDataStore {
             await processMessengerOutboxQueue()
         } catch {
             print("[client] sendMedia error: \(error.localizedDescription)")
+            motionError(error, scope: .messenger, title: "Medium konnte nicht gesendet werden")
         }
     }
 
@@ -304,6 +323,13 @@ extension AppDataStore {
             isMine: true
         )
         appendLocalMessage(message)
+        motionProgress(
+            "Datei wird gesendet",
+            subtitle: cloudFile.name,
+            progress: nil,
+            scope: .messenger,
+            contextId: message.id.uuidString
+        )
         enqueueOutbox(
             localMessageID: message.id,
             chatID: chatID,
@@ -408,6 +434,7 @@ extension AppDataStore {
             messengerSearchResults = mergeSearch(local: local, remote: mapped)
         } catch {
             print("[client] searchMessenger error: \(error.localizedDescription)")
+            motionError(error, scope: .messenger, title: "Suche fehlgeschlagen")
         }
     }
 
@@ -458,6 +485,7 @@ extension AppDataStore {
             messengerRealtimeService.connect(baseURL: baseURL, token: token.token)
         } catch {
             messengerConnectionState = .failed(error.localizedDescription)
+            motionError(error, scope: .messenger, title: "Live-Verbindung fehlgeschlagen")
             scheduleMessengerRealtimeReconnect()
         }
     }
@@ -555,6 +583,14 @@ extension AppDataStore {
                 let sent = try await dispatchOutboxItem(item)
                 upsertMessage(sent)
                 messengerOutboxItems.removeAll { $0.id == id }
+                motionClearProgress()
+                motionCreate(
+                    "Nachricht gesendet",
+                    subtitle: previewText(for: sent),
+                    scope: .messenger,
+                    contextId: item.localMessageID.uuidString,
+                    icon: "paperplane.fill"
+                )
             } catch {
                 item.attemptCount += 1
                 item.lastError = error.localizedDescription
@@ -564,6 +600,13 @@ extension AppDataStore {
                     mutable.status = .failed
                     mutable.updatedAt = Date()
                 }
+                motionClearProgress()
+                motionError(
+                    error,
+                    scope: .messenger,
+                    title: "Nachricht konnte nicht gesendet werden",
+                    contextId: item.localMessageID.uuidString
+                )
             }
         }
 

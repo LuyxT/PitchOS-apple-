@@ -373,10 +373,12 @@ final class AppDataStore: ObservableObject {
                 let normalized = response.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 if normalized == "ok" {
                     print("[client] bootstrap success")
+                    motionOnline()
                     return true
                 }
                 // Backend responded but status is not "ok" — still reachable (degraded)
                 print("[client] bootstrap: status=\(response.status), treating as reachable (degraded)")
+                motionOnline()
                 return true
             } catch {
                 print("[client] bootstrap attempt \(attempt)/\(maxAttempts) failed: \(error.localizedDescription)")
@@ -384,6 +386,16 @@ final class AppDataStore: ObservableObject {
                 // Non-connectivity error means the backend IS reachable — do not block the app
                 if !isConnectivityFailure(error) {
                     print("[client] bootstrap: non-connectivity error — backend is reachable")
+                    MotionEngine.shared.emit(
+                        .error,
+                        payload: MotionPayload(
+                            title: "Backend-Fehler",
+                            subtitle: NetworkError.userMessage(from: error),
+                            iconName: "exclamationmark.triangle.fill",
+                            severity: .warning,
+                            scope: .global
+                        )
+                    )
                     return true
                 }
 
@@ -397,6 +409,7 @@ final class AppDataStore: ObservableObject {
 
         print("[client] bootstrap exhausted retries — backend unreachable")
         backendConnectionState = .failed("Backend nicht erreichbar")
+        motionOffline()
         return false
     }
 
@@ -452,6 +465,7 @@ final class AppDataStore: ObservableObject {
             if isConnectivityFailure(error) {
                 backendConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .kalender, title: "Kalender konnte nicht geladen werden")
         }
     }
 
@@ -474,11 +488,19 @@ final class AppDataStore: ObservableObject {
             let request = CreateCalendarEventRequest(from: event)
             _ = try await backend.createCalendarEvent(request)
             await refreshCalendar()
+            motionCreate(
+                "Termin erstellt",
+                subtitle: event.title,
+                scope: .kalender,
+                contextId: event.id,
+                icon: "calendar.badge.plus"
+            )
         } catch {
             print("[client] createCalendarEvent failed: \(error.localizedDescription)")
             if isConnectivityFailure(error) {
                 backendConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .kalender, title: "Termin konnte nicht erstellt werden", contextId: event.id)
         }
     }
 
@@ -503,11 +525,19 @@ final class AppDataStore: ObservableObject {
             )
             _ = try await backend.updateCalendarEvent(id: id, request: request)
             await refreshCalendar()
+            motionUpdate(
+                "Termin aktualisiert",
+                subtitle: draft.title,
+                scope: .kalender,
+                contextId: id,
+                icon: "calendar.badge.clock"
+            )
         } catch {
             print("[client] updateCalendarEvent failed: \(error.localizedDescription)")
             if isConnectivityFailure(error) {
                 backendConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .kalender, title: "Termin konnte nicht aktualisiert werden", contextId: id)
         }
     }
 
@@ -516,11 +546,18 @@ final class AppDataStore: ObservableObject {
         do {
             _ = try await backend.deleteCalendarEvent(id: id)
             await refreshCalendar()
+            motionDelete(
+                "Termin gelöscht",
+                scope: .kalender,
+                contextId: id,
+                icon: "calendar.badge.minus"
+            )
         } catch {
             print("[client] deleteCalendarEvent failed: \(error.localizedDescription)")
             if isConnectivityFailure(error) {
                 backendConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .kalender, title: "Termin konnte nicht gelöscht werden", contextId: id)
         }
     }
 
@@ -543,11 +580,19 @@ final class AppDataStore: ObservableObject {
             let request = CreateCalendarEventRequest(from: copy)
             _ = try await backend.createCalendarEvent(request)
             await refreshCalendar()
+            motionCreate(
+                "Termin dupliziert",
+                subtitle: copy.title,
+                scope: .kalender,
+                contextId: copy.id,
+                icon: "doc.on.doc.fill"
+            )
         } catch {
             print("[client] duplicateCalendarEvent failed: \(error.localizedDescription)")
             if isConnectivityFailure(error) {
                 backendConnectionState = .failed(error.localizedDescription)
             }
+            motionError(error, scope: .kalender, title: "Termin konnte nicht dupliziert werden", contextId: copy.id)
         }
     }
 
@@ -737,6 +782,13 @@ final class AppDataStore: ObservableObject {
         analysisMarkers.append(marker)
 
         guard !AppConfiguration.isPlaceholder else {
+            motionCreate(
+                "Marker gesetzt",
+                subtitle: comment.isEmpty ? "Analyse-Marker hinzugefügt" : comment,
+                scope: .analyse,
+                contextId: marker.id.uuidString,
+                icon: "mappin.circle.fill"
+            )
             return marker
         }
 
@@ -759,9 +811,17 @@ final class AppDataStore: ObservableObject {
             )
             let mapped = mapAnalysisMarker(from: dto, localSessionID: sessionID, localVideoID: session.videoAssetID)
             replaceMarker(markerID: marker.id, with: mapped)
+            motionCreate(
+                "Marker gesetzt",
+                subtitle: comment.isEmpty ? "Analyse-Marker hinzugefügt" : comment,
+                scope: .analyse,
+                contextId: mapped.id.uuidString,
+                icon: "mappin.circle.fill"
+            )
             return mapped
         } catch {
             markMarkerSyncState(marker.id, state: .syncFailed)
+            motionError(error, scope: .analyse, title: "Marker konnte nicht gespeichert werden", contextId: marker.id.uuidString)
             throw error
         }
     }
@@ -799,8 +859,16 @@ final class AppDataStore: ObservableObject {
                 localSessionID: analysisMarkers[index].sessionID,
                 localVideoID: analysisMarkers[index].videoAssetID
             )
+            motionUpdate(
+                "Marker aktualisiert",
+                subtitle: comment.isEmpty ? "Analyse-Marker geändert" : comment,
+                scope: .analyse,
+                contextId: markerID.uuidString,
+                icon: "pencil.circle.fill"
+            )
         } catch {
             analysisMarkers[index].syncState = .syncFailed
+            motionError(error, scope: .analyse, title: "Marker konnte nicht aktualisiert werden", contextId: markerID.uuidString)
             throw error
         }
     }
@@ -809,11 +877,28 @@ final class AppDataStore: ObservableObject {
         guard let marker = analysisMarkers.first(where: { $0.id == markerID }) else { return }
         analysisMarkers.removeAll { $0.id == markerID }
 
-        guard !AppConfiguration.isPlaceholder else { return }
+        guard !AppConfiguration.isPlaceholder else {
+            motionDelete(
+                "Marker entfernt",
+                subtitle: marker.comment.isEmpty ? nil : marker.comment,
+                scope: .analyse,
+                contextId: markerID.uuidString,
+                icon: "mappin.slash.circle.fill"
+            )
+            return
+        }
         if let backendID = marker.backendMarkerID {
             do {
                 try await analysisSyncService.deleteMarker(id: backendID)
+                motionDelete(
+                    "Marker entfernt",
+                    subtitle: marker.comment.isEmpty ? nil : marker.comment,
+                    scope: .analyse,
+                    contextId: markerID.uuidString,
+                    icon: "mappin.slash.circle.fill"
+                )
             } catch {
+                motionError(error, scope: .analyse, title: "Marker konnte nicht gelöscht werden", contextId: markerID.uuidString)
                 throw error
             }
         }
@@ -852,6 +937,13 @@ final class AppDataStore: ObservableObject {
 
         guard !AppConfiguration.isPlaceholder else {
             upsertClipCloudFileReference(clip)
+            motionCreate(
+                "Clip erstellt",
+                subtitle: trimmedName,
+                scope: .analyse,
+                contextId: clip.id.uuidString,
+                icon: "film.stack.fill"
+            )
             return clip
         }
 
@@ -876,9 +968,17 @@ final class AppDataStore: ObservableObject {
             let mapped = mapAnalysisClip(from: dto, localSessionID: sessionID, localVideoID: session.videoAssetID)
             replaceClip(clipID: clip.id, with: mapped)
             upsertClipCloudFileReference(mapped)
+            motionCreate(
+                "Clip erstellt",
+                subtitle: mapped.name,
+                scope: .analyse,
+                contextId: mapped.id.uuidString,
+                icon: "film.stack.fill"
+            )
             return mapped
         } catch {
             markClipSyncState(clip.id, state: .syncFailed)
+            motionError(error, scope: .analyse, title: "Clip konnte nicht erstellt werden", contextId: clip.id.uuidString)
             throw error
         }
     }
@@ -926,8 +1026,16 @@ final class AppDataStore: ObservableObject {
                 localVideoID: analysisClips[index].videoAssetID
             )
             upsertClipCloudFileReference(analysisClips[index])
+            motionUpdate(
+                "Clip aktualisiert",
+                subtitle: analysisClips[index].name,
+                scope: .analyse,
+                contextId: clipID.uuidString,
+                icon: "scissors"
+            )
         } catch {
             analysisClips[index].syncState = .syncFailed
+            motionError(error, scope: .analyse, title: "Clip konnte nicht aktualisiert werden", contextId: clipID.uuidString)
             throw error
         }
     }
@@ -937,9 +1045,30 @@ final class AppDataStore: ObservableObject {
         analysisClips.removeAll { $0.id == clipID }
         removeClipCloudFileReference(clipID)
 
-        guard !AppConfiguration.isPlaceholder else { return }
+        guard !AppConfiguration.isPlaceholder else {
+            motionDelete(
+                "Clip gelöscht",
+                subtitle: clip.name,
+                scope: .analyse,
+                contextId: clipID.uuidString,
+                icon: "film.fill"
+            )
+            return
+        }
         if let backendClipID = clip.backendClipID {
-            try await analysisSyncService.deleteClip(id: backendClipID)
+            do {
+                try await analysisSyncService.deleteClip(id: backendClipID)
+                motionDelete(
+                    "Clip gelöscht",
+                    subtitle: clip.name,
+                    scope: .analyse,
+                    contextId: clipID.uuidString,
+                    icon: "film.fill"
+                )
+            } catch {
+                motionError(error, scope: .analyse, title: "Clip konnte nicht gelöscht werden", contextId: clipID.uuidString)
+                throw error
+            }
         }
     }
 
@@ -975,7 +1104,16 @@ final class AppDataStore: ObservableObject {
         analysisDrawings.removeAll { $0.sessionID == sessionID }
         analysisDrawings.append(contentsOf: drawings)
 
-        guard !AppConfiguration.isPlaceholder else { return }
+        guard !AppConfiguration.isPlaceholder else {
+            motionUpdate(
+                "Zeichnung gespeichert",
+                subtitle: "Taktische Markierungen aktualisiert",
+                scope: .analyse,
+                contextId: sessionID.uuidString,
+                icon: "pencil.and.scribble"
+            )
+            return
+        }
         guard let session = analysisSessions.first(where: { $0.id == sessionID }),
               let backendSessionID = session.backendSessionID else {
             markDrawingsSyncState(sessionID: sessionID, state: .syncFailed)
@@ -985,8 +1123,16 @@ final class AppDataStore: ObservableObject {
         do {
             try await analysisSyncService.saveDrawings(sessionID: backendSessionID, drawings: drawings)
             markDrawingsSyncState(sessionID: sessionID, state: .synced)
+            motionUpdate(
+                "Zeichnung gespeichert",
+                subtitle: "Taktische Markierungen aktualisiert",
+                scope: .analyse,
+                contextId: sessionID.uuidString,
+                icon: "pencil.and.scribble"
+            )
         } catch {
             markDrawingsSyncState(sessionID: sessionID, state: .syncFailed)
+            motionError(error, scope: .analyse, title: "Zeichnung konnte nicht gespeichert werden", contextId: sessionID.uuidString)
             throw error
         }
     }
@@ -1251,6 +1397,13 @@ final class AppDataStore: ObservableObject {
         syncProfileFromPlayerChange(player)
         appendPlayerToAllBenchIfNeeded(player.id)
         pushCreatePlayer(player)
+        motionCreate(
+            "Spieler hinzugefügt",
+            subtitle: "#\(player.number) \(player.name)",
+            scope: .kader,
+            contextId: player.id.uuidString,
+            icon: "person.crop.circle.badge.plus"
+        )
     }
 
     func updatePlayer(_ updated: Player) {
@@ -1258,6 +1411,13 @@ final class AppDataStore: ObservableObject {
         players[index] = updated
         syncProfileFromPlayerChange(updated)
         pushUpdatePlayer(updated)
+        motionUpdate(
+            "Spieler aktualisiert",
+            subtitle: updated.name,
+            scope: .kader,
+            contextId: updated.id.uuidString,
+            icon: "person.crop.circle.badge.checkmark"
+        )
     }
 
     func duplicatePlayer(_ source: Player) {
@@ -1286,17 +1446,33 @@ final class AppDataStore: ObservableObject {
         syncProfileFromPlayerChange(copy)
         appendPlayerToAllBenchIfNeeded(copy.id)
         pushCreatePlayer(copy)
+        motionCreate(
+            "Spieler dupliziert",
+            subtitle: copy.name,
+            scope: .kader,
+            contextId: copy.id.uuidString,
+            icon: "doc.on.doc.fill"
+        )
     }
 
     func deletePlayer(id: UUID) {
+        let deletedName = players.first(where: { $0.id == id })?.name
         players.removeAll { $0.id == id }
         removeProfileLinkedToPlayer(id)
         removePlayerFromAllBoardStates(id)
         removePlayerFromAnalysisReferences(id)
         pushDeletePlayer(id)
+        motionDelete(
+            "Spieler entfernt",
+            subtitle: deletedName,
+            scope: .kader,
+            contextId: id.uuidString,
+            icon: "person.crop.circle.badge.xmark"
+        )
     }
 
     func deletePlayers(ids: Set<UUID>) {
+        let count = ids.count
         players.removeAll { ids.contains($0.id) }
         for id in ids {
             removeProfileLinkedToPlayer(id)
@@ -1304,6 +1480,11 @@ final class AppDataStore: ObservableObject {
             removePlayerFromAnalysisReferences(id)
             pushDeletePlayer(id)
         }
+        motionDelete(
+            count == 1 ? "Spieler entfernt" : "\(count) Spieler entfernt",
+            scope: .kader,
+            icon: "person.3.fill"
+        )
     }
 
     func setAvailability(ids: Set<UUID>, value: AvailabilityStatus) {
@@ -1402,6 +1583,7 @@ final class AppDataStore: ObservableObject {
                 if isConnectivityFailure(error) {
                     backendConnectionState = .failed(error.localizedDescription)
                 }
+                motionError(error, scope: .kader, title: "Spieler konnte nicht synchronisiert werden", contextId: player.id.uuidString)
             }
         }
     }
@@ -1421,6 +1603,7 @@ final class AppDataStore: ObservableObject {
                 if isConnectivityFailure(error) {
                     backendConnectionState = .failed(error.localizedDescription)
                 }
+                motionError(error, scope: .kader, title: "Spieler-Update konnte nicht synchronisiert werden", contextId: player.id.uuidString)
             }
         }
     }
@@ -1436,6 +1619,7 @@ final class AppDataStore: ObservableObject {
                 if isConnectivityFailure(error) {
                     backendConnectionState = .failed(error.localizedDescription)
                 }
+                motionError(error, scope: .kader, title: "Spieler-Löschung konnte nicht synchronisiert werden", contextId: playerID.uuidString)
             }
         }
     }
@@ -1549,6 +1733,13 @@ final class AppDataStore: ObservableObject {
         activeTacticsScenarioID = scenario.id
         upsertTacticsScenarioCloudFileReference(scenario)
         scheduleTacticsStateSync()
+        motionCreate(
+            "Szenario erstellt",
+            subtitle: scenario.name,
+            scope: .taktik,
+            contextId: scenario.id.uuidString,
+            icon: "sportscourt.fill"
+        )
         return scenario.id
     }
 
@@ -1567,6 +1758,13 @@ final class AppDataStore: ObservableObject {
         activeTacticsScenarioID = duplicate.id
         upsertTacticsScenarioCloudFileReference(duplicate)
         scheduleTacticsStateSync()
+        motionCreate(
+            "Szenario dupliziert",
+            subtitle: duplicate.name,
+            scope: .taktik,
+            contextId: duplicate.id.uuidString,
+            icon: "doc.on.doc.fill"
+        )
         return duplicate.id
     }
 
@@ -1578,10 +1776,18 @@ final class AppDataStore: ObservableObject {
         tacticsScenarios[index].updatedAt = Date()
         upsertTacticsScenarioCloudFileReference(tacticsScenarios[index])
         scheduleTacticsStateSync()
+        motionUpdate(
+            "Szenario umbenannt",
+            subtitle: trimmed,
+            scope: .taktik,
+            contextId: id.uuidString,
+            icon: "pencil.circle.fill"
+        )
     }
 
     func deleteScenario(id: UUID) {
         guard tacticsScenarios.count > 1 else { return }
+        let deletedName = tacticsScenarios.first(where: { $0.id == id })?.name
         tacticsScenarios.removeAll { $0.id == id }
         tacticsBoardStates.removeValue(forKey: id)
         removeTacticsScenarioCloudFileReference(scenarioID: id)
@@ -1589,6 +1795,13 @@ final class AppDataStore: ObservableObject {
             activeTacticsScenarioID = tacticsScenarios.first?.id
         }
         scheduleTacticsStateSync()
+        motionDelete(
+            "Szenario gelöscht",
+            subtitle: deletedName,
+            scope: .taktik,
+            contextId: id.uuidString,
+            icon: "trash.fill"
+        )
     }
 
     func saveBoardState(_ board: TacticsBoardState) {

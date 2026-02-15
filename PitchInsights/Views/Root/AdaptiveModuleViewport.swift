@@ -18,6 +18,7 @@ struct AdaptiveModuleViewport: View {
             case .macDesktop:
                 ModuleRegistry.makeView(for: module)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .motionScopePulse(scope: module.motionScope)
             }
         }
         .background(AppTheme.background)
@@ -40,6 +41,7 @@ struct AdaptiveModuleViewport: View {
                     .frame(maxWidth: .infinity, alignment: .top)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
+                    .motionScopePulse(scope: module.motionScope)
             }
             .scrollIndicators(.visible)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -58,6 +60,7 @@ struct AdaptiveModuleViewport: View {
                     .frame(minHeight: availableHeight, alignment: .topLeading)
                     .frame(maxWidth: .infinity, alignment: .top)
                     .padding(.horizontal, 6)
+                    .motionScopePulse(scope: module.motionScope)
             }
             .scrollIndicators(.visible)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -37,9 +37,11 @@ extension AppDataStore {
             if isConnectivityFailure(error) {
                 cloudConnectionState = .failed(error.localizedDescription)
                 cloudLastErrorMessage = error.localizedDescription
+                motionError(error, scope: .dateien, title: "Dateien sind offline")
             } else {
                 print("[client] bootstrapCloudFiles: endpoint not available — \(error.localizedDescription)")
                 cloudConnectionState = .live
+                motionError(error, scope: .dateien, title: "Dateimodul konnte nicht geladen werden")
             }
         }
     }
@@ -59,6 +61,7 @@ extension AppDataStore {
             if isConnectivityFailure(error) {
                 cloudConnectionState = .failed(error.localizedDescription)
                 cloudLastErrorMessage = error.localizedDescription
+                motionError(error, scope: .dateien, title: "Dateiliste konnte nicht geladen werden")
             } else {
                 print("[client] refreshCloudFiles: endpoint not available — \(error.localizedDescription)")
             }
@@ -80,6 +83,7 @@ extension AppDataStore {
             if isConnectivityFailure(error) {
                 cloudConnectionState = .failed(error.localizedDescription)
                 cloudLastErrorMessage = error.localizedDescription
+                motionError(error, scope: .dateien, title: "Papierkorb konnte nicht geladen werden")
             } else {
                 print("[client] refreshCloudTrash: endpoint not available — \(error.localizedDescription)")
             }
@@ -102,6 +106,13 @@ extension AppDataStore {
         let mapped = mapCloudFolder(dto: dto)
         upsertCloudFolder(mapped)
         cloudActiveFolderID = mapped.id
+        motionCreate(
+            "Ordner erstellt",
+            subtitle: mapped.name,
+            scope: .dateien,
+            contextId: mapped.id.uuidString,
+            icon: "folder.badge.plus"
+        )
         return mapped
     }
 
@@ -122,6 +133,13 @@ extension AppDataStore {
             request: UpdateCloudFolderRequest(name: trimmed, parentFolderID: nil)
         )
         upsertCloudFolder(mapCloudFolder(dto: dto))
+        motionUpdate(
+            "Ordner umbenannt",
+            subtitle: trimmed,
+            scope: .dateien,
+            contextId: folderID.uuidString,
+            icon: "folder"
+        )
     }
 
     func moveCloudFolder(folderID: UUID, parentID: UUID?) async throws {
@@ -143,6 +161,12 @@ extension AppDataStore {
             )
         )
         upsertCloudFolder(mapCloudFolder(dto: dto))
+        motionUpdate(
+            "Ordner verschoben",
+            scope: .dateien,
+            contextId: folderID.uuidString,
+            icon: "folder.badge.gearshape"
+        )
     }
 
     func uploadCloudFile(
@@ -181,6 +205,12 @@ extension AppDataStore {
 
         do {
             let mapped: CloudFile
+            motionProgress(
+                "Upload läuft",
+                subtitle: imported.originalFilename,
+                progress: 0,
+                scope: .dateien
+            )
             updateUploadProgress(progressID: progressID, uploadedBytes: 0, state: .uploading, message: nil)
             let dto = try await cloudFileSyncService.registerAndUploadFile(
                 importedFile: imported,
@@ -204,6 +234,14 @@ extension AppDataStore {
                 onProgress: { [progressID] uploaded, total in
                     Task { @MainActor [weak self] in
                         guard let self else { return }
+                        let progressValue = total > 0 ? Double(uploaded) / Double(total) : nil
+                        self.motionProgress(
+                            "Upload läuft",
+                            subtitle: imported.originalFilename,
+                            progress: progressValue,
+                            scope: .dateien,
+                            contextId: progressID.uuidString
+                        )
                         self.updateUploadProgress(progressID: progressID, uploadedBytes: uploaded, state: .uploading, message: nil)
                         if let index = self.cloudUploads.firstIndex(where: { $0.id == progressID }) {
                             self.cloudUploads[index].totalBytes = total
@@ -220,9 +258,19 @@ extension AppDataStore {
             cloudUsage.updatedAt = Date()
             updateUploadProgress(progressID: progressID, uploadedBytes: imported.fileSize, state: .ready, message: nil)
             syncLegacyFilesList()
+            motionClearProgress()
+            motionCreate(
+                "Datei hochgeladen",
+                subtitle: mapped.name,
+                scope: .dateien,
+                contextId: mapped.id.uuidString,
+                icon: "arrow.up.doc.fill"
+            )
             return mapped
         } catch {
             updateUploadProgress(progressID: progressID, uploadedBytes: 0, state: .failed, message: error.localizedDescription)
+            motionClearProgress()
+            motionError(error, scope: .dateien, title: "Upload fehlgeschlagen", contextId: progressID.uuidString)
             throw error
         }
     }
@@ -269,6 +317,13 @@ extension AppDataStore {
         )
         upsertCloudFile(mapCloudFile(dto: dto))
         syncLegacyFilesList()
+        motionUpdate(
+            "Datei aktualisiert",
+            subtitle: cloudFiles.first(where: { $0.id == fileID })?.name ?? name,
+            scope: .dateien,
+            contextId: fileID.uuidString,
+            icon: "doc.text.fill"
+        )
     }
 
     func moveCloudFile(fileID: UUID, targetFolderID: UUID?) async throws {
@@ -288,6 +343,13 @@ extension AppDataStore {
             request: MoveCloudFileRequest(folderID: cloudFolders.first(where: { $0.id == targetFolderID })?.backendID)
         )
         upsertCloudFile(mapCloudFile(dto: dto))
+        motionUpdate(
+            "Datei verschoben",
+            subtitle: cloudFiles.first(where: { $0.id == fileID })?.name,
+            scope: .dateien,
+            contextId: fileID.uuidString,
+            icon: "folder.fill.badge.minus"
+        )
     }
 
     func moveCloudFileToTrash(fileID: UUID) async throws {
@@ -306,6 +368,13 @@ extension AppDataStore {
             request: TrashCloudFileRequest(deletedAt: Date())
         )
         upsertCloudFile(mapCloudFile(dto: dto))
+        motionDelete(
+            "Datei in Papierkorb",
+            subtitle: cloudFiles.first(where: { $0.id == fileID })?.name,
+            scope: .dateien,
+            contextId: fileID.uuidString,
+            icon: "trash.fill"
+        )
     }
 
     func restoreCloudFile(fileID: UUID, targetFolderID: UUID?) async throws {
@@ -326,6 +395,13 @@ extension AppDataStore {
             request: RestoreCloudFileRequest(folderID: cloudFolders.first(where: { $0.id == targetFolderID })?.backendID)
         )
         upsertCloudFile(mapCloudFile(dto: dto))
+        motionUpdate(
+            "Datei wiederhergestellt",
+            subtitle: cloudFiles.first(where: { $0.id == fileID })?.name,
+            scope: .dateien,
+            contextId: fileID.uuidString,
+            icon: "arrow.uturn.backward.circle.fill"
+        )
     }
 
     func deleteCloudFilePermanently(fileID: UUID) async throws {
@@ -342,10 +418,30 @@ extension AppDataStore {
             throw CloudFilesStoreError.backendIdentifierMissing
         }
         try await cloudFileSyncService.deleteFilePermanently(fileID: backendID)
+        motionDelete(
+            "Datei gelöscht",
+            subtitle: target.name,
+            scope: .dateien,
+            contextId: fileID.uuidString,
+            icon: "trash.slash.fill"
+        )
     }
 
     func openCloudFile(fileID: UUID, appState: AppState) async {
         guard let file = cloudFiles.first(where: { $0.id == fileID }) else { return }
+        MotionEngine.shared.emit(
+            .navigation,
+            payload: MotionPayload(
+                title: "Datei geöffnet",
+                subtitle: file.name,
+                iconName: "doc.viewfinder",
+                severity: .info,
+                contextId: fileID.uuidString,
+                sound: .tick,
+                haptic: .light,
+                scope: .dateien
+            )
+        )
         await fileOpenRouter.open(file: file, appState: appState, dataStore: self)
     }
 
