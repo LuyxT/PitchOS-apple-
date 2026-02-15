@@ -17,11 +17,18 @@ struct AuthChoiceView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            HStack(spacing: 14) {
-                choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
-                choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) {
+                    choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
+                    choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+                }
+                VStack(spacing: 10) {
+                    choiceCard(title: "Login", subtitle: "Zuruck in den Tunnel", value: .login)
+                    choiceCard(title: "Registrieren", subtitle: "Erstelle dein Konto", value: .register)
+                }
             }
         }
+        .frame(maxWidth: 460)
     }
 
     private func choiceCard(title: String, subtitle: String, value: AuthChoice) -> some View {
@@ -42,7 +49,7 @@ struct AuthChoiceView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppTheme.textSecondary)
             }
-            .frame(width: 180, height: 110)
+            .frame(maxWidth: .infinity, minHeight: 110)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(AppTheme.surfaceAlt.opacity(isSelected ? 0.9 : 0.6))
@@ -57,7 +64,6 @@ struct AuthChoiceView: View {
         .hoverLift()
         .scaleEffect(isSelected ? 1.04 : 1)
         .opacity(isDimmed ? 0.6 : 1)
-        .offset(x: isDimmed ? -10 : 0)
         .animation(AppMotion.transitionZoom, value: selected)
     }
 }

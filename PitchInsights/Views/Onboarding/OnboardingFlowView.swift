@@ -34,6 +34,7 @@ struct OnboardingFlowView: View {
     @EnvironmentObject private var session: AppSessionStore
     @EnvironmentObject private var dataStore: AppDataStore
     @EnvironmentObject private var motion: MotionEngine
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var step: Step
     @State private var transitionStyle: MotionTransitionStyle = .cameraPush
@@ -83,27 +84,24 @@ struct OnboardingFlowView: View {
         ZStack {
             OnboardingSceneBackground(pulseID: motion.pulseID)
 
-            VStack(spacing: 18) {
-                header
-                content
-                footer
+            Group {
+                if isCompactPhoneLayout {
+                    GeometryReader { proxy in
+                        let cardWidth = max(300, min(420, proxy.size.width - 24))
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack {
+                                onboardingCard
+                                    .frame(width: cardWidth)
+                                    .padding(.vertical, 14)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: proxy.size.height)
+                        }
+                    }
+                } else {
+                    onboardingCard
+                }
             }
-            .padding(32)
-            .frame(maxWidth: 720)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(AppTheme.surface.opacity(0.96))
-                    .shadow(color: AppTheme.shadow.opacity(0.2), radius: 24, x: 0, y: 14)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppTheme.border.opacity(0.9), lineWidth: 1)
-            )
-            .motionGlow(!statusMessage.isEmpty, color: .red, animation: AppMotion.errorShake)
-            .errorShake(motion.errorID)
-            .transition(motion.transition(transitionStyle))
-            .animation(AppMotion.settleSoft, value: step)
-            .environment(\.colorScheme, .light)
 
             if let connectionError, let retryAction {
                 OnboardingConnectionPanel(
@@ -131,6 +129,38 @@ struct OnboardingFlowView: View {
         .onChange(of: teamName) { _, _ in saveDraft() }
         .onChange(of: firstName) { _, _ in saveDraft() }
         .onChange(of: lastName) { _, _ in saveDraft() }
+    }
+
+    private var onboardingCard: some View {
+        VStack(spacing: isCompactPhoneLayout ? 14 : 18) {
+            header
+            content
+            footer
+        }
+        .padding(isCompactPhoneLayout ? 18 : 32)
+        .frame(maxWidth: 720)
+        .background(
+            RoundedRectangle(cornerRadius: isCompactPhoneLayout ? 16 : 20, style: .continuous)
+                .fill(AppTheme.surface.opacity(0.96))
+                .shadow(color: AppTheme.shadow.opacity(0.2), radius: 24, x: 0, y: 14)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: isCompactPhoneLayout ? 16 : 20, style: .continuous)
+                .stroke(AppTheme.border.opacity(0.9), lineWidth: 1)
+        )
+        .motionGlow(!statusMessage.isEmpty, color: .red, animation: AppMotion.errorShake)
+        .errorShake(motion.errorID)
+        .transition(motion.transition(transitionStyle))
+        .animation(AppMotion.settleSoft, value: step)
+        .environment(\.colorScheme, .light)
+    }
+
+    private var isCompactPhoneLayout: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
     }
 
     private var header: some View {
@@ -260,16 +290,20 @@ struct OnboardingFlowView: View {
                     .motionGlow(true, color: .red, animation: AppMotion.errorShake)
             }
 
-            Capsule()
-                .fill(AppTheme.surfaceAlt)
-                .frame(width: 320, height: 6)
-                .overlay(
-                    Capsule()
-                        .fill(AppTheme.primary)
-                        .frame(width: max(12, 320 * progressValue))
-                        .animation(AppMotion.sceneReveal, value: progressValue)
-                    , alignment: .leading
-                )
+            GeometryReader { proxy in
+                let progressTrackWidth = max(120, proxy.size.width)
+                Capsule()
+                    .fill(AppTheme.surfaceAlt)
+                    .overlay(
+                        Capsule()
+                            .fill(AppTheme.primary)
+                            .frame(width: max(12, progressTrackWidth * progressValue))
+                            .animation(AppMotion.sceneReveal, value: progressValue)
+                        , alignment: .leading
+                    )
+            }
+            .frame(maxWidth: isCompactPhoneLayout ? .infinity : 320)
+            .frame(height: 6)
         }
     }
 

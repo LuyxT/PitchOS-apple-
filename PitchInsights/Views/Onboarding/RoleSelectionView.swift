@@ -14,7 +14,10 @@ struct RoleSelectionView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            HStack(spacing: 12) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 130), spacing: 10)],
+                spacing: 10
+            ) {
                 roleCard("Trainer", value: "trainer")
                 roleCard("Vorstand", value: "vorstand")
                 roleCard("Physio", value: "physio")
@@ -34,6 +37,7 @@ struct RoleSelectionView: View {
             }
             .buttonStyle(OnboardingPrimaryButtonStyle())
         }
+        .frame(maxWidth: 560)
     }
 
     private func roleCard(_ title: String, value: String) -> some View {
@@ -52,7 +56,7 @@ struct RoleSelectionView: View {
                     .fill(isSelected ? AppTheme.primary : AppTheme.border)
                     .frame(width: 32, height: 4)
             }
-            .frame(width: 120, height: 70)
+            .frame(maxWidth: .infinity, minHeight: 70)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(isSelected ? AppTheme.primary.opacity(0.12) : AppTheme.surfaceAlt.opacity(0.6))
