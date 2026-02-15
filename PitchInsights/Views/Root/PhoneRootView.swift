@@ -21,6 +21,7 @@ struct PhoneRootView: View {
         TabView(selection: $selectedTabID) {
             NavigationStack {
                 PhoneDashboardView()
+                    .phoneInlineTitle()
             }
             .tabItem {
                 Label("Dashboard", systemImage: "square.grid.2x2")
@@ -46,6 +47,7 @@ struct PhoneRootView: View {
             if hasProfile {
                 NavigationStack {
                     PhoneProfileView()
+                        .phoneInlineTitle()
                 }
                 .tabItem {
                     Label("Profil", systemImage: "person.crop.circle")
@@ -56,6 +58,7 @@ struct PhoneRootView: View {
             if hasSquad {
                 NavigationStack {
                     PhoneSquadView()
+                        .phoneInlineTitle()
                 }
                 .tabItem {
                     Label("Kader", systemImage: ModuleRegistry.definition(for: .kader).iconName)
@@ -72,6 +75,7 @@ struct PhoneRootView: View {
                 NavigationStack {
                     PhonePlayerCardView(playerID: id)
                         .navigationTitle("Spieler")
+                        .phoneInlineTitle()
                 }
             }
         }
@@ -258,35 +262,206 @@ private struct PhoneModuleTabView: View {
         NavigationStack {
             AdaptiveModuleViewport(module: module, profile: .iphoneMobile)
                 .background(AppTheme.background)
-            .navigationTitle(ModuleRegistry.definition(for: module).title)
+                .navigationTitle(ModuleRegistry.definition(for: module).title)
+                .phoneInlineTitle()
         }
     }
 }
 
 private struct PhoneProfileView: View {
     @EnvironmentObject private var session: AppSessionStore
+    @EnvironmentObject private var dataStore: AppDataStore
 
     private var fullName: String {
         let first = session.authUser?.firstName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let last = session.authUser?.lastName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let merged = "\(first) \(last)".trimmingCharacters(in: .whitespacesAndNewlines)
-        return merged.isEmpty ? "Profil" : merged
+        return merged.isEmpty ? (dataStore.profile.name.isEmpty ? "Profil" : dataStore.profile.name) : merged
+    }
+
+    private var roleLabel: String {
+        let raw = session.authUser?.role?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        switch raw {
+        case "trainer":
+            return "Trainer"
+        case "board", "vorstand":
+            return "Vorstand"
+        case "staff":
+            return "Staff"
+        case "":
+            return "-"
+        default:
+            return raw.capitalized
+        }
+    }
+
+    private var createdAtLabel: String {
+        guard let createdAt = session.authUser?.createdAt else { return "-" }
+        return DateFormatters.shortDateTime.string(from: createdAt)
+    }
+
+    private var onboardingStatusLabel: String {
+        (session.onboardingState?.completed ?? false) ? "Abgeschlossen" : "Offen"
+    }
+
+    private var onboardingStepLabel: String {
+        let step = session.onboardingState?.lastStep?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return step.isEmpty ? "-" : step
     }
 
     var body: some View {
-        List {
-            Section("Benutzer") {
-                LabeledContent("Name", value: fullName)
-                LabeledContent("E-Mail", value: session.authUser?.email ?? "-")
-                LabeledContent("Rolle", value: session.authUser?.role ?? "-")
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                profileHeaderCard
 
-            Section("Verein") {
-                LabeledContent("Club ID", value: session.authUser?.clubId ?? "-")
-                LabeledContent("Team ID", value: session.authUser?.teamId ?? "-")
+                PhoneProfileCard(title: "Konto") {
+                    PhoneProfileRow(label: "Benutzer-ID", value: session.authUser?.id ?? "-")
+                    PhoneProfileRow(label: "E-Mail", value: session.authUser?.email ?? "-")
+                    PhoneProfileRow(label: "Rolle", value: roleLabel)
+                    PhoneProfileRow(label: "Erstellt", value: createdAtLabel)
+                }
+
+                PhoneProfileCard(title: "Onboarding") {
+                    PhoneProfileRow(label: "Status", value: onboardingStatusLabel)
+                    PhoneProfileRow(label: "Nächster Schritt", value: onboardingStepLabel)
+                    PhoneProfileRow(label: "Mitgliedschaften", value: "\(session.memberships.count)")
+                }
+
+                PhoneProfileCard(title: "Verein & Team") {
+                    PhoneProfileRow(label: "Club-ID", value: session.authUser?.clubId ?? "-")
+                    PhoneProfileRow(label: "Team-ID", value: session.authUser?.teamId ?? "-")
+                    PhoneProfileRow(label: "Organisation", value: session.authUser?.organizationId ?? "-")
+                }
+
+                if let activeContext = session.activeContext {
+                    PhoneProfileCard(title: "Aktiver Kontext") {
+                        PhoneProfileRow(label: "Membership-ID", value: activeContext.id)
+                        PhoneProfileRow(label: "Rolle", value: activeContext.role)
+                        PhoneProfileRow(label: "Status", value: activeContext.status)
+                        PhoneProfileRow(label: "Team-ID", value: activeContext.teamId ?? "-")
+                    }
+                }
+
+                if !session.memberships.isEmpty {
+                    PhoneProfileCard(title: "Alle Mitgliedschaften") {
+                        ForEach(Array(session.memberships.enumerated()), id: \.offset) { index, membership in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Mitgliedschaft \(index + 1)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(AppTheme.textPrimary)
+                                PhoneProfileRow(label: "ID", value: membership.id)
+                                PhoneProfileRow(label: "Organisation", value: membership.organizationId)
+                                PhoneProfileRow(label: "Team", value: membership.teamId ?? "-")
+                                PhoneProfileRow(label: "Rolle", value: membership.role)
+                                PhoneProfileRow(label: "Status", value: membership.status)
+                            }
+                            if index < session.memberships.count - 1 {
+                                Divider()
+                            }
+                        }
+                    }
+                }
+
+                PhoneProfileCard(title: "Trainer-Profil") {
+                    PhoneProfileRow(label: "Anzeigename", value: dataStore.profile.name.isEmpty ? "-" : dataStore.profile.name)
+                    PhoneProfileRow(label: "Team", value: dataStore.profile.team.isEmpty ? "-" : dataStore.profile.team)
+                    PhoneProfileRow(label: "Lizenz", value: dataStore.profile.license.isEmpty ? "-" : dataStore.profile.license)
+                    PhoneProfileRow(label: "Saisonziel", value: dataStore.profile.seasonGoal.isEmpty ? "-" : dataStore.profile.seasonGoal)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .background(AppTheme.background)
+        .navigationTitle("Profil")
+    }
+
+    private var profileHeaderCard: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(AppTheme.primary.opacity(0.18))
+                .frame(width: 52, height: 52)
+                .overlay(
+                    Text(initials)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(AppTheme.primaryDark)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fullName)
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(session.authUser?.email ?? "-")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+                Text(roleLabel)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppTheme.primaryDark)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(AppTheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppTheme.border, lineWidth: 1)
+                )
+        )
+    }
+
+    private var initials: String {
+        let parts = fullName
+            .split(separator: " ")
+            .prefix(2)
+            .map { String($0.prefix(1)).uppercased() }
+        let value = parts.joined()
+        return value.isEmpty ? "?" : value
+    }
+}
+
+private struct PhoneProfileCard<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+            VStack(spacing: 8) {
+                content
             }
         }
-        .navigationTitle("Profil")
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(AppTheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppTheme.border, lineWidth: 1)
+                )
+        )
+    }
+}
+
+private struct PhoneProfileRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppTheme.textPrimary)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        }
     }
 }
 
@@ -360,6 +535,17 @@ private enum CurrencyFormatter {
         formatter.minimumFractionDigits = 0
         return formatter
     }()
+}
+
+private extension View {
+    @ViewBuilder
+    func phoneInlineTitle() -> some View {
+        #if os(iOS)
+        navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
 }
 
 #Preview {

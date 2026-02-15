@@ -49,12 +49,15 @@ struct AdaptiveModuleViewport: View {
 
     private var phoneViewport: some View {
         GeometryReader { proxy in
-            let availableWidth = max(320, proxy.size.width)
+            let availableWidth = max(320, proxy.size.width - 12)
             let availableHeight = max(420, proxy.size.height)
 
-            ScrollView([.horizontal, .vertical]) {
+            ScrollView(.vertical) {
                 ModuleRegistry.makeView(for: module)
-                    .frame(minWidth: availableWidth, minHeight: availableHeight, alignment: .topLeading)
+                    .frame(width: availableWidth, alignment: .topLeading)
+                    .frame(minHeight: availableHeight, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.horizontal, 6)
             }
             .scrollIndicators(.visible)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
