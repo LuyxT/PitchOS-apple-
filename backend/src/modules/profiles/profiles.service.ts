@@ -3,23 +3,44 @@ import { AppError } from '../../middleware/errorHandler';
 
 /* ── DTO mappers ── */
 
-function toPersonProfileDTO(p: {
+interface PersonProfileRow {
   id: string;
   userId: string;
   displayName: string;
+  linkedPlayerID: string | null;
+  linkedAdminPersonID: string | null;
   core: unknown;
-  roleSpecific: unknown;
+  player: unknown;
+  headCoach: unknown;
+  assistantCoach: unknown;
+  athleticCoach: unknown;
+  medical: unknown;
+  teamManager: unknown;
+  board: unknown;
+  facility: unknown;
+  lockedFieldKeys: unknown;
+  updatedBy: string;
   createdAt: Date;
   updatedAt: Date;
-}) {
+}
+
+function toPersonProfileDTO(p: PersonProfileRow) {
   return {
     id: p.id,
-    userId: p.userId,
-    displayName: p.displayName,
-    core: p.core,
-    roleSpecific: p.roleSpecific,
-    createdAt: p.createdAt.toISOString(),
+    linkedPlayerID: p.linkedPlayerID,
+    linkedAdminPersonID: p.linkedAdminPersonID,
+    core: p.core ?? {},
+    player: p.player ?? null,
+    headCoach: p.headCoach ?? null,
+    assistantCoach: p.assistantCoach ?? null,
+    athleticCoach: p.athleticCoach ?? null,
+    medical: p.medical ?? null,
+    teamManager: p.teamManager ?? null,
+    board: p.board ?? null,
+    facility: p.facility ?? null,
+    lockedFieldKeys: Array.isArray(p.lockedFieldKeys) ? p.lockedFieldKeys : [],
     updatedAt: p.updatedAt.toISOString(),
+    updatedBy: p.updatedBy,
   };
 }
 
@@ -36,13 +57,12 @@ function toProfileAuditEntryDTO(e: {
 }) {
   return {
     id: e.id,
-    profileId: e.profileId,
-    actorId: e.actorId,
+    profileID: e.profileId,
     actorName: e.actorName,
     fieldPath: e.fieldPath,
     area: e.area,
-    oldValue: e.oldValue,
-    newValue: e.newValue,
+    oldValue: e.oldValue ?? '-',
+    newValue: e.newValue ?? '-',
     timestamp: e.timestamp.toISOString(),
   };
 }
@@ -55,29 +75,76 @@ export async function listProfiles(userId: string) {
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
-  return profiles.map(toPersonProfileDTO);
+  return profiles.map((p) => toPersonProfileDTO(p as unknown as PersonProfileRow));
 }
 
 export async function createProfile(
   userId: string,
-  input: { displayName: string; core?: unknown; roleSpecific?: unknown },
+  input: {
+    linkedPlayerID?: string | null;
+    linkedAdminPersonID?: string | null;
+    displayName?: string;
+    core?: unknown;
+    player?: unknown;
+    headCoach?: unknown;
+    assistantCoach?: unknown;
+    athleticCoach?: unknown;
+    medical?: unknown;
+    teamManager?: unknown;
+    board?: unknown;
+    facility?: unknown;
+    lockedFieldKeys?: unknown;
+    updatedBy?: string;
+  },
 ) {
   const prisma = getPrisma();
+  const core = (input.core as Record<string, unknown>) ?? {};
+  const displayName =
+    input.displayName ||
+    [core.firstName, core.lastName].filter(Boolean).join(' ') ||
+    'Unnamed';
+
   const profile = await prisma.personProfile.create({
     data: {
       userId,
-      displayName: input.displayName,
+      displayName,
+      linkedPlayerID: input.linkedPlayerID ?? null,
+      linkedAdminPersonID: input.linkedAdminPersonID ?? null,
       core: input.core ?? undefined,
-      roleSpecific: input.roleSpecific ?? undefined,
+      player: input.player ?? undefined,
+      headCoach: input.headCoach ?? undefined,
+      assistantCoach: input.assistantCoach ?? undefined,
+      athleticCoach: input.athleticCoach ?? undefined,
+      medical: input.medical ?? undefined,
+      teamManager: input.teamManager ?? undefined,
+      board: input.board ?? undefined,
+      facility: input.facility ?? undefined,
+      lockedFieldKeys: Array.isArray(input.lockedFieldKeys) ? input.lockedFieldKeys : [],
+      updatedBy: input.updatedBy ?? 'System',
     },
   });
-  return toPersonProfileDTO(profile);
+  return toPersonProfileDTO(profile as unknown as PersonProfileRow);
 }
 
 export async function updateProfile(
   userId: string,
   profileId: string,
-  input: { displayName?: string; core?: unknown; roleSpecific?: unknown },
+  input: {
+    linkedPlayerID?: string | null;
+    linkedAdminPersonID?: string | null;
+    displayName?: string;
+    core?: unknown;
+    player?: unknown;
+    headCoach?: unknown;
+    assistantCoach?: unknown;
+    athleticCoach?: unknown;
+    medical?: unknown;
+    teamManager?: unknown;
+    board?: unknown;
+    facility?: unknown;
+    lockedFieldKeys?: unknown;
+    updatedBy?: string;
+  },
 ) {
   const prisma = getPrisma();
 
@@ -87,18 +154,23 @@ export async function updateProfile(
   }
 
   // Resolve actor name for audit
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
-  const actorName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Unknown' : 'Unknown';
+  const actorName = input.updatedBy ?? 'System';
 
   // Detect changed fields and create audit entries
   const changes: { fieldPath: string; area: string; oldValue: string | null; newValue: string | null }[] = [];
 
-  if (input.displayName !== undefined && input.displayName !== existing.displayName) {
+  const core = (input.core as Record<string, unknown>) ?? {};
+  const displayName =
+    input.displayName ||
+    [core.firstName, core.lastName].filter(Boolean).join(' ') ||
+    existing.displayName;
+
+  if (displayName !== existing.displayName) {
     changes.push({
-      fieldPath: 'displayName',
-      area: 'general',
+      fieldPath: 'core.displayName',
+      area: 'core',
       oldValue: existing.displayName,
-      newValue: input.displayName,
+      newValue: displayName,
     });
   }
   if (input.core !== undefined) {
@@ -109,22 +181,25 @@ export async function updateProfile(
       newValue: JSON.stringify(input.core),
     });
   }
-  if (input.roleSpecific !== undefined) {
-    changes.push({
-      fieldPath: 'roleSpecific',
-      area: 'roleSpecific',
-      oldValue: JSON.stringify(existing.roleSpecific),
-      newValue: JSON.stringify(input.roleSpecific),
-    });
-  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const profile = await tx.personProfile.update({
       where: { id: profileId },
       data: {
-        displayName: input.displayName,
+        displayName,
+        linkedPlayerID: input.linkedPlayerID ?? undefined,
+        linkedAdminPersonID: input.linkedAdminPersonID ?? undefined,
         core: input.core ?? undefined,
-        roleSpecific: input.roleSpecific ?? undefined,
+        player: input.player ?? undefined,
+        headCoach: input.headCoach ?? undefined,
+        assistantCoach: input.assistantCoach ?? undefined,
+        athleticCoach: input.athleticCoach ?? undefined,
+        medical: input.medical ?? undefined,
+        teamManager: input.teamManager ?? undefined,
+        board: input.board ?? undefined,
+        facility: input.facility ?? undefined,
+        lockedFieldKeys: Array.isArray(input.lockedFieldKeys) ? input.lockedFieldKeys : undefined,
+        updatedBy: input.updatedBy ?? undefined,
       },
     });
 
@@ -145,7 +220,7 @@ export async function updateProfile(
     return profile;
   });
 
-  return toPersonProfileDTO(updated);
+  return toPersonProfileDTO(updated as unknown as PersonProfileRow);
 }
 
 export async function deleteProfile(userId: string, profileId: string) {

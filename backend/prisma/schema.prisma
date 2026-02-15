@@ -598,13 +598,24 @@ model UserSettings {
 // ─── Profiles ───────────────────────────────────────────
 
 model PersonProfile {
-  id           String   @id @default(uuid())
-  userId       String
-  displayName  String
-  core         Json     @default("{}")
-  roleSpecific Json     @default("{}")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  userId              String
+  displayName         String
+  linkedPlayerID      String?
+  linkedAdminPersonID String?
+  core                Json     @default("{}")
+  player              Json?
+  headCoach           Json?
+  assistantCoach      Json?
+  athleticCoach       Json?
+  medical             Json?
+  teamManager         Json?
+  board               Json?
+  facility            Json?
+  lockedFieldKeys     Json     @default("[]")
+  updatedBy           String   @default("System")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ProfileAuditEntry {

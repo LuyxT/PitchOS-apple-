@@ -7,6 +7,9 @@ extension AppDataStore {
         do {
             let profileDTOs = try await backend.fetchPersonProfiles()
             personProfiles = profileDTOs.map { mapPersonProfile($0) }.sorted { $0.displayName < $1.displayName }
+            if personProfiles.isEmpty {
+                seedProfilesFromCurrentStateIfNeeded()
+            }
             if let selected = activePersonProfileID, !personProfiles.contains(where: { $0.id == selected }) {
                 activePersonProfileID = personProfiles.first?.id
             } else if activePersonProfileID == nil {
@@ -18,6 +21,7 @@ extension AppDataStore {
                 profileConnectionState = .failed(error.localizedDescription)
             } else {
                 print("[client] bootstrapProfiles: endpoint not available — \(error.localizedDescription)")
+                seedProfilesFromCurrentStateIfNeeded()
                 profileConnectionState = .live
             }
         }

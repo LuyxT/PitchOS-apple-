@@ -49,7 +49,7 @@ class MessengerHub {
       });
 
       // Respond to pings from client
-      ws.on('pong', () => {});
+      ws.on('pong', () => { });
     });
 
     // Heartbeat every 30 seconds
