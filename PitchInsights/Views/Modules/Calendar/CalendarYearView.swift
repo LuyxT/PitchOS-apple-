@@ -5,16 +5,21 @@ struct CalendarYearView: View {
     let events: [CalendarEvent]
     let categories: [CalendarCategory]
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+    private var columns: [GridItem] {
+        if isPhoneLayout {
+            return Array(repeating: GridItem(.flexible(), spacing: 10), count: 2)
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+    }
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
+            LazyVGrid(columns: columns, spacing: isPhoneLayout ? 12 : 16) {
                 ForEach(0..<12, id: \.self) { monthIndex in
                     yearMonthCard(monthIndex: monthIndex)
                 }
             }
-            .padding(16)
+            .padding(isPhoneLayout ? 12 : 16)
         }
         .background(AppTheme.surface)
     }
@@ -30,16 +35,19 @@ struct CalendarYearView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             Text(monthDate, format: .dateTime.month(.wide))
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: isPhoneLayout ? 15 : 13, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
             MiniMonthGrid(
                 calendar: calendar,
                 monthDate: monthDate,
-                events: events
+                events: events,
+                isPhoneLayout: isPhoneLayout
             )
         }
-        .padding(12)
+        .padding(isPhoneLayout ? 10 : 12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppTheme.surfaceAlt)
@@ -53,28 +61,39 @@ struct CalendarYearView: View {
             viewModel.viewMode = .month
         }
     }
+
+    private var isPhoneLayout: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
 }
 
 private struct MiniMonthGrid: View {
     let calendar: Calendar
     let monthDate: Date
     let events: [CalendarEvent]
+    let isPhoneLayout: Bool
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: isPhoneLayout ? 3 : 2), count: 7)
+    }
 
     var body: some View {
         let days = monthDates()
-        LazyVGrid(columns: columns, spacing: 2) {
+        LazyVGrid(columns: columns, spacing: isPhoneLayout ? 3 : 2) {
             ForEach(days, id: \.self) { date in
                 let isCurrentMonth = calendar.isDate(date, equalTo: monthDate, toGranularity: .month)
                 let hasEvent = events.contains { calendar.isDate($0.startDate, inSameDayAs: date) }
 
                 Text(String(calendar.component(.day, from: date)))
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.system(size: isPhoneLayout ? 10 : 9, weight: .medium))
                     .foregroundStyle(isCurrentMonth ? AppTheme.textPrimary : AppTheme.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 14)
+                    .frame(maxWidth: .infinity, minHeight: isPhoneLayout ? 16 : 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        RoundedRectangle(cornerRadius: isPhoneLayout ? 4 : 3, style: .continuous)
                             .fill(hasEvent ? AppTheme.primary.opacity(0.2) : Color.clear)
                     )
             }
