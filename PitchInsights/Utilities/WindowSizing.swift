@@ -7,30 +7,11 @@ struct WindowLayoutSpec {
 
 enum WindowSizing {
     static func spec(for module: Module) -> WindowLayoutSpec {
-        switch module {
-        case .trainerProfil:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1120, height: 760), preferredSize: CGSize(width: 1260, height: 820))
-        case .kader:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1080, height: 700), preferredSize: CGSize(width: 1240, height: 820))
-        case .kalender:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 980, height: 660), preferredSize: CGSize(width: 1200, height: 820))
-        case .trainingsplanung:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1220, height: 760), preferredSize: CGSize(width: 1420, height: 900))
-        case .spielanalyse:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1260, height: 780), preferredSize: CGSize(width: 1460, height: 920))
-        case .taktiktafel:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1180, height: 760), preferredSize: CGSize(width: 1380, height: 900))
-        case .messenger:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1180, height: 740), preferredSize: CGSize(width: 1380, height: 900))
-        case .dateien:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1240, height: 760), preferredSize: CGSize(width: 1460, height: 920))
-        case .verwaltung:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1220, height: 760), preferredSize: CGSize(width: 1440, height: 900))
-        case .mannschaftskasse:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1220, height: 760), preferredSize: CGSize(width: 1440, height: 900))
-        case .einstellungen:
-            return WindowLayoutSpec(minimumSize: CGSize(width: 1120, height: 760), preferredSize: CGSize(width: 1320, height: 860))
-        }
+        let definition = ModuleRegistry.definition(for: module)
+        return WindowLayoutSpec(
+            minimumSize: definition.windowMinimumSize,
+            preferredSize: definition.windowPreferredSize
+        )
     }
 
     static func spec(for kind: FloatingWindowKind) -> WindowLayoutSpec {
@@ -81,4 +62,3 @@ enum WindowSizing {
         )
     }
 }
-

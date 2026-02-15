@@ -61,7 +61,7 @@ struct NotificationSettingsView: View {
                             get: { setting.channels.push },
                             set: { viewModel.setPush($0, module: module) }
                         ))
-                        .toggleStyle(.checkbox)
+                        .platformCheckboxToggleStyle()
                         .labelsHidden()
                         .disabled(!viewModel.draft.globalEnabled)
 
@@ -73,7 +73,7 @@ struct NotificationSettingsView: View {
                             get: { setting.channels.inApp },
                             set: { viewModel.setInApp($0, module: module) }
                         ))
-                        .toggleStyle(.checkbox)
+                        .platformCheckboxToggleStyle()
                         .labelsHidden()
                         .disabled(!viewModel.draft.globalEnabled)
 
@@ -85,7 +85,7 @@ struct NotificationSettingsView: View {
                             get: { setting.channels.email },
                             set: { viewModel.setEmail($0, module: module) }
                         ))
-                        .toggleStyle(.checkbox)
+                        .platformCheckboxToggleStyle()
                         .labelsHidden()
                         .disabled(!viewModel.draft.globalEnabled)
 
@@ -112,5 +112,16 @@ struct NotificationSettingsView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(AppTheme.border, lineWidth: 1)
             )
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func platformCheckboxToggleStyle() -> some View {
+        #if os(macOS)
+        self.toggleStyle(.checkbox)
+        #else
+        self.toggleStyle(.switch)
+        #endif
     }
 }

@@ -57,18 +57,20 @@ struct PitchInsightsApp: App {
                     .background(AppTheme.background.ignoresSafeArea())
                 }
             }
-            .frame(minWidth: 1220, minHeight: 780)
             .task {
                 await bootstrap()
             }
+            #if os(macOS)
+            .frame(minWidth: 1220, minHeight: 780)
+            #endif
         }
         #if os(macOS)
         .defaultSize(width: 1440, height: 900)
         .windowResizability(.contentMinSize)
-        #endif
         .commands {
             PitchInsightsCommands(appState: appState)
         }
+        #endif
     }
 
     @MainActor
