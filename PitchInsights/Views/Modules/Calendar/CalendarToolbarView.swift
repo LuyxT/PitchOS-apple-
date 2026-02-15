@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CalendarToolbarView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject var viewModel: CalendarViewModel
     let onCreate: () -> Void
 
@@ -92,12 +93,25 @@ struct CalendarToolbarView: View {
         Button {
             onCreate()
         } label: {
-            Label("Neuer Termin", systemImage: "plus")
-                .lineLimit(1)
-                .truncationMode(.tail)
+            if isCompactPhoneLayout {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .bold))
+            } else {
+                Label("Neuer Termin", systemImage: "plus")
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
         }
         .keyboardShortcut("n", modifiers: [.command])
         .buttonStyle(PrimaryActionButtonStyle())
+    }
+
+    private var isCompactPhoneLayout: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
     }
 }
 
