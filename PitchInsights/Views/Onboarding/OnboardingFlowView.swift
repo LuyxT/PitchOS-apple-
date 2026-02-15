@@ -87,10 +87,11 @@ struct OnboardingFlowView: View {
             Group {
                 if isCompactPhoneLayout {
                     GeometryReader { proxy in
+                        let cardWidth = max(280, min(390, proxy.size.width - 36))
                         ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 0) {
                                 onboardingCard
-                                    .padding(.horizontal, 12)
+                                    .frame(width: cardWidth)
                                     .padding(.top, max(12, proxy.safeAreaInsets.top + 8))
                                     .padding(.bottom, 16)
                             }
